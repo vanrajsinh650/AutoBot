@@ -1,0 +1,51 @@
+profile:
+  resume_path: data/resume/resume.pdf
+  linkedin_url: ''
+  portfolio_url: ''
+search:
+  keywords:
+  - Software Engineer
+  - Backend Developer
+  - Python Developer
+  location: India
+  remote: true
+  date_posted: week
+  experience_level:
+  - entry
+  - associate
+  - mid-senior
+  job_type:
+  - full-time
+apply:
+  easy_apply: true
+  external_apply: true
+  max_applications: 30
+  skip_already_applied: true
+  min_match_score: 0.6
+  answers:
+    years_of_experience: '3'
+    expected_salary: 15 LPA
+    notice_period: 30 days
+    willing_to_relocate: 'Yes'
+    work_authorization: 'Yes'
+    sponsorship_required: 'No'
+    cover_letter: 'I am excited to apply for this role. I bring strong technical
+
+      skills and a passion for building impactful software. I look
+
+      forward to contributing to your team.
+
+      '
+blacklist:
+  companies: []
+  title_keywords:
+  - 10+ years
+  - 15+ years
+agent:
+  max_retries: 3
+  max_pages: 5
+  delay_between_jobs: 5
+browser:
+  slow_mo: 50
+  viewport_width: 1280
+  viewport_height: 800

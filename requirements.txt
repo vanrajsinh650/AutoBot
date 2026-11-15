@@ -1,0 +1,41 @@
+# ═══════════════════════════════════════════════════════════════
+#  AutoBot v2 — LangGraph Agent Dependencies
+# ═══════════════════════════════════════════════════════════════
+
+# ── Core Agent Framework ────────────────────────────────────────
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-core>=0.3.0
+langgraph>=0.2.0
+
+# ── LLM Providers (we'll pick one at test time) ─────────────────
+langchain-openai>=0.2.0          # GPT-4o
+langchain-google-genai>=2.0.0    # Gemini
+
+# ── Vector Database ─────────────────────────────────────────────
+qdrant-client>=1.9.0
+langchain-qdrant>=0.1.0
+
+# ── Embeddings ──────────────────────────────────────────────────
+# (openai embeddings via langchain-openai above)
+# (google embeddings via langchain-google-genai above)
+
+# ── Browser / Computer Use ──────────────────────────────────────
+playwright>=1.40.0
+
+# ── Document Parsing ────────────────────────────────────────────
+pdfplumber>=0.10.0               # Resume PDF → text
+beautifulsoup4>=4.12.0           # HTML scraping
+requests>=2.31.0
+
+# ── Config & Env ────────────────────────────────────────────────
+python-dotenv>=1.0.0
+pyyaml>=6.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# ── Storage ─────────────────────────────────────────────────────
+aiosqlite>=0.20.0
+
+# ── UI / Logging ────────────────────────────────────────────────
+rich>=13.0.0

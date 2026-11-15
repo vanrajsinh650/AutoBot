@@ -1,0 +1,31 @@
+# ═══════════════════════════════════════════════════════════
+#  docker-compose.yml  —  Local services for AutoBot
+# ═══════════════════════════════════════════════════════════
+#
+#  Services:
+#    - Qdrant  : vector database (stores your profile embeddings)
+#
+#  Usage:
+#    docker compose up -d          → start
+#    docker compose down           → stop
+#    docker compose logs qdrant    → check logs
+# ═══════════════════════════════════════════════════════════
+
+version: "3.9"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: autobot-qdrant
+    ports:
+      - "6333:6333"     # REST API  → http://localhost:6333
+      - "6334:6334"     # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__LOG_LEVEL=INFO
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+    driver: local
