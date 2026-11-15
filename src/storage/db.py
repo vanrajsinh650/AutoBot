@@ -75,15 +75,26 @@ def save_application(
     db_path: str = DEFAULT_DB_PATH,
     user_id: int = 1,
 ) -> None:
-    """Insert or replace an application record in the database with explicit user ownership."""
+    """Insert or update an application record in the database with strict tenant isolation."""
     init_db(db_path)
+    now = datetime.now().isoformat()
     with get_db_connection(db_path) as conn:
         conn.execute(
             """
-            INSERT OR REPLACE INTO applications (
+            INSERT INTO applications (
                 job_id, job_title, company, location,
                 apply_type, match_score, status, url, applied_at, notes, user_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, job_id) DO UPDATE SET
+                job_title = excluded.job_title,
+                company = excluded.company,
+                location = excluded.location,
+                apply_type = excluded.apply_type,
+                match_score = excluded.match_score,
+                status = excluded.status,
+                url = excluded.url,
+                applied_at = excluded.applied_at,
+                notes = excluded.notes
             """,
             (
                 job_id,
@@ -94,12 +105,95 @@ def save_application(
                 round(float(match_score), 2),
                 status,
                 url,
-                datetime.now().isoformat(),
+                now,
                 notes or "",
                 user_id,
             ),
         )
         conn.commit()
+
+
+def update_application_status(
+    user_id: int,
+    job_id_or_stable_id: str,
+    new_status: str,
+    notes: str = "",
+    db_path: str = DEFAULT_DB_PATH,
+) -> bool:
+    """
+    Update application lifecycle status (e.g. interview, offer, rejected) for a specific user.
+    Records transition in application_events and audit logs.
+    """
+    init_db(db_path)
+    now = datetime.now().isoformat()
+    with get_db_connection(db_path) as conn:
+        # Check if record exists in applications table
+        row = conn.execute(
+            "SELECT id, job_id, job_title, company, notes FROM applications WHERE user_id = ? AND (job_id = ? OR id = ?)",
+            (user_id, job_id_or_stable_id, int(job_id_or_stable_id) if job_id_or_stable_id.isdigit() else -1),
+        ).fetchone()
+
+        job_internal_id = 0
+        if not row:
+            # Check in jobs table
+            job_row = conn.execute(
+                "SELECT id, stable_id, title, company, location, application_url FROM jobs WHERE id = ? OR stable_id = ?",
+                (int(job_id_or_stable_id) if job_id_or_stable_id.isdigit() else -1, job_id_or_stable_id),
+            ).fetchone()
+            if not job_row:
+                return False
+
+            job_internal_id = job_row["id"]
+            conn.execute(
+                """
+                INSERT INTO applications (
+                    job_id, job_title, company, location, apply_type, match_score, status, url, applied_at, notes, user_id
+                ) VALUES (?, ?, ?, ?, 'manual', 0.8, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, job_id) DO UPDATE SET status = excluded.status, notes = excluded.notes
+                """,
+                (
+                    job_row["stable_id"],
+                    job_row["title"],
+                    job_row["company"],
+                    job_row["location"] or "",
+                    new_status,
+                    job_row["application_url"] or "",
+                    now,
+                    notes,
+                    user_id,
+                ),
+            )
+        else:
+            updated_notes = notes if notes else (row["notes"] or "")
+            conn.execute(
+                "UPDATE applications SET status = ?, notes = ? WHERE id = ? AND user_id = ?",
+                (new_status, updated_notes, row["id"], user_id),
+            )
+            job_internal_row = conn.execute("SELECT id FROM jobs WHERE stable_id = ?", (row["job_id"],)).fetchone()
+            if job_internal_row:
+                job_internal_id = job_internal_row["id"]
+
+        # Record event in application_events if job internal id exists
+        if job_internal_id:
+            conn.execute(
+                """
+                INSERT INTO application_events (
+                    user_id, job_id, event_type, status, user_confirmed, proof_notes, created_at
+                ) VALUES (?, ?, ?, ?, 1, ?, ?)
+                """,
+                (user_id, job_internal_id, new_status, new_status, notes, now),
+            )
+        conn.commit()
+
+    log_audit(
+        user_id=user_id,
+        action="APPLICATION_STATUS_UPDATED",
+        resource_type="applications",
+        resource_id=job_id_or_stable_id,
+        details={"new_status": new_status, "notes": notes},
+        db_path=db_path,
+    )
+    return True
 
 
 def get_stats(
@@ -146,6 +240,17 @@ def get_stats(
         else:
             stats[st] = row["cnt"]
     return stats
+
+
+def get_applications(user_id: int, db_path: str = DEFAULT_DB_PATH) -> List[Dict[str, Any]]:
+    """Retrieve all application records for a specific user."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.execute(
+            "SELECT * FROM applications WHERE user_id = ? ORDER BY id DESC",
+            (user_id,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
 
 
 def start_session(db_path: str = DEFAULT_DB_PATH) -> int:

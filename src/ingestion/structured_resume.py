@@ -167,6 +167,26 @@ def parse_structured_profile(
             if clean and len(clean) > 3:
                 certifications.append({"name": clean})
 
+    # Parse achievements & honors
+    achievements: List[Dict[str, Any]] = []
+    achievement_candidates = sections.get("achievements", []) + sections.get("awards", []) + sections.get("honors", [])
+    for ach_chunk in achievement_candidates:
+        for line in ach_chunk.splitlines():
+            clean = line.strip().lstrip("-•* ")
+            if clean and len(clean) > 4:
+                achievements.append({"title": clean, "description": clean})
+
+    # If no explicit achievement sections, search other chunks for honors/awards/achievements
+    if not achievements:
+        for chunk in chunks:
+            if chunk.section.value in ("experience", "education", "other"):
+                for line in chunk.content.splitlines():
+                    clean = line.strip().lstrip("-•* ")
+                    lower = clean.lower()
+                    if any(kw in lower for kw in ["awarded", "1st place", "winner", "hackathon", "patent", "scholarship", "honors", "fellowship", "dean's list"]):
+                        if len(clean) > 10:
+                            achievements.append({"title": clean[:80], "description": clean})
+
     # Summary
     summary = "\n".join(sections.get("summary", []))
     if not summary and experiences:
@@ -179,7 +199,8 @@ def parse_structured_profile(
                 "Extract structured resume information from the following text into JSON with keys: "
                 "full_name, email, phone, headline, summary, technical_skills (list), "
                 "experience (list of {role, company, bullets}), projects (list of {title, description, technologies}), "
-                "education (list of {institution, details}), certifications (list of {name}).\n\n"
+                "education (list of {institution, details}), certifications (list of {name}), "
+                "achievements (list of {title, description}).\n\n"
                 f"Resume Content:\n{contact_text}\n{skills_text}\n"
                 "Return ONLY valid JSON."
             )
@@ -205,6 +226,12 @@ def parse_structured_profile(
                     summary = str(llm_data["summary"])
                 if isinstance(llm_data.get("technical_skills"), list) and llm_data["technical_skills"]:
                     tech_skills = sorted(list(set(tech_skills + [str(s) for s in llm_data["technical_skills"]])))
+                if isinstance(llm_data.get("achievements"), list) and llm_data["achievements"]:
+                    achievements = [
+                        {"title": str(a.get("title", a)), "description": str(a.get("description", a))}
+                        if isinstance(a, dict) else {"title": str(a), "description": str(a)}
+                        for a in llm_data["achievements"]
+                    ]
         except Exception as e:
             logger.debug(f"LLM structured resume parsing fallback to heuristics: {e}")
 
@@ -212,12 +239,15 @@ def parse_structured_profile(
     primary_skills = tech_skills[:8]
     secondary_skills = tech_skills[8:]
 
+    from src.matching.eligibility import resolve_job_country
+    candidate_country = resolve_job_country(contact.get("location", "")) or ""
+
     return {
         "full_name": contact.get("full_name") or "Candidate",
         "email": contact.get("email") or "",
         "phone": contact.get("phone") or "",
         "location": contact.get("location") or "",
-        "country": "",
+        "country": candidate_country,
         "headline": contact.get("headline") or (f"{experiences[0]['role']}" if experiences else "Software Professional"),
         "summary": summary,
         "technical_skills": tech_skills,
@@ -227,7 +257,7 @@ def parse_structured_profile(
         "projects": projects,
         "education": education,
         "certifications": certifications,
-        "achievements": [],
+        "achievements": achievements,
         "contact_info": contact,
         "linkedin_url": contact.get("linkedin_url") or "",
         "portfolio_url": contact.get("portfolio_url") or "",

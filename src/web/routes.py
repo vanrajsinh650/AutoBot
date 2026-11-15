@@ -108,9 +108,11 @@ class AgentExecutionManager:
 execution_manager = AgentExecutionManager()
 
 
-def get_current_user_id(request: web.Request) -> int:
+def get_current_user_id(request: web.Request, allow_fallback: bool = True) -> Optional[int]:
     """
-    Extract user_id from session header/cookie, defaulting to 1 for legacy backwards compatibility.
+    Extract user_id from session header/cookie.
+    If allow_fallback is True, defaults to 1 for legacy backwards compatibility.
+    If allow_fallback is False, returns None when unauthenticated.
     """
     auth_header = request.headers.get("Authorization", "")
     token = None
@@ -124,7 +126,7 @@ def get_current_user_id(request: web.Request) -> int:
         if session:
             return session["user_id"]
 
-    return 1
+    return 1 if allow_fallback else None
 
 
 # ── Legacy & Dashboard Telemetry Handlers ──────────────────────────
@@ -164,7 +166,7 @@ async def get_stats_handler(request: web.Request) -> web.Response:
 
 
 async def get_jobs(request: web.Request) -> web.Response:
-    """Return paginated, filterable list of processed applications from SQLite."""
+    """Return paginated, filterable list of processed applications from SQLite scoped by user."""
     user_id = get_current_user_id(request)
     status_filter = request.query.get("status", "").strip().lower()
     search_query = request.query.get("q", "").strip().lower()
@@ -173,8 +175,8 @@ async def get_jobs(request: web.Request) -> web.Response:
 
     init_db()
     with get_db_connection(DEFAULT_DB_PATH) as conn:
-        query = "SELECT * FROM applications WHERE 1=1"
-        params: List[Any] = []
+        query = "SELECT * FROM applications WHERE user_id = ?"
+        params: List[Any] = [user_id]
 
         if status_filter:
             query += " AND status = ?"
@@ -190,8 +192,8 @@ async def get_jobs(request: web.Request) -> web.Response:
         rows = conn.execute(query, params).fetchall()
 
         # Count total
-        count_query = "SELECT COUNT(*) FROM applications WHERE 1=1"
-        count_params: List[Any] = []
+        count_query = "SELECT COUNT(*) FROM applications WHERE user_id = ?"
+        count_params: List[Any] = [user_id]
         if status_filter:
             count_query += " AND status = ?"
             count_params.append(status_filter)
@@ -890,10 +892,120 @@ async def get_tracker_handler(request: web.Request) -> web.Response:
     return web.json_response({"events": [dict(r) for r in rows]})
 
 
-async def delete_account_handler(request: web.Request) -> web.Response:
-    """Erase user profile, files, and tracker records (GDPR erasure)."""
+async def update_application_status_handler(request: web.Request) -> web.Response:
+    """Update application lifecycle status (e.g. interview, offer, rejected) in tracker."""
     try:
         user_id = get_current_user_id(request)
+        data = await request.json()
+        job_id = str(data.get("job_id") or data.get("stable_id") or "").strip()
+        new_status = str(data.get("status") or "").strip().lower()
+        notes = str(data.get("notes") or "").strip()
+
+        valid_statuses = {
+            "discovered", "evaluated", "prepared", "submitted",
+            "interview", "offer", "rejected", "applied", "dry_run", "skipped", "failed"
+        }
+        if new_status not in valid_statuses:
+            return web.json_response(
+                {"error": f"Invalid status '{new_status}'. Allowed: {sorted(list(valid_statuses))}"},
+                status=400,
+            )
+
+        if not job_id:
+            return web.json_response({"error": "job_id or stable_id is required."}, status=400)
+
+        from src.storage.db import update_application_status
+        ok = update_application_status(
+            user_id=user_id,
+            job_id_or_stable_id=job_id,
+            new_status=new_status,
+            notes=notes,
+        )
+        if not ok:
+            return web.json_response({"error": "Application or job record not found."}, status=404)
+
+        return web.json_response({
+            "success": True,
+            "job_id": job_id,
+            "status": new_status,
+            "message": f"Application status successfully transitioned to '{new_status}'.",
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def download_application_pack_handler(request: web.Request) -> web.Response:
+    """Download compiled application pack as plain text for candidate ease of use."""
+    try:
+        user_id = get_current_user_id(request)
+        pack_id = int(request.match_info.get("pack_id") or request.query.get("pack_id") or 0)
+
+        init_db()
+        with get_db_connection(DEFAULT_DB_PATH) as conn:
+            row = conn.execute("SELECT * FROM application_packs WHERE id = ? AND user_id = ?", (pack_id, user_id)).fetchone()
+            if not row:
+                return web.json_response({"error": "Application pack not found"}, status=404)
+
+            d = dict(row)
+            job_row = conn.execute("SELECT * FROM jobs WHERE id = ?", (d["job_id"],)).fetchone()
+            company = job_row["company"] if job_row else "Job"
+            title = job_row["title"] if job_row else "Role"
+
+        # Format questions nicely
+        q_drafts = []
+        raw_q = []
+        try:
+            raw_q = json.loads(d.get("question_drafts", "[]"))
+            for q in raw_q:
+                q_drafts.append(f"Q: {q.get('question')}\nA: {q.get('draft_answer')}\n")
+        except Exception:
+            q_drafts = [str(d.get("question_drafts", ""))]
+
+        if request.query.get("format") == "json" or "application/json" in request.headers.get("Accept", ""):
+            payload = {
+                "id": pack_id,
+                "role": title,
+                "company": company,
+                "created_at": d.get("created_at", ""),
+                "tailored_resume_summary": d.get("tailored_resume_summary", ""),
+                "cover_letter": d.get("cover_letter", ""),
+                "question_drafts": raw_q,
+                "job_match_explanation": d.get("job_match_explanation", ""),
+            }
+            return web.json_response(
+                payload,
+                headers={"Content-Disposition": f'attachment; filename="autobot_{company}_{pack_id}.json"'},
+            )
+
+        text_content = (
+            f"=== AUTOBOT APPLICATION PACK ===\n"
+            f"Role: {title}\n"
+            f"Company: {company}\n"
+            f"Date Prepared: {d.get('created_at', '')}\n\n"
+            f"--- 1. TAILORED RESUME SUMMARY ---\n{d.get('tailored_resume_summary', '')}\n\n"
+            f"--- 2. COVER LETTER ---\n{d.get('cover_letter', '')}\n\n"
+            f"--- 3. SCREENING QUESTION DRAFTS ---\n{''.join(q_drafts)}\n"
+            f"--- 4. JOB MATCH EXPLANATION ---\n{d.get('job_match_explanation', '')}\n"
+        )
+
+        return web.Response(
+            text=text_content,
+            content_type="text/plain",
+            headers={"Content-Disposition": f'attachment; filename="autobot_{company}_{pack_id}.txt"'},
+        )
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def delete_account_handler(request: web.Request) -> web.Response:
+    """Erase user profile, files, and tracker records (GDPR erasure). Requires authenticated session."""
+    try:
+        user_id = get_current_user_id(request, allow_fallback=False)
+        if not user_id:
+            return web.json_response({"error": "Authentication required to delete account."}, status=401)
+        if user_id == 1:
+            return web.json_response({"error": "Legacy system account cannot be erased."}, status=403)
+
         ok = delete_user_account_and_data(user_id=user_id)
         if ok:
             return web.json_response({"success": True, "message": "All personal data erased permanently."})

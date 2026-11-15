@@ -19,6 +19,16 @@
     audioEnabled: localStorage.getItem("autobot_audio") !== "muted",
   };
 
+  // ── Authenticated HTTP Request Helper ─────────────────────────────
+  function authedFetch(url, options = {}) {
+    const token = localStorage.getItem("auth_token");
+    options.headers = options.headers || {};
+    if (token && !options.headers["Authorization"]) {
+      options.headers["Authorization"] = `Bearer ${token}`;
+    }
+    return fetch(url, options);
+  }
+
   // ── Web Audio Synthesizer (Zero External Dependencies) ─────────────
   let audioCtx = null;
   function getAudioContext() {
@@ -317,7 +327,7 @@
   // ── Mission Control & Stats Loader ────────────────────────────────
   async function loadStatus() {
     try {
-      const res = await fetch("/api/status");
+      const res = await authedFetch("/api/status");
       if (!res.ok) return;
       const data = await res.json();
 
@@ -345,7 +355,7 @@
     sfx.launch();
     try {
       setRunningState(true);
-      const res = await fetch("/api/run", {
+      const res = await authedFetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dry_run: dryRun, force_ingest: forceIngest }),
@@ -368,7 +378,7 @@
   async function stopAgentRun() {
     sfx.click();
     try {
-      const res = await fetch("/api/stop", { method: "POST" });
+      const res = await authedFetch("/api/stop", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
         showToast("Agent run cancelled");
@@ -389,7 +399,7 @@
     const offset = state.jobsOffset;
 
     try {
-      const res = await fetch(`/api/jobs?limit=${limit}&offset=${offset}&status=${status}&q=${query}`);
+      const res = await authedFetch(`/api/jobs?limit=${limit}&offset=${offset}&status=${status}&q=${query}`);
       if (!res.ok) return;
       const data = await res.json();
 
@@ -407,7 +417,7 @@
     if (!jobs || jobs.length === 0) {
       const row = document.createElement("tr");
       row.innerHTML = `
-        <td colspan="8" style="text-align: center; color: var(--text-dim); padding: 45px;">
+        <td colspan="9" style="text-align: center; color: var(--text-dim); padding: 45px;">
           No matching application records in SQLite database.
         </td>
       `;
@@ -420,9 +430,11 @@
 
       const st = (job.status || "unknown").toLowerCase();
       let badgeClass = "badge-skipped";
-      if (st === "applied") badgeClass = "badge-applied";
-      else if (st === "dry_run") badgeClass = "badge-dry-run";
-      else if (st === "failed") badgeClass = "badge-failed";
+      if (st === "applied" || st === "submitted") badgeClass = "badge-applied";
+      else if (st === "dry_run" || st === "prepared") badgeClass = "badge-dry-run";
+      else if (st === "failed" || st === "rejected") badgeClass = "badge-failed";
+      else if (st === "interview" || st === "offer") badgeClass = "badge-applied";
+      else if (st === "discovered" || st === "evaluated") badgeClass = "badge-dry-run";
 
       const score = Math.round((job.match_score || 0) * 100);
       let pillClass = "low";
@@ -460,6 +472,15 @@
         <td style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
           ${timeStr}
         </td>
+        <td>
+          <select onchange="window.updateJobStatus('${job.job_id || job.id}', this.value)" style="background: rgba(0,0,0,0.5); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; padding: 3px 6px; cursor: pointer;">
+            <option value="">Move status...</option>
+            <option value="interview">Move to Interview</option>
+            <option value="offer">Move to Offer</option>
+            <option value="rejected">Move to Rejected</option>
+            <option value="submitted">Move to Submitted</option>
+          </select>
+        </td>
       `;
       els.jobsTableBody.appendChild(row);
     });
@@ -476,7 +497,7 @@
   // ── Candidate Profile & 3D Laser Upload ───────────────────────────
   async function loadProfile() {
     try {
-      const res = await fetch("/api/profile");
+      const res = await authedFetch("/api/profile");
       if (!res.ok) return;
       const data = await res.json();
 
@@ -492,6 +513,62 @@
       }
 
       renderProfileSections(data.sections || {});
+
+      // Load and populate Candidate Profile form fields
+      try {
+        const profRes = await authedFetch("/api/candidate/profile");
+        if (profRes.ok) {
+          const prof = await profRes.json();
+          const candName = document.getElementById("cand-full-name");
+          if (candName) candName.value = prof.full_name || "";
+          const candEmail = document.getElementById("cand-email");
+          if (candEmail) candEmail.value = prof.email || "";
+          const candPhone = document.getElementById("cand-phone");
+          if (candPhone) candPhone.value = prof.phone || "";
+          const candLoc = document.getElementById("cand-location");
+          if (candLoc) candLoc.value = prof.location || "";
+          const candHeadline = document.getElementById("cand-headline");
+          if (candHeadline) candHeadline.value = prof.headline || "";
+          const candTech = document.getElementById("cand-tech-skills");
+          if (candTech) candTech.value = (prof.technical_skills || []).join(", ");
+          const candAch = document.getElementById("cand-achievements");
+          if (candAch) {
+            const achs = prof.achievements || [];
+            candAch.value = achs.map(a => typeof a === "object" ? (a.title || a.description || "") : a).join("\n");
+          }
+        }
+      } catch (pe) {
+        console.debug("Could not load candidate profile:", pe);
+      }
+
+      // Load and populate Job Preferences form fields
+      try {
+        const prefRes = await authedFetch("/api/candidate/preferences");
+        if (prefRes.ok) {
+          const pref = await prefRes.json();
+          const targetRoles = document.getElementById("pref-target-roles");
+          if (targetRoles) targetRoles.value = (pref.target_roles || []).join(", ");
+          const empType = document.getElementById("pref-emp-type");
+          if (empType) {
+            const types = pref.employment_types || ["full-time"];
+            if (types.includes("full-time") && types.includes("internship")) empType.value = "both";
+            else if (types.includes("internship")) empType.value = "internship";
+            else empType.value = "full-time";
+          }
+          const expLvl = document.getElementById("pref-experience-level");
+          if (expLvl) expLvl.value = pref.experience_level || "mid-senior";
+          const arr = document.getElementById("pref-work-arrangement");
+          if (arr) arr.value = pref.work_arrangement || "remote";
+          const minSal = document.getElementById("pref-min-salary");
+          if (minSal) minSal.value = pref.min_salary || 0;
+          const eligCountries = document.getElementById("pref-eligible-countries");
+          if (eligCountries) eligCountries.value = (pref.eligible_countries || []).join(", ");
+          const minFit = document.getElementById("pref-min-fit");
+          if (minFit) minFit.value = pref.min_fit_threshold || 60;
+        }
+      } catch (pe) {
+        console.debug("Could not load candidate preferences:", pe);
+      }
     } catch (err) {
       console.error("Failed to load profile:", err);
     }
@@ -586,7 +663,7 @@
         }
       }, 350);
 
-      const res = await fetch("/api/upload", {
+      const res = await authedFetch("/api/upload", {
         method: "POST",
         body: formData,
       });
@@ -630,7 +707,7 @@
   // ── Agent Configuration ───────────────────────────────────────────
   async function loadConfig() {
     try {
-      const res = await fetch("/api/config");
+      const res = await authedFetch("/api/config");
       if (!res.ok) return;
       state.config = await res.json();
       populateConfigForm(state.config);
@@ -689,7 +766,7 @@
     };
 
     try {
-      const res = await fetch("/api/config", {
+      const res = await authedFetch("/api/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(state.config),
@@ -997,6 +1074,84 @@
       });
     }
 
+    // ── Milestone 2 Candidate Profile & Preferences Save ────────────
+    const btnSaveCandProfile = document.getElementById("btn-save-candidate-profile");
+    if (btnSaveCandProfile) {
+      btnSaveCandProfile.addEventListener("click", async () => {
+        sfx.click();
+        const fullName = (document.getElementById("cand-full-name")?.value || "").trim();
+        const email = (document.getElementById("cand-email")?.value || "").trim();
+        const phone = (document.getElementById("cand-phone")?.value || "").trim();
+        const location = (document.getElementById("cand-location")?.value || "").trim();
+        const headline = (document.getElementById("cand-headline")?.value || "").trim();
+        const techSkills = (document.getElementById("cand-tech-skills")?.value || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const achievements = (document.getElementById("cand-achievements")?.value || "")
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        const targetRoles = (document.getElementById("pref-target-roles")?.value || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const empTypeVal = document.getElementById("pref-emp-type")?.value || "full-time";
+        const empTypes = empTypeVal === "both" ? ["full-time", "internship"] : [empTypeVal];
+        const expLevel = document.getElementById("pref-experience-level")?.value || "mid-senior";
+        const workArr = document.getElementById("pref-work-arrangement")?.value || "remote";
+        const minSalary = parseFloat(document.getElementById("pref-min-salary")?.value || "0") || 0;
+        const eligCountries = (document.getElementById("pref-eligible-countries")?.value || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const minFit = parseFloat(document.getElementById("pref-min-fit")?.value || "60") || 60;
+
+        try {
+          const profRes = await authedFetch("/api/candidate/profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              full_name: fullName,
+              email: email,
+              phone: phone,
+              location: location,
+              headline: headline,
+              technical_skills: techSkills,
+              achievements: achievements,
+            }),
+          });
+
+          const prefRes = await authedFetch("/api/candidate/preferences", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              target_roles: targetRoles,
+              employment_types: empTypes,
+              experience_level: expLevel,
+              work_arrangement: workArr,
+              min_salary: minSalary,
+              eligible_countries: eligCountries,
+              min_fit_threshold: minFit,
+            }),
+          });
+
+          if (profRes.ok && prefRes.ok) {
+            sfx.success();
+            showToast("Candidate profile and preferences saved successfully!");
+            loadProfile();
+          } else {
+            sfx.error();
+            showToast("Failed to save some profile/preference settings", "error");
+          }
+        } catch (err) {
+          sfx.error();
+          showToast(`Save error: ${err.message}`, "error");
+        }
+      });
+    }
+
     // ── Milestone 7 Discovery, Matching & Privacy Bindings ───────────
     const btnTriggerDiscovery = document.getElementById("btn-trigger-discovery");
     if (btnTriggerDiscovery) {
@@ -1004,7 +1159,7 @@
         sfx.launch();
         showToast("Starting multi-source job discovery...");
         try {
-          const res = await fetch("/api/discovery/run", { method: "POST" });
+          const res = await authedFetch("/api/discovery/run", { method: "POST" });
           const data = await res.json();
           if (data.success) {
             showToast(`Discovered & normalized ${data.discovered_count} vacancies!`);
@@ -1034,7 +1189,7 @@
 
         sfx.click();
         try {
-          const res = await fetch("/api/discovery/import", {
+          const res = await authedFetch("/api/discovery/import", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title, company, location, application_url: url, description }),
@@ -1072,6 +1227,7 @@
           const data = await res.json();
           if (data.success) {
             localStorage.setItem("auth_token", data.token);
+            document.cookie = `autobot_session=${data.token}; path=/; max-age=604800; SameSite=Lax`;
             showToast(`Logged in as ${email}`);
             loadStatus();
           } else {
@@ -1097,6 +1253,7 @@
           const data = await res.json();
           if (data.success) {
             localStorage.setItem("auth_token", data.token);
+            document.cookie = `autobot_session=${data.token}; path=/; max-age=604800; SameSite=Lax`;
             showToast(`Registered successfully as ${email}`);
             loadStatus();
           } else {
@@ -1115,10 +1272,11 @@
           return;
         }
         try {
-          const res = await fetch("/api/privacy/delete-account", { method: "POST" });
+          const res = await authedFetch("/api/privacy/delete-account", { method: "POST" });
           const data = await res.json();
           if (data.success) {
             localStorage.removeItem("auth_token");
+            document.cookie = "autobot_session=; path=/; max-age=0";
             showToast("All personal candidate data erased permanently.");
             setTimeout(() => window.location.reload(), 1500);
           } else {
@@ -1131,12 +1289,63 @@
     }
   }
 
+  // ── Clipboard & Tracker Helper ────────────────────────────────────
+  window.copyToClipboard = function (text) {
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("Copied to clipboard!");
+      }).catch(() => {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  };
+
+  function fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      showToast("Copied to clipboard!");
+    } catch (e) {
+      showToast("Failed to copy", "error");
+    }
+    ta.remove();
+  }
+
+  window.updateJobStatus = async function (jobId, newStatus) {
+    if (!newStatus) return;
+    try {
+      const res = await authedFetch("/api/tracker/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, status: newStatus }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Status updated to ${newStatus}`);
+        loadJobs();
+        loadStatus();
+      } else {
+        showToast(data.error || "Failed to update status", "error");
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, "error");
+    }
+  };
+
   // ── Discovery, Matching, & Workflow Helpers ───────────────────────
   async function loadDiscoveryJobs() {
     const container = document.getElementById("discovery-jobs-container");
     if (!container) return;
     try {
-      const res = await fetch("/api/discovery/jobs");
+      const res = await authedFetch("/api/discovery/jobs");
       const data = await res.json();
       const jobs = data.jobs || [];
       if (!jobs.length) {
@@ -1168,7 +1377,7 @@
     card.innerHTML = `<div style="color: var(--primary); font-size: 13px;">Computing deterministic fit score in Python...</div>`;
 
     try {
-      const res = await fetch("/api/matching/evaluate", {
+      const res = await authedFetch("/api/matching/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stable_id: stableId }),
@@ -1216,7 +1425,7 @@
     container.innerHTML = `<div style="color: var(--primary); font-size: 13px;">Assembling application pack...</div>`;
 
     try {
-      const res = await fetch("/api/application/prepare", {
+      const res = await authedFetch("/api/application/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stable_id: stableId }),
@@ -1224,31 +1433,57 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Preparation failed");
 
+      const token = localStorage.getItem("auth_token") || "";
+      const dlUrl = `/api/application/download/${data.id}${token ? '?token=' + encodeURIComponent(token) : ''}`;
+
       container.innerHTML = `
-        <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--text-main);">Application Pack #${data.id} (Candidate Review)</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="font-size: 16px; margin: 0; color: var(--text-main);">Application Pack #${data.id} (Candidate Review)</h3>
+          <a href="${dlUrl}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;" download>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Download Pack (JSON)
+          </a>
+        </div>
+
+        ${data.job_match_explanation ? `
+          <div style="margin-bottom: 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 10px;">
+            <div style="font-weight: 600; font-size: 12px; color: #60a5fa; margin-bottom: 4px;">Job Match Rationale:</div>
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">${escapeHtml(data.job_match_explanation)}</div>
+          </div>
+        ` : ''}
         
         <div style="margin-bottom: 16px;">
-          <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 4px;">Tailored Summary:</div>
-          <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; font-size: 12px;">${escapeHtml(data.tailored_resume_summary)}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--primary);">Tailored Experience Summary:</div>
+            <button class="btn btn-secondary" style="font-size: 10px; padding: 2px 6px;" onclick="window.copyToClipboard(document.getElementById('pack-summary-text').innerText)">Copy Summary</button>
+          </div>
+          <div id="pack-summary-text" style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; font-size: 12px; white-space: pre-wrap;">${escapeHtml(data.tailored_resume_summary)}</div>
         </div>
 
         <div style="margin-bottom: 16px;">
-          <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 4px;">Tailored Cover Letter:</div>
-          <textarea style="width: 100%; height: 120px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main); border-radius: 6px; padding: 10px; font-size: 12px;">${escapeHtml(data.cover_letter)}</textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <div style="font-weight: 600; font-size: 12px; color: var(--primary);">Tailored Cover Letter:</div>
+            <button class="btn btn-secondary" style="font-size: 10px; padding: 2px 6px;" onclick="window.copyToClipboard(document.getElementById('pack-cover-letter').value)">Copy Cover Letter</button>
+          </div>
+          <textarea id="pack-cover-letter" style="width: 100%; height: 120px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main); border-radius: 6px; padding: 10px; font-size: 12px;">${escapeHtml(data.cover_letter)}</textarea>
         </div>
 
         <div style="margin-bottom: 16px;">
-          <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 4px;">Screening Question Drafts:</div>
-          ${data.question_drafts.map((q) => `
-            <div style="font-size: 12px; margin-bottom: 6px; background: rgba(0,0,0,0.15); padding: 6px 10px; border-radius: 4px;">
-              <strong>${escapeHtml(q.question)}:</strong> ${escapeHtml(q.draft_answer)}
+          <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 6px;">Screening Question Drafts:</div>
+          ${data.question_drafts.map((q, idx) => `
+            <div style="font-size: 12px; margin-bottom: 8px; background: rgba(0,0,0,0.15); padding: 8px 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+              <div>
+                <div style="font-weight: 600; color: var(--text-main); margin-bottom: 2px;">${escapeHtml(q.question)}</div>
+                <div style="color: var(--text-muted);" id="q-draft-${idx}">${escapeHtml(q.draft_answer)}</div>
+              </div>
+              <button class="btn btn-secondary" style="font-size: 10px; padding: 2px 6px; white-space: nowrap;" onclick="window.copyToClipboard(document.getElementById('q-draft-${idx}').innerText)">Copy Answer</button>
             </div>
           `).join("")}
         </div>
 
         <div style="margin-bottom: 16px;">
           <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
-            <input type="checkbox" id="check-user-approval" onchange="window.toggleApproval(${data.id}, this.checked)">
+            <input type="checkbox" id="check-user-approval" ${data.user_approved ? 'checked' : ''} onchange="window.toggleApproval(${data.id}, this.checked)">
             I have reviewed and approved these application materials.
           </label>
         </div>
@@ -1265,7 +1500,7 @@
 
   window.toggleApproval = async function (packId, approved) {
     try {
-      await fetch("/api/application/approve", {
+      await authedFetch("/api/application/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pack_id: packId, approved }),
@@ -1278,7 +1513,7 @@
 
   window.confirmLinkedInSubmission = async function (stableId) {
     try {
-      const res = await fetch("/api/application/confirm-linkedin", {
+      const res = await authedFetch("/api/application/confirm-linkedin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stable_id: stableId, confirmed: true, notes: "Confirmed via dashboard" }),
@@ -1296,9 +1531,9 @@
   };
 
   window.submitExternalATS = async function (packId) {
-    const dryRun = document.getElementById("dry-run-checkbox").checked;
+    const dryRun = document.getElementById("dry-run-checkbox") ? document.getElementById("dry-run-checkbox").checked : false;
     try {
-      const res = await fetch("/api/application/submit-external", {
+      const res = await authedFetch("/api/application/submit-external", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pack_id: packId, dry_run: dryRun }),
@@ -1319,7 +1554,7 @@
     const container = document.getElementById("audit-log-container");
     if (!container) return;
     try {
-      const res = await fetch("/api/privacy/audit-logs");
+      const res = await authedFetch("/api/privacy/audit-logs");
       const data = await res.json();
       const logs = data.audit_logs || [];
       if (!logs.length) {

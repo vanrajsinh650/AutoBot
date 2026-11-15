@@ -174,6 +174,21 @@ class ApplicationPreparationService:
         if not profile.get("linkedin_url") and "linkedin" in job.application_url.lower():
             checklist.append({"item": "Add candidate LinkedIn profile link", "checked": False})
 
+        # 6. Job Match Explanation
+        job_match_explanation = ""
+        with get_db_connection(self.db_path) as conn:
+            if match_evaluation_id:
+                eval_row = conn.execute("SELECT explanation FROM match_evaluations WHERE id = ?", (match_evaluation_id,)).fetchone()
+                if eval_row and eval_row["explanation"]:
+                    job_match_explanation = eval_row["explanation"]
+
+        if not job_match_explanation:
+            job_match_explanation = (
+                f"Application prepared for {candidate_name} applying to '{job.title}' at '{job.company}'. "
+                f"Verified matching core competencies: {', '.join(matching_skills[:6])}. "
+                "Materials generated truthfully without qualification fabrication."
+            )
+
         now = datetime.now().isoformat()
         with get_db_connection(self.db_path) as conn:
             job_row = conn.execute("SELECT id FROM jobs WHERE stable_id = ?", (job.stable_id,)).fetchone()
@@ -184,9 +199,9 @@ class ApplicationPreparationService:
                 INSERT INTO application_packs (
                     user_id, job_id, resume_version_id, match_evaluation_id,
                     tailored_resume_summary, tailored_experiences, cover_letter,
-                    question_drafts, missing_info_checklist, user_approved,
+                    question_drafts, missing_info_checklist, job_match_explanation, user_approved,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
                 """,
                 (
                     user_id,
@@ -198,6 +213,7 @@ class ApplicationPreparationService:
                     cover_letter,
                     json.dumps(question_drafts),
                     json.dumps(checklist),
+                    job_match_explanation,
                     now,
                     now,
                 ),
@@ -224,6 +240,7 @@ class ApplicationPreparationService:
             "cover_letter": cover_letter,
             "question_drafts": question_drafts,
             "missing_info_checklist": checklist,
+            "job_match_explanation": job_match_explanation,
             "user_approved": False,
         }
 

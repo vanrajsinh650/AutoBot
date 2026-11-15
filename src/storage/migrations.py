@@ -24,10 +24,11 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     """)
 
     # 2. Base tables (applications and sessions from legacy)
+    # Using composite UNIQUE(user_id, job_id) to ensure complete tenant isolation
     conn.execute("""
         CREATE TABLE IF NOT EXISTS applications (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            job_id         TEXT UNIQUE NOT NULL,
+            job_id         TEXT NOT NULL,
             job_title      TEXT NOT NULL,
             company        TEXT NOT NULL,
             location       TEXT,
@@ -36,7 +37,9 @@ def run_migrations(conn: sqlite3.Connection) -> None:
             status         TEXT NOT NULL,
             url            TEXT,
             applied_at     TEXT NOT NULL,
-            notes          TEXT
+            notes          TEXT,
+            user_id        INTEGER DEFAULT 1,
+            UNIQUE(user_id, job_id)
         )
     """)
 
@@ -55,7 +58,40 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     app_cols = [r[1] for r in conn.execute("PRAGMA table_info(applications)").fetchall()]
     if "user_id" not in app_cols:
         conn.execute("ALTER TABLE applications ADD COLUMN user_id INTEGER DEFAULT 1")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_user_id ON applications(user_id)")
+
+    # Migrate legacy applications table with job_id UNIQUE constraint to UNIQUE(user_id, job_id)
+    cur_app = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='applications'").fetchone()
+    if cur_app and cur_app[0]:
+        app_sql = cur_app[0]
+        if "UNIQUE(user_id, job_id)" not in app_sql and ("job_id TEXT UNIQUE" in app_sql or "job_id         TEXT UNIQUE" in app_sql):
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS applications_migrated (
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id         TEXT NOT NULL,
+                    job_title      TEXT NOT NULL,
+                    company        TEXT NOT NULL,
+                    location       TEXT,
+                    apply_type     TEXT NOT NULL,
+                    match_score    REAL DEFAULT 0.0,
+                    status         TEXT NOT NULL,
+                    url            TEXT,
+                    applied_at     TEXT NOT NULL,
+                    notes          TEXT,
+                    user_id        INTEGER DEFAULT 1,
+                    UNIQUE(user_id, job_id)
+                )
+            """)
+            conn.execute("""
+                INSERT OR IGNORE INTO applications_migrated
+                SELECT id, job_id, job_title, company, location, apply_type, match_score, status, url, applied_at, notes, COALESCE(user_id, 1)
+                FROM applications
+            """)
+            conn.execute("DROP TABLE applications")
+            conn.execute("ALTER TABLE applications_migrated RENAME TO applications")
+
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_user_id ON applications(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status)")
 
     # 3. Multi-User Foundations: users
     conn.execute("""
@@ -82,6 +118,19 @@ def run_migrations(conn: sqlite3.Connection) -> None:
             """,
             (now, now),
         )
+
+    # 3b. Persistent User Sessions
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            token          TEXT PRIMARY KEY,
+            user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            email          TEXT NOT NULL,
+            expires_at     TEXT NOT NULL,
+            created_at     TEXT NOT NULL
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at)")
 
     # 4. candidate_profiles
     conn.execute("""
@@ -254,11 +303,15 @@ def run_migrations(conn: sqlite3.Connection) -> None:
             cover_letter              TEXT DEFAULT '',
             question_drafts           TEXT DEFAULT '[]',
             missing_info_checklist    TEXT DEFAULT '[]',
+            job_match_explanation    TEXT DEFAULT '',
             user_approved             INTEGER DEFAULT 0,
             created_at                TEXT NOT NULL,
             updated_at                TEXT NOT NULL
         )
     """)
+    pack_cols = [r[1] for r in conn.execute("PRAGMA table_info(application_packs)").fetchall()]
+    if "job_match_explanation" not in pack_cols:
+        conn.execute("ALTER TABLE application_packs ADD COLUMN job_match_explanation TEXT DEFAULT ''")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_application_packs_user_job ON application_packs(user_id, job_id)")
 
     # 13. application_events

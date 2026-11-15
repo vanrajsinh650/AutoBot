@@ -16,6 +16,7 @@ from src.discovery.adapters.base import (
     strip_html,
 )
 from src.discovery.models import EmploymentType, JobSourceConfig, NormalizedJob, SourceType
+from src.matching.eligibility import resolve_job_country
 
 
 class ManualJobAdapter(BaseJobSourceAdapter):
@@ -82,6 +83,7 @@ class ManualJobAdapter(BaseJobSourceAdapter):
             description=clean_desc,
             employment_type=emp_type,
             location=clean_loc,
+            country=resolve_job_country(clean_loc) or "",
             is_remote=remote,
             salary_info=salary_info,
             publication_date=datetime.now().isoformat(),

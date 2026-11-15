@@ -14,6 +14,7 @@ from src.discovery.adapters.base import (
     strip_html,
 )
 from src.discovery.models import EmploymentType, JobSourceConfig, NormalizedJob, SourceType
+from src.matching.eligibility import resolve_job_country
 from src.utils.logger import logger
 
 
@@ -92,6 +93,7 @@ class LeverAdapter(BaseJobSourceAdapter):
                 description=desc_plain.strip(),
                 employment_type=emp_type,
                 location=location_name,
+                country=resolve_job_country(location_name) or "",
                 is_remote=is_remote,
                 publication_date=created_at or datetime.now().isoformat(),
                 application_url=app_url,

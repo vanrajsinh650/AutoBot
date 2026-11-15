@@ -58,6 +58,27 @@ class DeterministicFitScorer:
     WEIGHT_EXPERIENCE_EDU = 0.15
     WEIGHT_PREFERRED_SKILLS = 0.10
 
+    @staticmethod
+    def _skill_matches(target_skill: str, candidate_skill: str) -> bool:
+        """
+        Check if a candidate skill matches a required/preferred skill.
+        Prevents single letters (e.g. 'C', 'R') from matching arbitrary words (e.g. 'Docker', 'React').
+        """
+        ts = target_skill.lower().strip()
+        cs = candidate_skill.lower().strip()
+        if ts == cs:
+            return True
+        if len(cs) <= 2 or len(ts) <= 2:
+            return ts == cs
+        # Word boundary matching
+        pattern = r"\b" + re.escape(cs) + r"\b"
+        if re.search(pattern, ts):
+            return True
+        pattern_rev = r"\b" + re.escape(ts) + r"\b"
+        if re.search(pattern_rev, cs):
+            return True
+        return False
+
     @classmethod
     def calculate_score(
         cls,
@@ -81,6 +102,7 @@ class DeterministicFitScorer:
             + candidate_profile.get("secondary_skills", [])
         )
         candidate_skills_set = {s.lower().strip() for s in candidate_skills_raw if s.strip()}
+        candidate_skills_list = list(candidate_skills_set)
 
         # ── 1. Required Skill Coverage (35%) ─────────────────────────
         required_skills = [s.strip() for s in job_reqs.required_skills if s.strip()]
@@ -88,9 +110,7 @@ class DeterministicFitScorer:
             matched_req = []
             missing_req = []
             for skill in required_skills:
-                skill_lower = skill.lower()
-                # Check direct skill match or partial match
-                if any(skill_lower == cs or skill_lower in cs or cs in skill_lower for cs in candidate_skills_set):
+                if any(cls._skill_matches(skill, cs) for cs in candidate_skills_set):
                     matched_req.append(skill)
                     matched_requirements.append(f"Required Skill: {skill}")
                 else:
@@ -102,9 +122,16 @@ class DeterministicFitScorer:
         else:
             # Check overlap between candidate skills and job title / responsibilities
             job_context = f"{job_title} {' '.join(job_reqs.responsibilities)}".lower()
-            overlap_count = sum(1 for cs in candidate_skills_set if cs in job_context)
+            overlap_count = 0
+            for cs in candidate_skills_set:
+                if len(cs) <= 2:
+                    if re.search(r"\b" + re.escape(cs) + r"\b", job_context):
+                        overlap_count += 1
+                elif cs in job_context:
+                    overlap_count += 1
+
             if candidate_skills_set and overlap_count > 0:
-                required_skills_score = round(min(1.0, overlap_count / max(1, len(candidate_skills_set[:5]))) * 100.0, 2)
+                required_skills_score = round(min(1.0, overlap_count / max(1, len(candidate_skills_list[:5]))) * 100.0, 2)
             elif candidate_skills_set and overlap_count == 0:
                 required_skills_score = 10.0
                 missing_requirements.append("No technical skill overlap found with job description")
@@ -204,8 +231,7 @@ class DeterministicFitScorer:
         if pref_skills:
             matched_pref = []
             for ps in pref_skills:
-                ps_lower = ps.lower()
-                if any(ps_lower == cs or ps_lower in cs or cs in ps_lower for cs in candidate_skills_set):
+                if any(cls._skill_matches(ps, cs) for cs in candidate_skills_set):
                     matched_pref.append(ps)
                     matched_requirements.append(f"Preferred Skill Match: {ps}")
                 else:

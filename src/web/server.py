@@ -15,6 +15,7 @@ from src.web.routes import (
     confirm_linkedin_submission_handler,
     delete_account_handler,
     discover_jobs_handler,
+    download_application_pack_handler,
     evaluate_job_handler,
     get_audit_logs_handler,
     get_candidate_profile_handler,
@@ -36,6 +37,7 @@ from src.web.routes import (
     start_run,
     stop_run,
     submit_external_application_handler,
+    update_application_status_handler,
     update_candidate_profile_handler,
     update_preferences_handler,
     upload_resume_handler,
@@ -98,9 +100,11 @@ def create_app() -> web.Application:
     app.router.add_post("/api/application/approve", approve_application_pack_handler)
     app.router.add_post("/api/application/submit-external", submit_external_application_handler)
     app.router.add_post("/api/application/confirm-linkedin", confirm_linkedin_submission_handler)
+    app.router.add_get("/api/application/download/{pack_id}", download_application_pack_handler)
 
     # ── Tracker & Privacy Routes ──────────────────────────────────
     app.router.add_get("/api/tracker/events", get_tracker_handler)
+    app.router.add_post("/api/tracker/status", update_application_status_handler)
     app.router.add_get("/api/privacy/audit-logs", get_audit_logs_handler)
     app.router.add_post("/api/privacy/delete-account", delete_account_handler)
 

@@ -141,38 +141,98 @@ def authenticate_user(
         return True, user_data, "Authentication successful."
 
 
-# In-memory / durable session token store
+# In-memory and durable SQLite session token store
 _ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 
-def create_session(user_id: int, email: str, ttl_hours: int = 48) -> str:
-    """Generate and record a secure session token."""
+def create_session(user_id: int, email: str, ttl_hours: int = 48, db_path: str = DEFAULT_DB_PATH) -> str:
+    """Generate and record a secure session token both in-memory and in SQLite."""
     token = secrets.token_urlsafe(32)
-    expires_at = datetime.now() + timedelta(hours=ttl_hours)
-    _ACTIVE_SESSIONS[token] = {
+    now = datetime.now()
+    expires_at = now + timedelta(hours=ttl_hours)
+    session_data = {
         "user_id": user_id,
         "email": email,
         "expires_at": expires_at,
     }
+    _ACTIVE_SESSIONS[token] = session_data
+
+    try:
+        init_db(db_path)
+        with get_db_connection(db_path) as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO user_sessions (token, user_id, email, expires_at, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (token, user_id, email, expires_at.isoformat(), now.isoformat()),
+            )
+            conn.commit()
+    except Exception as e:
+        logger.warning(f"Could not persist session token to database: {e}")
+
     return token
 
 
-def validate_session(token: Optional[str]) -> Optional[Dict[str, Any]]:
-    """Validate a session token; return session dict or None."""
-    if not token or token not in _ACTIVE_SESSIONS:
+def validate_session(token: Optional[str], db_path: str = DEFAULT_DB_PATH) -> Optional[Dict[str, Any]]:
+    """Validate a session token against memory cache or SQLite table."""
+    if not token:
         return None
 
-    session = _ACTIVE_SESSIONS[token]
-    if datetime.now() > session["expires_at"]:
-        _ACTIVE_SESSIONS.pop(token, None)
+    now = datetime.now()
+    if token in _ACTIVE_SESSIONS:
+        session = _ACTIVE_SESSIONS[token]
+        if now > session["expires_at"]:
+            _ACTIVE_SESSIONS.pop(token, None)
+            revoke_session(token, db_path=db_path)
+            return None
+        return session
+
+    # Check durable database for sessions surviving restarts
+    try:
+        init_db(db_path)
+        with get_db_connection(db_path) as conn:
+            row = conn.execute(
+                "SELECT user_id, email, expires_at FROM user_sessions WHERE token = ?",
+                (token,),
+            ).fetchone()
+            if not row:
+                return None
+
+            expires_at = datetime.fromisoformat(row["expires_at"])
+            if now > expires_at:
+                conn.execute("DELETE FROM user_sessions WHERE token = ?", (token,))
+                conn.commit()
+                return None
+
+            session = {
+                "user_id": row["user_id"],
+                "email": row["email"],
+                "expires_at": expires_at,
+            }
+            _ACTIVE_SESSIONS[token] = session
+            return session
+    except Exception as e:
+        logger.debug(f"Error checking persistent session: {e}")
         return None
 
-    return session
 
-
-def revoke_session(token: Optional[str]) -> bool:
-    """Revoke an active session token."""
+def revoke_session(token: Optional[str], db_path: str = DEFAULT_DB_PATH) -> bool:
+    """Revoke an active session token from memory and database."""
+    revoked = False
     if token and token in _ACTIVE_SESSIONS:
         del _ACTIVE_SESSIONS[token]
-        return True
-    return False
+        revoked = True
+
+    if token:
+        try:
+            init_db(db_path)
+            with get_db_connection(db_path) as conn:
+                cur = conn.execute("DELETE FROM user_sessions WHERE token = ?", (token,))
+                conn.commit()
+                if cur.rowcount > 0:
+                    revoked = True
+        except Exception as e:
+            logger.debug(f"Error deleting session from db: {e}")
+
+    return revoked
