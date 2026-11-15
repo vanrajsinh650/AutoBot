@@ -67,6 +67,7 @@ class AgentConfig(BaseModel):
 
 
 class BrowserConfig(BaseModel):
+    backend: str = "chromium"
     slow_mo: int = 50
     viewport_width: int = 1280
     viewport_height: int = 800
@@ -105,7 +106,10 @@ class EnvSettings(BaseSettings):
     qdrant_collection: str = "autobot_profile"
 
     # Browser
-    headless:          bool = False
+    headless:            bool = False
+    browser_backend:     str = "chromium"     # chromium | obscura
+    obscura_binary_path: str = ""
+    obscura_port:        int = 9222
 
     # Logging
     log_level:         str = "INFO"

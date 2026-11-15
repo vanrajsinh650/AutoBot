@@ -224,7 +224,7 @@ class ExternalApplyActuator:
                 pass
 
     async def _upload_resume(self, page: Page) -> None:
-        """Upload resume PDF to any file input element present on page."""
+        """Upload resume PDF to any file input element present on page with CDP fallback."""
         if not self.resume_path.exists():
             return
         try:
@@ -234,14 +234,45 @@ class ExternalApplyActuator:
                 "input[type='file'][name*='cv'], "
                 "input[type='file']"
             )
+            resume_full_path = str(self.resume_path.resolve())
             for inp in file_inputs:
+                uploaded = False
                 try:
-                    await inp.set_input_files(str(self.resume_path.resolve()))
+                    await inp.set_input_files(resume_full_path)
+                    uploaded = True
+                except Exception as ex:
+                    # CDP fallback for headless engines lacking DOM DataTransfer bindings
+                    try:
+                        cdp = await page.context.new_cdp_session(page)
+                        root = await cdp.send("DOM.getDocument")
+                        # Find nodeId of this input element
+                        box = await inp.bounding_box()
+                        # Fallback query via selector or matching
+                        node = await cdp.send("DOM.querySelector", {
+                            "nodeId": root["root"]["nodeId"],
+                            "selector": "input[type='file']"
+                        })
+                        node_id = node.get("nodeId")
+                        if node_id:
+                            await cdp.send("DOM.setFileInputFiles", {
+                                "files": [resume_full_path],
+                                "nodeId": node_id
+                            })
+                            await page.evaluate("""() => {
+                                const el = document.querySelector("input[type='file']");
+                                if (el) {
+                                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                                }
+                            }""")
+                            uploaded = True
+                    except Exception:
+                        pass
+
+                if uploaded:
                     await human_delay(1500, 2500)
-                    logger.info(f"[browser]📎 Resume uploaded to external portal[/browser]")
+                    logger.info("[browser]📎 Resume uploaded to external portal[/browser]")
                     break
-                except Exception:
-                    continue
         except Exception:
             pass
 

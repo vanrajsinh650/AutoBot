@@ -20,3 +20,5 @@ logs/*.log
 qdrant_storage/
 data/qdrant/
 data/session/
+bin/
+data/obscura_profiles/
