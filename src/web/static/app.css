@@ -957,6 +957,53 @@ input:checked + .slider-toggle:before {
 
 .badge-applied  { background: rgba(16, 185, 129, 0.16); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); }
 .badge-dry-run  { background: rgba(139, 92, 246, 0.16); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.35); }
+
+/* ── Browser Health Telemetry Badge ───────────────────────────────── */
+.browser-health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(14, 19, 27, 0.85);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+  margin-left: 14px;
+}
+
+.browser-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+  animation: pulse-dot 2s infinite ease-in-out;
+}
+
+.browser-pulse-dot.fallback {
+  background: var(--warning);
+  box-shadow: 0 0 8px var(--warning);
+}
+
+.browser-divider {
+  color: var(--border-color);
+  opacity: 0.6;
+}
+
+.badge-fallback-ok {
+  color: var(--cyan);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.badge-fallback-triggered {
+  color: var(--warning);
+  font-size: 10px;
+  font-weight: 700;
+}
 .badge-skipped  { background: rgba(100, 116, 139, 0.16); color: #cbd5e1; border: 1px solid rgba(100, 116, 139, 0.3); }
 .badge-failed   { background: rgba(239, 68, 68, 0.16);  color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
 

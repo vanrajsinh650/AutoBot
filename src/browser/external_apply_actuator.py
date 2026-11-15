@@ -223,9 +223,18 @@ class ExternalApplyActuator:
             except Exception:
                 pass
 
+    ALLOWED_RESUME_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt"}
+
     async def _upload_resume(self, page: Page) -> None:
-        """Upload resume PDF to any file input element present on page with CDP fallback."""
+        """Upload resume document to any file input element present on page with CDP fallback."""
         if not self.resume_path.exists():
+            logger.warning(f"[browser]Resume file not found on disk: {self.resume_path}")
+            return
+
+        if self.resume_path.suffix.lower() not in self.ALLOWED_RESUME_EXTENSIONS:
+            logger.warning(
+                f"[browser]SECURITY POLICY VIOLATION: Blocked attempt to upload unauthorized file type: '{self.resume_path.name}'"
+            )
             return
         try:
             file_inputs = await page.query_selector_all(

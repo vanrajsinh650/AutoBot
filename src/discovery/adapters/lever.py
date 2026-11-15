@@ -83,7 +83,9 @@ class LeverAdapter(BaseJobSourceAdapter):
             if not title:
                 continue
 
-            categories = item.get("categories", {})
+            categories = item.get("categories") or {}
+            if not isinstance(categories, dict):
+                categories = {}
             location_name = categories.get("location", "")
             commitment = categories.get("commitment", "")
 
@@ -92,11 +94,14 @@ class LeverAdapter(BaseJobSourceAdapter):
                 desc_plain = strip_html(item.get("description", ""))
 
             # Append lists/additional sections if present
-            lists = item.get("lists", [])
-            for lst in lists:
-                text_block = lst.get("text", "")
-                content_html = lst.get("content", "")
-                desc_plain += f"\n\n{text_block}:\n" + strip_html(content_html)
+            lists = item.get("lists") or []
+            if isinstance(lists, list):
+                for lst in lists:
+                    if not isinstance(lst, dict):
+                        continue
+                    text_block = lst.get("text", "")
+                    content_html = lst.get("content", "")
+                    desc_plain += f"\n\n{text_block}:\n" + strip_html(content_html)
 
             is_remote = detect_remote(location_name, commitment) or detect_remote("", title)
             emp_type = classify_employment_type(f"{commitment} {title} {desc_plain[:300]}")

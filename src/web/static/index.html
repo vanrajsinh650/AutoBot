@@ -152,6 +152,14 @@
             </svg>
             Mission Control
           </h1>
+          <div id="browser-health-pill" class="browser-health-badge" title="Browser Engine Telemetry & Active Backend">
+            <span id="browser-pulse-indicator" class="browser-pulse-dot"></span>
+            <span id="browser-engine-text">Chromium (Default)</span>
+            <span class="browser-divider">|</span>
+            <span id="browser-proc-status">Ready</span>
+            <span class="browser-divider">|</span>
+            <span id="browser-fallback-badge" class="badge-fallback-ok">Fallback: Standby</span>
+          </div>
         </div>
 
         <div class="action-bar">
@@ -707,6 +715,63 @@
             </div>
           </div>
         </form>
+
+        <!-- ── Admin-Only Experimental Browser Configuration ───────── -->
+        <div id="admin-browser-config-card" class="panel admin-only-section" style="margin-top: 24px; border-color: rgba(6, 182, 212, 0.35);">
+          <div class="panel-header">
+            <div class="panel-title" style="color: var(--cyan);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <circle cx="12" cy="12" r="4"></circle>
+                <line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line>
+                <line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line>
+                <line x1="14.83" y1="9.17" x2="19.07" y2="4.93"></line>
+                <line x1="4.93" y1="19.07" x2="9.17" y2="14.83"></line>
+              </svg>
+              Administrator Engine Control: Browser Automation Backend
+            </div>
+            <span id="browser-admin-badge" class="badge badge-dry-run">ADMIN RESTRICTED</span>
+          </div>
+          <div style="padding: 16px;">
+            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
+              AutoBot uses production-hardened Playwright <strong>Chromium</strong> as default.
+              The experimental <strong>Obscura</strong> CDP backend can be enabled strictly for third-party company ATS portals.
+              Automated browser control on LinkedIn is strictly prohibited across all engines. Engine switching is locked during active applications.
+            </p>
+
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div class="form-group">
+                <label class="form-label" for="cfg-browser-engine">Active Browser Engine</label>
+                <select id="cfg-browser-engine" class="filter-select" style="width: 100%;">
+                  <option value="chromium" selected>Chromium (Production Default)</option>
+                  <option value="obscura">Obscura v0.2.7 (Experimental — External ATS Only)</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="display: flex; flex-direction: column; justify-content: center;">
+                <label class="toggle-wrapper" style="margin-top: 14px;">
+                  <span class="switch">
+                    <input type="checkbox" id="cfg-experimental-browser-toggle">
+                    <span class="slider-toggle"></span>
+                  </span>
+                  <span>Enable Experimental Backend Support</span>
+                </label>
+              </div>
+            </div>
+
+            <div id="browser-engine-status-info" style="margin-top: 14px; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums;">
+              Active Engine: <strong id="info-active-engine" style="color: var(--primary);">chromium</strong> &nbsp;|&nbsp;
+              Process Status: <span id="info-proc-status" style="color: var(--text-main);">ready</span> &nbsp;|&nbsp;
+              Last Health Check: <span id="info-last-health">-</span> &nbsp;|&nbsp;
+              Fallback Status: <span id="info-fallback-status">standby</span>
+            </div>
+
+            <div style="margin-top: 16px; display: flex; align-items: center; gap: 12px;">
+              <button id="btn-save-browser-config" class="btn btn-secondary" style="font-size: 12px;">Apply Engine Configuration</button>
+              <span id="browser-config-status-msg" style="font-size: 12px; color: var(--primary); display: none;">✓ Engine updated</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ── View: Job Discovery & Multi-Source Import ────────────── -->

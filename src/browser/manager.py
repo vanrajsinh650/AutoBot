@@ -58,9 +58,29 @@ class BrowserManager:
             or "chromium"
         )
         self.requested_backend = str(resolved_backend).lower().strip()
+        self._active_application: bool = False
 
         # Instantiate backend
         self.backend: BrowserBackend = self._create_backend(self.requested_backend)
+
+    @property
+    def is_active_application(self) -> bool:
+        return self._active_application
+
+    def set_active_application(self, active: bool) -> None:
+        """Mark whether an application workflow is actively in progress."""
+        self._active_application = active
+
+    def switch_backend(self, backend_name: str) -> None:
+        """
+        Switch browser backend. Engine switching during an active application is strictly prohibited.
+        """
+        if self._active_application:
+            raise RuntimeError(
+                "Security & Policy Violation: Switching browser engines during an active application is strictly prohibited."
+            )
+        self.requested_backend = str(backend_name).lower().strip()
+        self.backend = self._create_backend(self.requested_backend)
 
     def _create_backend(self, name: str) -> BrowserBackend:
         """Instantiate backend instance according to name identifier."""

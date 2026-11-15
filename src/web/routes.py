@@ -131,6 +131,53 @@ def get_current_user_id(request: web.Request, allow_fallback: bool = False) -> O
     return 1 if allow_fallback else None
 
 
+# ── Global Browser Health State ────────────────────────────────────
+
+_SYSTEM_BROWSER_HEALTH: Dict[str, Any] = {
+    "active_engine": "chromium",
+    "default_engine": "chromium",
+    "process_status": "ready",
+    "last_health_check": datetime.now().isoformat(),
+    "fallback_active": False,
+    "fallback_status": "standby",
+    "experimental_enabled": False,
+}
+
+
+def get_current_browser_health(user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Calculate and return system browser telemetry."""
+    from src.storage.db import is_admin_user
+    obscura_bin = PROJECT_ROOT / "bin" / "obscura"
+    binary_present = obscura_bin.exists()
+
+    now_iso = datetime.now().isoformat()
+    _SYSTEM_BROWSER_HEALTH["last_health_check"] = now_iso
+    if execution_manager.is_running:
+        _SYSTEM_BROWSER_HEALTH["process_status"] = "running"
+    else:
+        _SYSTEM_BROWSER_HEALTH["process_status"] = "ready"
+
+    is_admin = is_admin_user(user_id) if user_id else False
+
+    return {
+        "active_engine": _SYSTEM_BROWSER_HEALTH["active_engine"],
+        "default_engine": "chromium",
+        "process_status": _SYSTEM_BROWSER_HEALTH["process_status"],
+        "last_health_check": _SYSTEM_BROWSER_HEALTH["last_health_check"],
+        "fallback_status": "fallback_active" if _SYSTEM_BROWSER_HEALTH["fallback_active"] else "standby",
+        "fallback_active": _SYSTEM_BROWSER_HEALTH["fallback_active"],
+        "experimental_backend": {
+            "name": "obscura",
+            "binary_present": binary_present,
+            "version": "0.2.7",
+            "enabled": _SYSTEM_BROWSER_HEALTH["experimental_enabled"],
+            "status": "ready" if (_SYSTEM_BROWSER_HEALTH["experimental_enabled"] and binary_present) else "disabled",
+        },
+        "is_admin": is_admin,
+        "active_application": execution_manager.is_running,
+    }
+
+
 # ── Legacy & Dashboard Telemetry Handlers ──────────────────────────
 
 async def get_status(request: web.Request) -> web.Response:
@@ -156,7 +203,64 @@ async def get_status(request: web.Request) -> web.Response:
         "qdrant_collection": env.qdrant_collection,
         "stats": db_stats,
         "user_id": user_id,
+        "browser_health": get_current_browser_health(user_id),
     })
+
+
+async def get_browser_health_handler(request: web.Request) -> web.Response:
+    """Return real-time browser health, active backend engine, and experimental status."""
+    user_id = get_current_user_id(request, allow_fallback=True)
+    health = get_current_browser_health(user_id)
+    return web.json_response(health)
+
+
+async def configure_browser_handler(request: web.Request) -> web.Response:
+    """
+    Configure active browser engine.
+    Restricted to authorized administrators.
+    Engine switching during active application is strictly prohibited.
+    """
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    from src.storage.db import is_admin_user
+    if not is_admin_user(user_id):
+        return web.json_response(
+            {"error": "Forbidden: Experimental browser engine configuration is restricted to system administrators."},
+            status=403,
+        )
+
+    if execution_manager.is_running:
+        return web.json_response(
+            {"error": "Safety & Policy Rule: Switching browser engines during an active application run is strictly prohibited."},
+            status=400,
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON payload"}, status=400)
+
+    requested_engine = str(body.get("engine", "chromium")).lower().strip()
+    experimental_enabled = bool(body.get("experimental_enabled", False))
+
+    if requested_engine not in ("chromium", "obscura"):
+        return web.json_response({"error": f"Unsupported browser engine: '{requested_engine}'"}, status=400)
+
+    if requested_engine == "obscura" and not experimental_enabled:
+        return web.json_response(
+            {"error": "Cannot select Obscura while experimental engine mode is disabled."},
+            status=400,
+        )
+
+    _SYSTEM_BROWSER_HEALTH["experimental_enabled"] = experimental_enabled
+    _SYSTEM_BROWSER_HEALTH["active_engine"] = requested_engine
+    _SYSTEM_BROWSER_HEALTH["last_health_check"] = datetime.now().isoformat()
+
+    health = get_current_browser_health(user_id)
+    logger.info(f"[browser]Admin configured browser engine: active={requested_engine}, experimental_enabled={experimental_enabled}")
+    return web.json_response({"success": True, "browser_health": health})
 
 
 async def get_stats_handler(request: web.Request) -> web.Response:

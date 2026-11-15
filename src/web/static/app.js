@@ -151,6 +151,21 @@
     cfgNotice: document.getElementById("cfg-notice"),
     btnSaveSettings: document.getElementById("btn-save-settings"),
 
+    // Browser Health Telemetry & Admin Controls
+    browserPulseIndicator: document.getElementById("browser-pulse-indicator"),
+    browserEngineText: document.getElementById("browser-engine-text"),
+    browserProcStatus: document.getElementById("browser-proc-status"),
+    browserFallbackBadge: document.getElementById("browser-fallback-badge"),
+    adminBrowserConfigCard: document.getElementById("admin-browser-config-card"),
+    cfgBrowserEngine: document.getElementById("cfg-browser-engine"),
+    cfgExperimentalBrowserToggle: document.getElementById("cfg-experimental-browser-toggle"),
+    infoActiveEngine: document.getElementById("info-active-engine"),
+    infoProcStatus: document.getElementById("info-proc-status"),
+    infoLastHealth: document.getElementById("info-last-health"),
+    infoFallbackStatus: document.getElementById("info-fallback-status"),
+    btnSaveBrowserConfig: document.getElementById("btn-save-browser-config"),
+    browserConfigStatusMsg: document.getElementById("browser-config-status-msg"),
+
     // Toast
     toastContainer: document.getElementById("toast-container"),
   };
@@ -344,8 +359,115 @@
         els.metricDryRun.textContent = data.stats.dry_run ?? 0;
         els.metricSkipped.textContent = data.stats.skipped ?? 0;
       }
+
+      if (data.browser_health) {
+        updateBrowserHealthUI(data.browser_health);
+      }
     } catch (err) {
       console.error("Failed to load status:", err);
+    }
+  }
+
+  // ── Browser Health Telemetry & Admin Controls ────────────────────
+  function updateBrowserHealthUI(health) {
+    if (!health) return;
+
+    if (els.browserEngineText) {
+      const isObscura = health.active_engine === "obscura";
+      els.browserEngineText.textContent = isObscura ? "Obscura v0.2.7 (Exp)" : "Chromium (Default)";
+      els.browserEngineText.style.color = isObscura ? "var(--cyan)" : "var(--text-main)";
+    }
+
+    if (els.browserProcStatus) {
+      els.browserProcStatus.textContent = (health.process_status || "ready").toUpperCase();
+    }
+
+    if (els.browserPulseIndicator) {
+      if (health.fallback_active) {
+        els.browserPulseIndicator.classList.add("fallback");
+      } else {
+        els.browserPulseIndicator.classList.remove("fallback");
+      }
+    }
+
+    if (els.browserFallbackBadge) {
+      if (health.fallback_active) {
+        els.browserFallbackBadge.className = "badge-fallback-triggered";
+        els.browserFallbackBadge.textContent = "Fallback: ACTIVE";
+      } else {
+        els.browserFallbackBadge.className = "badge-fallback-ok";
+        els.browserFallbackBadge.textContent = "Fallback: Standby";
+      }
+    }
+
+    // Admin Panel Controls
+    if (els.adminBrowserConfigCard) {
+      if (health.is_admin) {
+        els.adminBrowserConfigCard.style.display = "block";
+        if (els.cfgBrowserEngine) els.cfgBrowserEngine.value = health.active_engine || "chromium";
+        if (els.cfgExperimentalBrowserToggle) {
+          els.cfgExperimentalBrowserToggle.checked = Boolean(health.experimental_backend?.enabled);
+        }
+        if (els.infoActiveEngine) els.infoActiveEngine.textContent = health.active_engine || "chromium";
+        if (els.infoProcStatus) els.infoProcStatus.textContent = health.process_status || "ready";
+        if (els.infoLastHealth && health.last_health_check) {
+          const d = new Date(health.last_health_check);
+          els.infoLastHealth.textContent = d.toLocaleTimeString();
+        }
+        if (els.infoFallbackStatus) els.infoFallbackStatus.textContent = health.fallback_status || "standby";
+
+        // Prevent switching mid-application
+        const isLocked = Boolean(health.active_application);
+        if (els.cfgBrowserEngine) els.cfgBrowserEngine.disabled = isLocked;
+        if (els.cfgExperimentalBrowserToggle) els.cfgExperimentalBrowserToggle.disabled = isLocked;
+        if (els.btnSaveBrowserConfig) {
+          els.btnSaveBrowserConfig.disabled = isLocked;
+          if (isLocked) {
+            els.btnSaveBrowserConfig.title = "Engine switching locked during active application";
+          } else {
+            els.btnSaveBrowserConfig.title = "";
+          }
+        }
+      } else {
+        els.adminBrowserConfigCard.style.display = "none";
+      }
+    }
+  }
+
+  async function saveBrowserConfiguration() {
+    if (!els.cfgBrowserEngine || !els.cfgExperimentalBrowserToggle) return;
+    const requestedEngine = els.cfgBrowserEngine.value;
+    const experimentalEnabled = els.cfgExperimentalBrowserToggle.checked;
+
+    if (requestedEngine === "obscura" && !experimentalEnabled) {
+      showToast("Cannot select Obscura while experimental mode is disabled.", "error");
+      return;
+    }
+
+    try {
+      const res = await authedFetch("/api/browser/configure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          engine: requestedEngine,
+          experimental_enabled: experimentalEnabled,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Failed to update browser configuration", "error");
+        return;
+      }
+      showToast("Browser engine configuration updated successfully!");
+      if (els.browserConfigStatusMsg) {
+        els.browserConfigStatusMsg.style.display = "inline";
+        setTimeout(() => {
+          if (els.browserConfigStatusMsg) els.browserConfigStatusMsg.style.display = "none";
+        }, 3000);
+      }
+      updateBrowserHealthUI(data.browser_health);
+    } catch (err) {
+      showToast(`Network error: ${err.message}`, "error");
     }
   }
 
@@ -995,6 +1117,13 @@
       e.preventDefault();
       saveConfig();
     });
+
+    if (els.btnSaveBrowserConfig) {
+      els.btnSaveBrowserConfig.addEventListener("click", (e) => {
+        e.preventDefault();
+        saveBrowserConfiguration();
+      });
+    }
 
     // Resume Dropzone & Upload triggers
     if (els.btnQuickUpload) {

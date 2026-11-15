@@ -12,12 +12,14 @@ from src.web.routes import (
     auth_logout_handler,
     auth_me_handler,
     auth_register_handler,
+    configure_browser_handler,
     confirm_linkedin_submission_handler,
     delete_account_handler,
     discover_jobs_handler,
     download_application_pack_handler,
     evaluate_job_handler,
     get_audit_logs_handler,
+    get_browser_health_handler,
     get_candidate_profile_handler,
     get_config_handler,
     get_discovered_jobs_handler,
@@ -50,6 +52,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 PUBLIC_EXACT_PATHS = {
     "/",
     "/api/status",
+    "/api/browser/health",
     "/api/auth/register",
     "/api/auth/login",
 }
@@ -111,6 +114,8 @@ def create_app() -> web.Application:
 
     # ── Legacy & Telemetry API Routes ─────────────────────────────
     app.router.add_get("/api/status", get_status)
+    app.router.add_get("/api/browser/health", get_browser_health_handler)
+    app.router.add_post("/api/browser/configure", configure_browser_handler)
     app.router.add_get("/api/stats", get_stats_handler)
     app.router.add_get("/api/jobs", get_jobs)
     app.router.add_get("/api/config", get_config_handler)
