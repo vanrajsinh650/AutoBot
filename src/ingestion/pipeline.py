@@ -30,7 +30,6 @@ from qdrant_client import QdrantClient
 from rich.table import Table
 
 from src.ingestion.embedder import ProfileEmbedder, init_qdrant_client
-from src.ingestion.linkedin_scraper import scrape_linkedin_profile
 from src.ingestion.models import DocumentChunk, IngestionSummary
 from src.ingestion.portfolio_scraper import scrape_portfolio
 from src.ingestion.resume_parser import parse_resume
@@ -124,24 +123,7 @@ async def ingest_profile(
     all_chunks.extend(resume_chunks)
     logger.info(f"Loaded {len(resume_chunks)} chunks from resume.")
 
-    # ── Source 2: LinkedIn Profile (Optional) ──────────────────────
-    linkedin_url = cfg.profile.linkedin_url.strip() or env.linkedin_profile_url.strip()
-    if linkedin_url:
-        logger.info(f"[cyan]🔗 Step 1.2: Scraping LinkedIn profile ({linkedin_url})...[/cyan]")
-        try:
-            linkedin_chunks = await scrape_linkedin_profile(
-                profile_url=linkedin_url,
-                env=env,
-                headless=env.headless,
-            )
-            all_chunks.extend(linkedin_chunks)
-            logger.info(f"Loaded {len(linkedin_chunks)} chunks from LinkedIn.")
-        except Exception as e:
-            logger.warning(f"Failed to scrape LinkedIn profile ({e}); continuing pipeline.")
-    else:
-        logger.info("LinkedIn profile URL not configured; skipping LinkedIn ingestion.")
-
-    # ── Source 3: Portfolio Website (Optional) ────────────────────
+    # ── Source 2: Portfolio Website (Optional) ────────────────────
     portfolio_url = cfg.profile.portfolio_url.strip()
     if portfolio_url:
         logger.info(f"[cyan]🌐 Step 1.3: Scraping portfolio website ({portfolio_url})...[/cyan]")

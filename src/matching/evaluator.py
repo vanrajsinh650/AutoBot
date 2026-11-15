@@ -21,9 +21,9 @@ from src.matching.scorer import (
     MatchBreakdown,
 )
 from src.storage.db import (
-    DEFAULT_DB_PATH,
     get_candidate_profile,
     get_db_connection,
+    get_db_path,
     get_job_preferences,
     get_resume_evidence,
     init_db,
@@ -48,6 +48,10 @@ def extract_requirements_heuristic(description: str) -> JobRequirementsExtracted
     for skill in COMMON_TECH_KEYWORDS:
         pattern = r"\b" + re.escape(skill.lower()) + r"\b"
         if re.search(pattern, desc_lower):
+            # Negation guard: Check for phrases like "no python", "without java", "not required"
+            neg_pattern = rf"\b(?:no|not|without|never)\b[^.\n]{{0,35}}\b{re.escape(skill.lower())}\b|\b{re.escape(skill.lower())}\b[^.\n]{{0,35}}\b(?:not required|not needed)\b"
+            if re.search(neg_pattern, desc_lower):
+                continue
             found_skills.append(skill)
 
     # Years of experience heuristic (e.g. '3+ years', '5 years of experience')
@@ -115,8 +119,8 @@ class JobFitEvaluator:
     Evaluates jobs for a specific tenant and stores full diagnostic records.
     """
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH, llm: Optional[BaseChatModel] = None):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None, llm: Optional[BaseChatModel] = None):
+        self.db_path = db_path or get_db_path()
         self._llm = llm
 
     def _get_llm(self) -> Optional[BaseChatModel]:
@@ -176,9 +180,38 @@ class JobFitEvaluator:
         # 4. Save to match_evaluations
         now = datetime.now().isoformat()
         with get_db_connection(self.db_path) as conn:
-            # Find job internal ID in SQLite
+            # Find job internal ID in SQLite or insert job if not present
             job_row = conn.execute("SELECT id FROM jobs WHERE stable_id = ?", (job.stable_id,)).fetchone()
-            job_internal_id = job_row["id"] if job_row else 0
+            if not job_row:
+                emp_type = job.employment_type.value if hasattr(job.employment_type, "value") else str(job.employment_type)
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO jobs (
+                        stable_id, source_name, title, company, description,
+                        employment_type, location, country, is_remote, salary_info,
+                        publication_date, application_url, raw_data, fingerprint, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?)
+                    """,
+                    (
+                        job.stable_id,
+                        job.source_name,
+                        job.title,
+                        job.company,
+                        job.description,
+                        emp_type,
+                        job.location or "",
+                        getattr(job, "country", "") or "",
+                        1 if job.is_remote else 0,
+                        job.salary_info or "",
+                        job.publication_date or "",
+                        job.application_url or "",
+                        job.fingerprint or job.stable_id,
+                        now,
+                    ),
+                )
+                conn.commit()
+                job_row = conn.execute("SELECT id FROM jobs WHERE stable_id = ?", (job.stable_id,)).fetchone()
+            job_internal_id = job_row["id"] if job_row else 1
 
             cur = conn.execute(
                 """

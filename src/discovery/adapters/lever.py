@@ -3,6 +3,7 @@ Lever Published Postings API Adapter.
 Endpoint: https://api.lever.co/v0/postings/{company}?mode=json
 """
 
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 import aiohttp
@@ -32,18 +33,42 @@ class LeverAdapter(BaseJobSourceAdapter):
             session = aiohttp.ClientSession()
             close_session = True
 
-        try:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status != 200:
-                    logger.warning(f"Lever API returned HTTP {resp.status} for company '{company}'")
-                    return []
-                payload = await resp.json()
-        except Exception as e:
-            logger.error(f"Failed to query Lever API for '{company}': {e}")
-            return []
-        finally:
-            if close_session:
-                await session.close()
+        payload: Any = None
+        for attempt in range(2):
+            try:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    if resp.status == 429:
+                        logger.warning(f"Rate limited (HTTP 429) by Lever for '{company}'. Attempt {attempt+1}/2.")
+                        if attempt == 0:
+                            await asyncio.sleep(0.5)
+                            continue
+                        return []
+                    elif resp.status in (500, 502, 503, 504):
+                        logger.warning(f"Transient error (HTTP {resp.status}) from Lever for '{company}'. Attempt {attempt+1}/2.")
+                        if attempt == 0:
+                            await asyncio.sleep(0.5)
+                            continue
+                        return []
+                    elif resp.status != 200:
+                        logger.warning(f"Lever API returned HTTP {resp.status} for company '{company}'")
+                        return []
+                    payload = await resp.json()
+                    break
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                logger.warning(f"Network error querying Lever for '{company}': {e}. Attempt {attempt+1}/2.")
+                if attempt == 0:
+                    await asyncio.sleep(0.5)
+                    continue
+                return []
+            except Exception as e:
+                logger.error(f"Failed to query Lever API for '{company}': {e}")
+                return []
+            finally:
+                if close_session and attempt == 1:
+                    await session.close()
+
+        if close_session and not session.closed:
+            await session.close()
 
         if not isinstance(payload, list):
             return []
@@ -51,6 +76,8 @@ class LeverAdapter(BaseJobSourceAdapter):
         normalized: List[NormalizedJob] = []
 
         for item in payload:
+            if not isinstance(item, dict):
+                continue
             job_id = str(item.get("id", ""))
             title = str(item.get("text", "")).strip()
             if not title:

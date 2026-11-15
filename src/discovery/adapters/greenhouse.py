@@ -33,32 +33,58 @@ class GreenhouseAdapter(BaseJobSourceAdapter):
             session = aiohttp.ClientSession()
             close_session = True
 
-        try:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                if resp.status != 200:
-                    logger.warning(f"Greenhouse API returned HTTP {resp.status} for board '{board}'")
-                    return []
-                payload = await resp.json()
-        except Exception as e:
-            logger.error(f"Failed to query Greenhouse API for '{board}': {e}")
-            return []
-        finally:
-            if close_session:
-                await session.close()
+        payload: Any = None
+        for attempt in range(2):
+            try:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                    if resp.status == 429:
+                        logger.warning(f"Rate limited (HTTP 429) by Greenhouse for '{board}'. Attempt {attempt+1}/2.")
+                        if attempt == 0:
+                            await asyncio.sleep(0.5)
+                            continue
+                        return []
+                    elif resp.status in (500, 502, 503, 504):
+                        logger.warning(f"Transient error (HTTP {resp.status}) from Greenhouse for '{board}'. Attempt {attempt+1}/2.")
+                        if attempt == 0:
+                            await asyncio.sleep(0.5)
+                            continue
+                        return []
+                    elif resp.status != 200:
+                        logger.warning(f"Greenhouse API returned HTTP {resp.status} for board '{board}'")
+                        return []
+                    payload = await resp.json()
+                    break
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                logger.warning(f"Network error querying Greenhouse for '{board}': {e}. Attempt {attempt+1}/2.")
+                if attempt == 0:
+                    await asyncio.sleep(0.5)
+                    continue
+                return []
+            except Exception as e:
+                logger.error(f"Failed to query Greenhouse API for '{board}': {e}")
+                return []
+            finally:
+                if close_session and attempt == 1:
+                    await session.close()
+
+        if close_session and not session.closed:
+            await session.close()
 
         raw_jobs = payload.get("jobs", []) if isinstance(payload, dict) else []
         normalized: List[NormalizedJob] = []
 
         for item in raw_jobs:
+            if not isinstance(item, dict):
+                continue
             job_id = str(item.get("id", ""))
             title = str(item.get("title", "")).strip()
             if not title:
                 continue
 
-            loc_data = item.get("location", {})
+            loc_data = item.get("location") or {}
             location_name = loc_data.get("name", "") if isinstance(loc_data, dict) else str(loc_data or "")
 
-            raw_content = item.get("content", "")
+            raw_content = item.get("content") or ""
             description = strip_html(raw_content)
 
             is_remote = detect_remote(location_name, title) or detect_remote("", description[:300])

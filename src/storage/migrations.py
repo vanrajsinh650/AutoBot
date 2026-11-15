@@ -101,9 +101,14 @@ def run_migrations(conn: sqlite3.Connection) -> None:
             password_hash  TEXT NOT NULL,
             created_at     TEXT NOT NULL,
             updated_at     TEXT NOT NULL,
-            is_active      INTEGER DEFAULT 1
+            is_active      INTEGER DEFAULT 1,
+            is_admin       INTEGER DEFAULT 0
         )
     """)
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+    except Exception:
+        pass
 
     # Create default user if none exists (for backward compatibility)
     cur = conn.execute("SELECT id FROM users WHERE id = 1")
@@ -113,11 +118,14 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         now = datetime.now().isoformat()
         conn.execute(
             """
-            INSERT OR IGNORE INTO users (id, email, password_hash, created_at, updated_at, is_active)
-            VALUES (1, 'default@autobot.local', 'LOCKED_LEGACY_ACCOUNT', ?, ?, 1)
+            INSERT OR IGNORE INTO users (id, email, password_hash, created_at, updated_at, is_active, is_admin)
+            VALUES (1, 'default@autobot.local', 'LOCKED_LEGACY_ACCOUNT', ?, ?, 1, 1)
             """,
             (now, now),
         )
+    else:
+        # Ensure user 1 has admin flag
+        conn.execute("UPDATE users SET is_admin = 1 WHERE id = 1 AND is_admin = 0")
 
     # 3b. Persistent User Sessions
     conn.execute("""
@@ -334,17 +342,26 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     conn.execute("""
         CREATE TABLE IF NOT EXISTS audit_logs (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id        INTEGER REFERENCES users(id),
+            user_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
             action         TEXT NOT NULL,
             resource_type  TEXT NOT NULL,
             resource_id    TEXT,
             details        TEXT DEFAULT '{}',
             ip_address     TEXT DEFAULT '',
+            prev_hash      TEXT DEFAULT '',
+            entry_hash     TEXT DEFAULT '',
             created_at     TEXT NOT NULL
         )
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)")
+
+    # Ensure prev_hash and entry_hash columns exist on existing tables
+    audit_cols = {row["name"] for row in conn.execute("PRAGMA table_info(audit_logs)").fetchall()}
+    if "prev_hash" not in audit_cols:
+        conn.execute("ALTER TABLE audit_logs ADD COLUMN prev_hash TEXT DEFAULT ''")
+    if "entry_hash" not in audit_cols:
+        conn.execute("ALTER TABLE audit_logs ADD COLUMN entry_hash TEXT DEFAULT ''")
 
     # Legacy indexes
     conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id)")

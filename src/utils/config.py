@@ -87,9 +87,7 @@ class AppConfig(BaseModel):
 class EnvSettings(BaseSettings):
     """Typed environment variables from .env"""
 
-    # LinkedIn
-    linkedin_email:       str = ""
-    linkedin_password:    str = ""
+    # Candidate Public Links
     linkedin_profile_url: str = ""
 
     # LLM

@@ -13,8 +13,8 @@ from src.application.preparation import ApplicationPreparationService
 from src.discovery.adapters.manual import ManualJobAdapter
 from src.discovery.models import NormalizedJob, SourceType
 from src.storage.db import (
-    DEFAULT_DB_PATH,
     get_db_connection,
+    get_db_path,
     init_db,
     log_audit,
     save_application,
@@ -43,9 +43,9 @@ class LinkedInWorkflowManager:
     No Playwright, no browser automation, no credential storage.
     """
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH):
-        self.db_path = db_path
-        self.prep_service = ApplicationPreparationService(db_path=db_path)
+    def __init__(self, db_path: Optional[str] = None):
+        self.db_path = db_path or get_db_path()
+        self.prep_service = ApplicationPreparationService(db_path=self.db_path)
 
     @staticmethod
     def verify_no_automated_browser_access(url: str) -> None:
@@ -232,8 +232,8 @@ class ExternalATSWorkflowManager:
         "linkedin.com",
     ]
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None):
+        self.db_path = db_path or get_db_path()
 
     def check_authorization(self, url: str) -> Tuple[bool, str]:
         """

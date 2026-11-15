@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import re
 from typing import List, Optional
+from urllib.parse import urlparse
 
 import numpy as np
 from langchain_core.language_models import BaseChatModel
@@ -48,6 +49,21 @@ class LocalDenseEmbeddings(Embeddings):
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         return [self.embed_query(t) for t in texts]
+
+
+def validate_gateway_url(url: str) -> str:
+    """
+    Ensure AI gateway connects strictly to loopback or uses TLS/HTTPS for remote endpoints.
+    Protects candidate PII and resumes from cleartext transport exposure.
+    """
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+    is_loopback = hostname in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+    if parsed.scheme == "http" and not is_loopback:
+        raise ValueError(
+            f"Insecure gateway URL '{url}'. Remote AI gateway connections must use HTTPS to protect candidate PII."
+        )
+    return url
 
 
 def get_llm(temperature: float = 0.0) -> BaseChatModel:
@@ -109,7 +125,8 @@ def get_llm(temperature: float = 0.0) -> BaseChatModel:
                         ).strip()
                 return res
 
-        base_url = env.anthropic_base_url or "http://localhost:4981"
+        raw_url = env.anthropic_base_url or "http://localhost:4981"
+        base_url = validate_gateway_url(raw_url)
         api_key = env.anthropic_api_key or "orbit-sk-local"
         model_name = env.llm_model if env.llm_model and "gpt" not in env.llm_model else "claude-sonnet-4-6"
 

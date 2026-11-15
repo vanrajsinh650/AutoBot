@@ -16,7 +16,7 @@ from src.discovery.adapters.greenhouse import GreenhouseAdapter
 from src.discovery.adapters.lever import LeverAdapter
 from src.discovery.adapters.manual import ManualJobAdapter
 from src.discovery.models import JobSourceConfig, NormalizedJob, SourceType
-from src.storage.db import DEFAULT_DB_PATH, get_db_connection, init_db
+from src.storage.db import get_db_connection, get_db_path, init_db
 from src.utils.logger import logger
 
 
@@ -31,8 +31,8 @@ class JobDiscoveryEngine:
         JobSourceConfig(name="OpenAI", source_type=SourceType.ASHBY, board_token_or_slug="openai"),
     ]
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None):
+        self.db_path = db_path or get_db_path()
         self._sources: List[JobSourceConfig] = list(self.DEFAULT_SOURCES)
         self.manual_adapter = ManualJobAdapter()
 

@@ -45,8 +45,6 @@ def test_env():
     return EnvSettings(
         qdrant_collection="test_profile_pipeline",
         qdrant_url=":memory:",
-        linkedin_email="test@example.com",
-        linkedin_password="pass",
     )
 
 
@@ -113,7 +111,6 @@ async def test_pipeline_force_reingest(test_cfg, test_env):
     ]
 
     with patch("src.ingestion.pipeline.parse_resume", return_value=resume_chunks), \
-         patch("src.ingestion.pipeline.scrape_linkedin_profile", new_callable=AsyncMock, return_value=[]), \
          patch("src.ingestion.pipeline.scrape_portfolio", return_value=[]):
 
         summary = await ingest_profile(
@@ -159,7 +156,6 @@ async def test_pipeline_force_reingest_dimension_switch(test_cfg, test_env):
     ]
 
     with patch("src.ingestion.pipeline.parse_resume", return_value=new_chunks), \
-         patch("src.ingestion.pipeline.scrape_linkedin_profile", new_callable=AsyncMock, return_value=[]), \
          patch("src.ingestion.pipeline.scrape_portfolio", return_value=[]):
 
         summary = await ingest_profile(
@@ -190,17 +186,16 @@ async def test_pipeline_multi_source_aggregation_and_fault_tolerance(test_cfg, t
             section=SectionType.SKILLS,
         )
     ]
-    linkedin_chunks = [
+    portfolio_chunks = [
         DocumentChunk(
-            content="LinkedIn Experience: Principal Architect",
-            source=IngestionSource.LINKEDIN,
+            content="Portfolio Experience: Principal Architect",
+            source=IngestionSource.PORTFOLIO,
             section=SectionType.EXPERIENCE,
         )
     ]
 
     with patch("src.ingestion.pipeline.parse_resume", return_value=resume_chunks), \
-         patch("src.ingestion.pipeline.scrape_linkedin_profile", new_callable=AsyncMock, return_value=linkedin_chunks), \
-         patch("src.ingestion.pipeline.scrape_portfolio", side_effect=Exception("Portfolio network timeout")):
+         patch("src.ingestion.pipeline.scrape_portfolio", return_value=portfolio_chunks):
 
         summary = await ingest_profile(
             cfg=test_cfg,
@@ -210,10 +205,9 @@ async def test_pipeline_multi_source_aggregation_and_fault_tolerance(test_cfg, t
             embeddings=FakeEmbeddings(),
         )
 
-        # Ingestion should succeed despite portfolio exception
         assert summary.skipped is False
         assert summary.total_chunks == 2
         assert summary.chunks_by_source["resume"] == 1
-        assert summary.chunks_by_source["linkedin"] == 1
+        assert summary.chunks_by_source["portfolio"] == 1
         assert summary.chunks_by_section["skills"] == 1
         assert summary.chunks_by_section["experience"] == 1

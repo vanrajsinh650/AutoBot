@@ -1,28 +1,15 @@
 """
-Browser Bridge Adapter connecting LangGraph Agent to Playwright Actuators.
-
-Educational Concept:
-The Bridge Pattern decouples high-level agentic orchestration from low-level browser drivers:
-1. Standardized Node Contracts:
-   Exposes:
-   - `search_provider`: Signature matches `Callable[[str, str, int], List[JobPosting]]`
-     consumed directly by `SearchNode`.
-   - `application_executor`: Signature matches `Callable[[JobPosting, Optional[str]], bool]`
-     consumed directly by `ApplyNode`.
-2. Lifecycle Orchestration:
-   Serves as an async context manager (`async with BrowserBridge(...) as bridge:`)
-   initializing `BrowserManager`, `LinkedInNavigator`, `EasyApplyActuator`, and
-   `ExternalApplyActuator` together and guaranteeing safe browser shutdown.
+Browser Bridge Adapter connecting LangGraph Agent to External ATS Actuators in AutoBot v2.1.
+Enforces complete compliance: strictly prohibits LinkedIn browser automation.
 """
 
 from pathlib import Path
 from typing import List, Optional
 
 from src.agent.state import JobPosting
-from src.browser.easy_apply_actuator import EasyApplyActuator
+from src.application.workflows import LinkedInPolicyViolationError
 from src.browser.external_apply_actuator import ExternalApplyActuator
 from src.browser.manager import BrowserManager
-from src.browser.navigator import LinkedInNavigator
 from src.memory.form_rag import FormRAG
 from src.utils.config import AppConfig, EnvSettings, get_config, get_env
 from src.utils.logger import logger
@@ -30,7 +17,8 @@ from src.utils.logger import logger
 
 class BrowserBridge:
     """
-    Unified adapter integrating Playwright browser automation with AutoBot LangGraph nodes.
+    Adapter strictly limited to authorized external career portals (ATS).
+    Automated LinkedIn navigation, scraping, and Easy Apply are prohibited.
     """
 
     def __init__(
@@ -46,8 +34,6 @@ class BrowserBridge:
         self.resume_path = resume_path
 
         self.manager: Optional[BrowserManager] = None
-        self.navigator: Optional[LinkedInNavigator] = None
-        self.easy_apply_actuator: Optional[EasyApplyActuator] = None
         self.external_apply_actuator: Optional[ExternalApplyActuator] = None
 
     async def __aenter__(self) -> "BrowserBridge":
@@ -58,27 +44,9 @@ class BrowserBridge:
         await self.close()
 
     async def start(self) -> None:
-        """Launch browser and initialize actuators."""
+        """Launch browser and initialize authorized external actuators."""
         self.manager = BrowserManager(cfg=self.cfg, env=self.env)
         await self.manager.start()
-
-        self.navigator = LinkedInNavigator(
-            manager=self.manager,
-            cfg=self.cfg,
-            env=self.env,
-        )
-
-        # Authenticate with LinkedIn
-        is_logged_in = await self.navigator.ensure_logged_in()
-        if not is_logged_in:
-            logger.warning("[bridge]⚠ LinkedIn authentication not verified. Search may be constrained.[/bridge]")
-
-        self.easy_apply_actuator = EasyApplyActuator(
-            page=self.manager.page,
-            form_rag=self.form_rag,
-            cfg=self.cfg,
-            resume_path=self.resume_path,
-        )
 
         self.external_apply_actuator = ExternalApplyActuator(
             context=self.manager.context,
@@ -94,23 +62,12 @@ class BrowserBridge:
         page: int,
     ) -> List[JobPosting]:
         """
-        Search provider callback plugged into SearchNode.
+        Policy Gate: Automated LinkedIn search scraping is strictly prohibited.
         """
-        if not self.navigator:
-            raise RuntimeError("BrowserBridge has not been started.")
-
-        jobs = await self.navigator.search_jobs(keyword, location, page)
-
-        # For the first few jobs, scrape full description if short
-        enriched_jobs = []
-        for job in jobs:
-            if len(job.description) < 100:
-                enriched_job = await self.navigator.fetch_job_details(job)
-                enriched_jobs.append(enriched_job)
-            else:
-                enriched_jobs.append(job)
-
-        return enriched_jobs
+        raise LinkedInPolicyViolationError(
+            "Compliance Policy Violation: Automated job search scraping on LinkedIn is strictly prohibited. "
+            "Use authorized public ATS adapters via JobDiscoveryEngine or user-submitted imports."
+        )
 
     async def application_executor(
         self,
@@ -118,18 +75,23 @@ class BrowserBridge:
         cover_letter: Optional[str] = None,
     ) -> bool:
         """
-        Application executor callback plugged into ApplyNode.
+        Application executor callback for ApplyNode.
+        Fails closed on any LinkedIn job.
         """
         if not self.manager or not self.manager.page:
             raise RuntimeError("BrowserBridge has not been started.")
 
-        # Route between Easy Apply vs External Apply based on vacancy badge & config
-        if job.is_easy_apply and getattr(self.cfg.apply, "easy_apply", True):
-            if not self.easy_apply_actuator:
-                return False
-            return await self.easy_apply_actuator.apply(job, cover_letter=cover_letter)
+        target_url = (job.external_apply_url or job.url or "").lower()
 
-        elif not job.is_easy_apply and getattr(self.cfg.apply, "external_apply", True):
+        # Hard compliance gate: LinkedIn is strictly prohibited
+        if job.is_easy_apply or "linkedin.com" in target_url or "lnkd.in" in target_url:
+            raise LinkedInPolicyViolationError(
+                f"Compliance Policy Violation: Automated application to LinkedIn jobs ({job.job_id}) "
+                "is strictly prohibited. Applications to LinkedIn vacancies must be submitted directly "
+                "on LinkedIn by the candidate using the manual workflow."
+            )
+
+        if getattr(self.cfg.apply, "external_apply", True):
             if not self.external_apply_actuator:
                 return False
             return await self.external_apply_actuator.apply(
@@ -138,9 +100,8 @@ class BrowserBridge:
                 cover_letter=cover_letter,
             )
 
-        else:
-            logger.info(f"[bridge]Skipping application: apply type disabled in config for {job.job_id}[/bridge]")
-            return False
+        logger.info(f"[bridge]Skipping application: external apply disabled in config for {job.job_id}[/bridge]")
+        return False
 
     async def close(self) -> None:
         """Tear down browser session."""

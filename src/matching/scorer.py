@@ -23,6 +23,49 @@ DISCLAIMER_NOTICE = (
 )
 
 
+SKILL_ALIASES: Dict[str, str] = {
+    "k8s": "kubernetes",
+    "kube": "kubernetes",
+    "kubernetes": "kubernetes",
+    "py": "python",
+    "python": "python",
+    "python3": "python",
+    "js": "javascript",
+    "javascript": "javascript",
+    "ts": "typescript",
+    "typescript": "typescript",
+    "go": "golang",
+    "golang": "golang",
+    "react": "react",
+    "reactjs": "react",
+    "react.js": "react",
+    "node": "nodejs",
+    "nodejs": "nodejs",
+    "node.js": "nodejs",
+    "postgres": "postgresql",
+    "postgresql": "postgresql",
+    "psql": "postgresql",
+    "mongo": "mongodb",
+    "mongodb": "mongodb",
+    "aws": "amazon web services",
+    "amazon web services": "amazon web services",
+    "gcp": "google cloud",
+    "google cloud": "google cloud",
+    "google cloud platform": "google cloud",
+    "tf": "terraform",
+    "terraform": "terraform",
+    "docker": "docker",
+    "ci/cd": "cicd",
+    "cicd": "cicd",
+}
+
+
+def normalize_skill(skill: str) -> str:
+    """Normalize skill name to standard canonical identifier."""
+    clean = skill.lower().strip()
+    return SKILL_ALIASES.get(clean, clean)
+
+
 @dataclass
 class JobRequirementsExtracted:
     """Requirements extracted from job description (via LLM or heuristics)."""
@@ -62,12 +105,21 @@ class DeterministicFitScorer:
     def _skill_matches(target_skill: str, candidate_skill: str) -> bool:
         """
         Check if a candidate skill matches a required/preferred skill.
+        Supports canonical skill aliases (e.g. k8s <-> kubernetes, postgres <-> postgresql),
+        exact matches, and word-boundary substring matches.
         Prevents single letters (e.g. 'C', 'R') from matching arbitrary words (e.g. 'Docker', 'React').
         """
         ts = target_skill.lower().strip()
         cs = candidate_skill.lower().strip()
         if ts == cs:
             return True
+
+        # Check canonical aliases
+        norm_ts = normalize_skill(ts)
+        norm_cs = normalize_skill(cs)
+        if norm_ts == norm_cs:
+            return True
+
         if len(cs) <= 2 or len(ts) <= 2:
             return ts == cs
         # Word boundary matching

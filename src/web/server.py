@@ -47,6 +47,57 @@ from src.utils.logger import console, logger
 
 STATIC_DIR = Path(__file__).parent / "static"
 
+PUBLIC_EXACT_PATHS = {
+    "/",
+    "/api/status",
+    "/api/auth/register",
+    "/api/auth/login",
+}
+
+
+@web.middleware
+async def auth_middleware(request: web.Request, handler):
+    """
+    Centralized Fail-Closed Authentication Middleware for AutoBot v2.1.
+    Strictly verifies Bearer session tokens for all protected /api/* endpoints.
+    Returns HTTP 401 on missing, expired, revoked, or invalid sessions.
+    """
+    path = request.path
+
+    # Allow public endpoints and static assets
+    if path in PUBLIC_EXACT_PATHS or path.startswith("/static/"):
+        return await handler(request)
+
+    # All other /api/ endpoints require valid authentication
+    if path.startswith("/api/"):
+        auth_header = request.headers.get("Authorization", "")
+        token = None
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1].strip()
+        if not token:
+            token = request.cookies.get("auth_token") or request.query.get("token")
+
+        if not token:
+            return web.json_response(
+                {"error": "Authentication required. Missing Bearer token or auth cookie."},
+                status=401,
+            )
+
+        from src.storage.auth import validate_session
+        session = validate_session(token)
+        if not session:
+            return web.json_response(
+                {"error": "Authentication required. Invalid, expired, or revoked session token."},
+                status=401,
+            )
+
+        # Attach validated session data to request state
+        request["user_id"] = session["user_id"]
+        request["user_email"] = session.get("email")
+        request["session"] = session
+
+    return await handler(request)
+
 
 async def index_handler(request: web.Request) -> web.FileResponse:
     """Serve the single-page application dashboard."""
@@ -55,8 +106,8 @@ async def index_handler(request: web.Request) -> web.FileResponse:
 
 
 def create_app() -> web.Application:
-    """Build and configure the aiohttp Application instance."""
-    app = web.Application()
+    """Build and configure the aiohttp Application instance with centralized auth middleware."""
+    app = web.Application(middlewares=[auth_middleware])
 
     # ── Legacy & Telemetry API Routes ─────────────────────────────
     app.router.add_get("/api/status", get_status)

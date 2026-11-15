@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import shutil
 from typing import Any, Dict, List, Optional, Set
+import urllib.parse
 
 from aiohttp import web
 import yaml
@@ -34,7 +35,6 @@ from src.storage.auth import (
     validate_session,
 )
 from src.storage.db import (
-    DEFAULT_DB_PATH,
     end_session,
     get_candidate_profile,
     get_db_connection,
@@ -108,12 +108,14 @@ class AgentExecutionManager:
 execution_manager = AgentExecutionManager()
 
 
-def get_current_user_id(request: web.Request, allow_fallback: bool = True) -> Optional[int]:
+def get_current_user_id(request: web.Request, allow_fallback: bool = False) -> Optional[int]:
     """
-    Extract user_id from session header/cookie.
-    If allow_fallback is True, defaults to 1 for legacy backwards compatibility.
-    If allow_fallback is False, returns None when unauthenticated.
+    Extract user_id from request state (attached by auth_middleware) or validate session header/cookie.
+    Strictly fail-closed: defaults to allow_fallback=False and returns None when unauthenticated.
     """
+    if "user_id" in request and request["user_id"] is not None:
+        return request["user_id"]
+
     auth_header = request.headers.get("Authorization", "")
     token = None
     if auth_header.startswith("Bearer "):
@@ -138,7 +140,7 @@ async def get_status(request: web.Request) -> web.Response:
     user_id = get_current_user_id(request)
 
     resume_exists = _resolve_path(cfg.profile.resume_path).exists()
-    session_exists = _resolve_path("data/session/linkedin_state.json").exists()
+    session_exists = _resolve_path("data/session/browser_state.json").exists()
     db_stats = get_stats(user_id=user_id)
     db_stats["total"] = sum(db_stats.values())
 
@@ -174,7 +176,7 @@ async def get_jobs(request: web.Request) -> web.Response:
     offset = int(request.query.get("offset", "0"))
 
     init_db()
-    with get_db_connection(DEFAULT_DB_PATH) as conn:
+    with get_db_connection() as conn:
         query = "SELECT * FROM applications WHERE user_id = ?"
         params: List[Any] = [user_id]
 
@@ -208,7 +210,11 @@ async def get_jobs(request: web.Request) -> web.Response:
 
 
 async def get_config_handler(request: web.Request) -> web.Response:
-    """Read and return config.yaml as structured JSON."""
+    """Read and return config.yaml as structured JSON. Requires authentication."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
     cfg_path = _resolve_path("config.yaml")
     if not cfg_path.exists():
         return web.json_response({"error": "config.yaml not found"}, status=404)
@@ -220,7 +226,18 @@ async def get_config_handler(request: web.Request) -> web.Response:
 
 
 async def save_config_handler(request: web.Request) -> web.Response:
-    """Update config.yaml with posted configuration values."""
+    """Update config.yaml with posted configuration values. Requires administrator privileges."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    from src.storage.db import is_admin_user
+    if not is_admin_user(user_id):
+        return web.json_response(
+            {"error": "Forbidden: Administrator privileges required to modify system configuration."},
+            status=403,
+        )
+
     try:
         new_cfg = await request.json()
         cfg_path = _resolve_path("config.yaml")
@@ -239,17 +256,28 @@ async def save_config_handler(request: web.Request) -> web.Response:
 
 
 async def get_profile_handler(request: web.Request) -> web.Response:
-    """Extract and return candidate resume sections and vector memory telemetry."""
+    """Extract and return candidate resume sections and telemetry scoped to the authenticated tenant."""
     user_id = get_current_user_id(request)
     profile = get_candidate_profile(user_id)
 
-    cfg = get_config()
-    resume_path = _resolve_path(cfg.profile.resume_path)
+    versions = get_resume_versions(user_id)
+    resume_path = None
+    if versions:
+        cand_path = Path(versions[0]["file_path"])
+        if cand_path.exists():
+            resume_path = cand_path
+
+    # Fallback to legacy path for default user 1 only
+    if resume_path is None and user_id == 1:
+        cfg = get_config()
+        legacy_path = _resolve_path(cfg.profile.resume_path)
+        if legacy_path.exists():
+            resume_path = legacy_path
 
     sections_grouped: Dict[str, List[str]] = {}
     total_chunks = 0
 
-    if resume_path.exists():
+    if resume_path and resume_path.exists():
         from src.ingestion.resume_parser import parse_resume
         try:
             chunks = parse_resume(resume_path)
@@ -261,8 +289,8 @@ async def get_profile_handler(request: web.Request) -> web.Response:
             pass
 
     return web.json_response({
-        "found": resume_path.exists() or (profile is not None),
-        "path": str(resume_path),
+        "found": (resume_path is not None and resume_path.exists()) or (profile is not None),
+        "path": str(resume_path or ""),
         "total_chunks": total_chunks,
         "sections": sections_grouped,
         "candidate_profile": profile or {},
@@ -270,7 +298,7 @@ async def get_profile_handler(request: web.Request) -> web.Response:
 
 
 async def upload_resume_handler(request: web.Request) -> web.Response:
-    """Handle resume document upload with tenant isolation."""
+    """Handle resume document upload with strict tenant isolation and path traversal protection."""
     try:
         user_id = get_current_user_id(request)
         reader = await request.multipart()
@@ -278,8 +306,13 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
         if not field or field.name != "file":
             return web.json_response({"error": "No file field uploaded in form data"}, status=400)
 
-        filename = field.filename or "resume.pdf"
-        ext = Path(filename).suffix.lower()
+        # Sanitize filename against path traversal
+        raw_filename = field.filename or "resume.pdf"
+        unquoted = urllib.parse.unquote(raw_filename).replace("\\", "/")
+        sanitized_filename = os.path.basename(unquoted)
+        if not sanitized_filename or sanitized_filename in (".", ".."):
+            sanitized_filename = "resume.pdf"
+        ext = Path(sanitized_filename).suffix.lower()
         if ext not in (".pdf", ".docx", ".doc", ".txt"):
             return web.json_response(
                 {"error": f"Unsupported file format '{ext}'. Please upload a PDF, DOCX, or TXT file."},
@@ -287,28 +320,61 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
             )
 
         # User-isolated storage directory
-        user_storage = PROJECT_ROOT / "data" / "users" / str(user_id) / "resumes"
-        user_storage.mkdir(parents=True, exist_ok=True)
+        user_storage = (PROJECT_ROOT / "data" / "users" / str(user_id) / "resumes").resolve()
+        user_storage.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            os.chmod(user_storage, 0o700)
+            os.chmod(user_storage.parent, 0o700)
+        except Exception:
+            pass
+
         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        dest_path = user_storage / f"resume_{timestamp_str}{ext}"
+        dest_path = (user_storage / f"resume_{timestamp_str}{ext}").resolve()
 
-        # Also write to legacy data/resume/resume.pdf for backward compatibility
-        legacy_dest = PROJECT_ROOT / "data" / "resume" / f"resume{ext}"
-        legacy_dest.parent.mkdir(parents=True, exist_ok=True)
+        # Hard guard: Ensure dest_path is strictly within user_storage
+        if not str(dest_path).startswith(str(user_storage)):
+            return web.json_response({"error": "Invalid destination path: directory traversal attempt."}, status=400)
 
+        MAX_RESUME_SIZE = 15 * 1024 * 1024  # 15 MB max
         size = 0
         content_bytes = bytearray()
         while True:
             chunk = await field.read_chunk()
             if not chunk:
                 break
-            content_bytes.extend(chunk)
             size += len(chunk)
+            if size > MAX_RESUME_SIZE:
+                return web.json_response(
+                    {"error": f"Resume file exceeds maximum allowed size of {MAX_RESUME_SIZE // (1024 * 1024)}MB."},
+                    status=400,
+                )
+            content_bytes.extend(chunk)
+
+        # Magic bytes content validation
+        if ext == ".pdf" and not content_bytes.startswith(b"%PDF"):
+            return web.json_response(
+                {"error": "Invalid PDF document: missing %PDF file header."},
+                status=400,
+            )
+        elif ext == ".docx" and not content_bytes.startswith(b"PK\x03\x04"):
+            return web.json_response(
+                {"error": "Invalid DOCX document: missing PK zip signature."},
+                status=400,
+            )
 
         with open(dest_path, "wb") as f:
             f.write(content_bytes)
-        with open(legacy_dest, "wb") as f:
-            f.write(content_bytes)
+        try:
+            os.chmod(dest_path, 0o600)
+        except Exception:
+            pass
+
+        # Write to legacy data/resume/resume.pdf ONLY for default user 1
+        if user_id == 1:
+            legacy_dest = PROJECT_ROOT / "data" / "resume" / f"resume{ext}"
+            legacy_dest.parent.mkdir(parents=True, exist_ok=True)
+            with open(legacy_dest, "wb") as f:
+                f.write(content_bytes)
 
         # Compute SHA-256
         import hashlib
@@ -318,6 +384,15 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
         chunks_count = 0
         sections_found: List[str] = []
         structured_data: Dict[str, Any] = {}
+
+        # Save resume version record
+        v_id = save_resume_version(
+            user_id=user_id,
+            version_name=sanitized_filename,
+            file_path=str(dest_path),
+            file_hash=file_hash,
+            parsed_data=structured_data,
+        )
 
         if ext == ".pdf":
             try:
@@ -331,10 +406,10 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
                 # Save into candidate profile
                 save_candidate_profile(user_id, structured_data)
 
-                # Save resume version
-                v_id = save_resume_version(
+                # Update resume version with extracted data
+                save_resume_version(
                     user_id=user_id,
-                    version_name=filename,
+                    version_name=sanitized_filename,
                     file_path=str(dest_path),
                     file_hash=file_hash,
                     parsed_data=structured_data,
@@ -354,12 +429,12 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
 
         execution_manager.broadcast("log", {
             "level": "success",
-            "message": f"Candidate resume uploaded: '{filename}' ({size} bytes, {chunks_count} chunks extracted)",
+            "message": f"Candidate resume uploaded: '{sanitized_filename}' ({size} bytes, {chunks_count} chunks extracted)",
         })
 
         return web.json_response({
             "success": True,
-            "filename": filename,
+            "filename": sanitized_filename,
             "path": str(dest_path),
             "size_bytes": size,
             "chunks_count": chunks_count,
@@ -373,7 +448,11 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
 
 
 async def start_run(request: web.Request) -> web.Response:
-    """Trigger agent execution in a background asyncio task."""
+    """Trigger agent execution in a background asyncio task. Requires authentication."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required to start agent"}, status=401)
+
     if execution_manager.is_running:
         return web.json_response({"error": "Agent is already running"}, status=409)
 
@@ -386,10 +465,12 @@ async def start_run(request: web.Request) -> web.Response:
     dry_run = body.get("dry_run", True)
     force_ingest = body.get("force_ingest", False)
 
+    execution_manager.user_id = user_id
+
     async def _execute():
         execution_manager.is_running = True
         execution_manager.current_node = "search"
-        execution_manager.broadcast("status", {"state": "running", "node": "search"})
+        execution_manager.broadcast("status", {"state": "running", "node": "search", "user_id": user_id})
 
         try:
             cfg = get_config()
@@ -401,35 +482,47 @@ async def start_run(request: web.Request) -> web.Response:
             if force_ingest:
                 resume_file = _resolve_path(cfg.profile.resume_path)
                 if resume_file.exists():
-                    execution_manager.broadcast("log", {"level": "info", "message": "Starting profile ingestion..."})
-                    await ingest_profile(cfg, env, force=True)
+                    execution_manager.broadcast("log", {"level": "info", "message": "Starting profile ingestion...", "user_id": user_id})
+                    await ingest_profile(cfg, env, force=True, user_id=user_id)
                 else:
-                    execution_manager.broadcast("log", {"level": "warning", "message": "No resume file found on disk; continuing in agile screening mode."})
+                    execution_manager.broadcast("log", {"level": "warning", "message": "No resume file found on disk; continuing in agile screening mode.", "user_id": user_id})
 
-            execution_manager.broadcast("log", {"level": "info", "message": f"Commencing agent execution (dry_run={dry_run})..."})
-            await run_agent(cfg, env, dry_run=dry_run)
-            execution_manager.broadcast("log", {"level": "success", "message": "Agent execution finished successfully."})
+            execution_manager.broadcast("log", {"level": "info", "message": f"Commencing agent execution (dry_run={dry_run})...", "user_id": user_id})
+            await run_agent(cfg, env, dry_run=dry_run, user_id=user_id)
+            execution_manager.broadcast("log", {"level": "success", "message": "Agent execution finished successfully.", "user_id": user_id})
 
         except Exception as e:
             logger.error(f"Background agent execution error: {e}")
-            execution_manager.broadcast("log", {"level": "error", "message": f"Execution error: {str(e)}"})
+            execution_manager.broadcast("log", {"level": "error", "message": f"Execution error: {str(e)}", "user_id": user_id})
         finally:
             execution_manager.is_running = False
             execution_manager.current_node = "idle"
-            execution_manager.broadcast("status", {"state": "idle", "node": "idle"})
+            execution_manager.broadcast("status", {"state": "idle", "node": "idle", "user_id": user_id})
 
     execution_manager.active_task = asyncio.create_task(_execute())
     return web.json_response({"success": True, "message": "Agent run started."})
 
 
 async def stop_run(request: web.Request) -> web.Response:
-    """Cancel the active background execution task."""
+    """Cancel the active background execution task. Requires authentication and ownership."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required to stop agent"}, status=401)
+
+    from src.storage.db import is_admin_user
+    active_user = getattr(execution_manager, "user_id", None)
+    if active_user is not None and active_user != user_id and not is_admin_user(user_id):
+        return web.json_response(
+            {"error": "Forbidden: Cannot stop agent execution initiated by another user."},
+            status=403,
+        )
+
     if execution_manager.active_task and not execution_manager.active_task.done():
         execution_manager.active_task.cancel()
         execution_manager.is_running = False
         execution_manager.current_node = "idle"
-        execution_manager.broadcast("log", {"level": "warning", "message": "Agent execution cancelled by user."})
-        execution_manager.broadcast("status", {"state": "idle", "node": "idle"})
+        execution_manager.broadcast("log", {"level": "warning", "message": "Agent execution cancelled by user.", "user_id": user_id})
+        execution_manager.broadcast("status", {"state": "idle", "node": "idle", "user_id": user_id})
         return web.json_response({"success": True, "message": "Agent execution stopped."})
 
     return web.json_response({"error": "No active execution to stop"}, status=400)
@@ -460,25 +553,36 @@ async def logout_handler(request: web.Request) -> web.Response:
 
 
 async def sse_logs_stream(request: web.Request) -> web.StreamResponse:
-    """Stream real-time server-sent events (SSE) to connected dashboard clients."""
+    """Stream real-time server-sent events (SSE) to connected dashboard clients. Requires authentication."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required to stream telemetry events"}, status=401)
+
+    origin = request.headers.get("Origin", "")
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+    }
+    if origin and ("localhost" in origin or "127.0.0.1" in origin):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+
     response = web.StreamResponse(
         status=200,
         reason="OK",
-        headers={
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-        },
+        headers=headers,
     )
     await response.prepare(request)
 
     execution_manager.subscribers.add(response)
     try:
-        # Send initial backlog
+        # Send initial backlog (filtered to general system or user-scoped events)
         for item in execution_manager.recent_logs[-20:]:
-            msg = f"event: {item['type']}\ndata: {json.dumps(item['data'])}\n\n"
-            await response.write(msg.encode("utf-8"))
+            item_user = item.get("data", {}).get("user_id") if isinstance(item.get("data"), dict) else None
+            if item_user is None or item_user == user_id:
+                msg = f"event: {item['type']}\ndata: {json.dumps(item['data'])}\n\n"
+                await response.write(msg.encode("utf-8"))
 
         init_status = {
             "state": "running" if execution_manager.is_running else "idle",
@@ -545,12 +649,25 @@ async def auth_login_handler(request: web.Request) -> web.Response:
 
 
 async def auth_me_handler(request: web.Request) -> web.Response:
-    """Get current authenticated user information."""
+    """Get current authenticated user information. Requires valid session."""
     user_id = get_current_user_id(request)
-    profile = get_candidate_profile(user_id)
+    if not user_id:
+        return web.json_response({"authenticated": False, "user_id": None, "error": "Not authenticated"}, status=401)
+
+    profile = get_candidate_profile(user_id) or {}
+    email = request.get("user_email")
+    if not email:
+        with get_db_connection() as conn:
+            row = conn.execute("SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
+            if row:
+                email = row["email"]
+
+    from src.storage.db import is_admin_user
     return web.json_response({
         "authenticated": True,
         "user_id": user_id,
+        "email": email,
+        "is_admin": is_admin_user(user_id),
         "profile": profile,
     })
 
@@ -603,14 +720,29 @@ async def get_resume_versions_handler(request: web.Request) -> web.Response:
 # ── Job Discovery Handlers ──────────────────────────────────────────
 
 async def get_sources_handler(request: web.Request) -> web.Response:
-    """List registered job sources."""
+    """List registered job sources. Requires authentication."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
     engine = JobDiscoveryEngine()
     sources = engine.get_sources()
     return web.json_response({"sources": [s.model_dump() for s in sources]})
 
 
 async def add_source_handler(request: web.Request) -> web.Response:
-    """Register a new job source."""
+    """Register a new job source. Requires administrator privileges."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    from src.storage.db import is_admin_user
+    if not is_admin_user(user_id):
+        return web.json_response(
+            {"error": "Forbidden: Administrator privileges required to configure job sources."},
+            status=403,
+        )
+
     try:
         data = await request.json()
         src = JobSourceConfig(**data)
@@ -622,7 +754,11 @@ async def add_source_handler(request: web.Request) -> web.Response:
 
 
 async def discover_jobs_handler(request: web.Request) -> web.Response:
-    """Run discovery across sources, normalize and deduplicate."""
+    """Run discovery across sources, normalize and deduplicate. Requires authentication."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
     try:
         engine = JobDiscoveryEngine()
         body = {}
@@ -676,14 +812,18 @@ async def import_job_handler(request: web.Request) -> web.Response:
 
 
 async def get_discovered_jobs_handler(request: web.Request) -> web.Response:
-    """List jobs available in the repository database with filters."""
+    """List jobs available in the repository database with filters. Requires authentication."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
     init_db()
     limit = int(request.query.get("limit", "50"))
     offset = int(request.query.get("offset", "0"))
     query = request.query.get("q", "").strip().lower()
     source = request.query.get("source", "").strip().lower()
 
-    with get_db_connection(DEFAULT_DB_PATH) as conn:
+    with get_db_connection() as conn:
         sql = "SELECT * FROM jobs WHERE 1=1"
         params = []
         if query:
@@ -711,7 +851,7 @@ async def evaluate_job_handler(request: web.Request) -> web.Response:
         job_id = data.get("job_id")
         stable_id = data.get("stable_id")
 
-        with get_db_connection(DEFAULT_DB_PATH) as conn:
+        with get_db_connection() as conn:
             if stable_id:
                 row = conn.execute("SELECT * FROM jobs WHERE stable_id = ?", (stable_id,)).fetchone()
             else:
@@ -752,7 +892,7 @@ async def prepare_application_handler(request: web.Request) -> web.Response:
         data = await request.json()
         stable_id = data.get("stable_id")
 
-        with get_db_connection(DEFAULT_DB_PATH) as conn:
+        with get_db_connection() as conn:
             row = conn.execute("SELECT * FROM jobs WHERE stable_id = ?", (stable_id,)).fetchone()
             if not row:
                 return web.json_response({"error": "Job not found"}, status=404)
@@ -775,6 +915,8 @@ async def prepare_application_handler(request: web.Request) -> web.Response:
 
         prep = ApplicationPreparationService()
         pack = prep.prepare_application_pack(user_id=user_id, job=job)
+        if isinstance(pack, dict) and "id" in pack and "pack_id" not in pack:
+            pack["pack_id"] = pack["id"]
         return web.json_response(pack)
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
@@ -791,7 +933,11 @@ async def approve_application_pack_handler(request: web.Request) -> web.Response
         prep = ApplicationPreparationService()
         ok = prep.set_user_approval(user_id=user_id, pack_id=pack_id, approved=approved)
         if not ok:
-            return web.json_response({"error": "Pack not found or not owned by user"}, status=404)
+            with get_db_connection() as conn:
+                pack_exists = conn.execute("SELECT user_id FROM application_packs WHERE id = ?", (pack_id,)).fetchone()
+            if pack_exists and pack_exists["user_id"] != user_id:
+                return web.json_response({"error": "Forbidden: Application pack belongs to another candidate."}, status=403)
+            return web.json_response({"error": "Pack not found"}, status=404)
 
         return web.json_response({"success": True, "user_approved": approved})
     except Exception as e:
@@ -806,9 +952,12 @@ async def submit_external_application_handler(request: web.Request) -> web.Respo
         pack_id = data.get("pack_id")
         dry_run = bool(data.get("dry_run", False))
 
-        with get_db_connection(DEFAULT_DB_PATH) as conn:
+        with get_db_connection() as conn:
             pack_row = conn.execute("SELECT * FROM application_packs WHERE id = ? AND user_id = ?", (pack_id, user_id)).fetchone()
             if not pack_row:
+                pack_exists = conn.execute("SELECT user_id FROM application_packs WHERE id = ?", (pack_id,)).fetchone()
+                if pack_exists and pack_exists["user_id"] != user_id:
+                    return web.json_response({"error": "Forbidden: Application pack belongs to another candidate."}, status=403)
                 return web.json_response({"error": "Application pack not found"}, status=404)
 
             pack_dict = dict(pack_row)
@@ -876,7 +1025,7 @@ async def get_tracker_handler(request: web.Request) -> web.Response:
     """Return applications grouped by lifecycle status."""
     user_id = get_current_user_id(request)
     init_db()
-    with get_db_connection(DEFAULT_DB_PATH) as conn:
+    with get_db_connection() as conn:
         rows = conn.execute(
             """
             SELECT e.id, e.job_id, e.event_type, e.status, e.user_confirmed, e.created_at,
@@ -941,9 +1090,12 @@ async def download_application_pack_handler(request: web.Request) -> web.Respons
         pack_id = int(request.match_info.get("pack_id") or request.query.get("pack_id") or 0)
 
         init_db()
-        with get_db_connection(DEFAULT_DB_PATH) as conn:
+        with get_db_connection() as conn:
             row = conn.execute("SELECT * FROM application_packs WHERE id = ? AND user_id = ?", (pack_id, user_id)).fetchone()
             if not row:
+                pack_exists = conn.execute("SELECT user_id FROM application_packs WHERE id = ?", (pack_id,)).fetchone()
+                if pack_exists and pack_exists["user_id"] != user_id:
+                    return web.json_response({"error": "Forbidden: Application pack belongs to another candidate."}, status=403)
                 return web.json_response({"error": "Application pack not found"}, status=404)
 
             d = dict(row)
@@ -1018,7 +1170,7 @@ async def get_audit_logs_handler(request: web.Request) -> web.Response:
     """List security audit trail for user."""
     user_id = get_current_user_id(request)
     init_db()
-    with get_db_connection(DEFAULT_DB_PATH) as conn:
+    with get_db_connection() as conn:
         rows = conn.execute(
             "SELECT * FROM audit_logs WHERE user_id = ? ORDER BY id DESC LIMIT 100",
             (user_id,),

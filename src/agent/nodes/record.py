@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Any, Dict
 
 from src.agent.state import AgentState, ApplicationOutcome, ApplicationResult
-from src.storage.db import DEFAULT_DB_PATH, save_application
+from src.storage.db import get_db_path, save_application
 from src.utils.logger import logger
 
 
@@ -27,8 +27,8 @@ class RecordNode:
     Persists application outcomes to SQLite and maintains the in-memory execution history.
     """
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None):
+        self.db_path = db_path or get_db_path()
 
     def __call__(self, state: AgentState) -> Dict[str, Any]:
         current_job = state.get("current_job")

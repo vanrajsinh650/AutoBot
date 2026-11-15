@@ -20,7 +20,7 @@ Deterministic filtering is the first line of defense in agentic execution:
 from typing import Any, Dict, List, Optional
 
 from src.agent.state import AgentState, JobPosting
-from src.storage.db import DEFAULT_DB_PATH, is_already_applied
+from src.storage.db import get_db_path, is_already_applied
 from src.utils.config import get_config
 from src.utils.logger import logger
 
@@ -34,9 +34,9 @@ class FilterNode:
         self,
         blacklist_companies: Optional[List[str]] = None,
         blacklist_keywords: Optional[List[str]] = None,
-        db_path: str = DEFAULT_DB_PATH,
+        db_path: Optional[str] = None,
     ):
-        self.db_path = db_path
+        self.db_path = db_path or get_db_path()
         if blacklist_companies is not None:
             self.blacklist_companies = [c.lower() for c in blacklist_companies if c]
         else:

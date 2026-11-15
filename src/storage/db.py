@@ -5,10 +5,13 @@ and legacy backwards compatibility.
 """
 
 from datetime import datetime
+import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
-from typing import Any, Dict, List, Optional
+import sys
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from src.storage.migrations import run_migrations
 
@@ -16,16 +19,61 @@ from src.storage.migrations import run_migrations
 DEFAULT_DB_PATH = "logs/autobot.db"
 
 
-def get_db_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """Create and return a configured sqlite3 connection with Row factory."""
-    if db_path != ":memory:":
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+def get_db_path() -> str:
+    """Return active database path from environment or default."""
+    return os.environ.get("AUTOBOT_DB_PATH", DEFAULT_DB_PATH)
+
+
+def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
+    """
+    Create and return a configured sqlite3 connection with Row factory and PRAGMA foreign_keys=ON.
+    Includes a hard guard preventing pytest from accessing the live production database.
+    """
+    target_path = db_path if db_path is not None else get_db_path()
+
+    # Hard guard: Prevent test suites from writing to or reading from live production database
+    if "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST"):
+        resolved = Path(target_path).resolve()
+        prod_resolved = Path(DEFAULT_DB_PATH).resolve()
+        if resolved == prod_resolved and os.environ.get("AUTOBOT_ALLOW_LIVE_DB_IN_TESTS") != "1":
+            raise RuntimeError(
+                f"CRITICAL HARD GUARD: Pytest attempted to open production database '{target_path}'. "
+                f"Tests must use an isolated temporary database (set AUTOBOT_DB_PATH or use isolated test fixture)."
+            )
+
+    if target_path != ":memory:":
+        parent_dir = Path(target_path).parent
+        parent_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            os.chmod(parent_dir, 0o700)
+        except Exception:
+            pass
+
+    conn = sqlite3.connect(target_path)
+    conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
+
+    if target_path != ":memory:" and Path(target_path).exists():
+        try:
+            os.chmod(target_path, 0o600)
+        except Exception:
+            pass
     return conn
 
 
-def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
+def is_admin_user(user_id: int, db_path: Optional[str] = None) -> bool:
+    """Check if the given user_id has administrator privileges."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        row = conn.execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+        if row and row["is_admin"] == 1:
+            return True
+        if user_id == 1:
+            return True
+    return False
+
+
+def init_db(db_path: Optional[str] = None) -> None:
     """Initialize database tables with migrations and indexes."""
     with get_db_connection(db_path) as conn:
         run_migrations(conn)
@@ -33,7 +81,7 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
 
 def is_already_applied(
     job_id: str,
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
     user_id: Optional[int] = None,
 ) -> bool:
     """Check if a job has already been applied to (applied, dry_run, or submitted)."""
@@ -72,7 +120,7 @@ def save_application(
     status: str,
     url: str,
     notes: Optional[str] = None,
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
     user_id: int = 1,
 ) -> None:
     """Insert or update an application record in the database with strict tenant isolation."""
@@ -118,7 +166,7 @@ def update_application_status(
     job_id_or_stable_id: str,
     new_status: str,
     notes: str = "",
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
 ) -> bool:
     """
     Update application lifecycle status (e.g. interview, offer, rejected) for a specific user.
@@ -197,7 +245,7 @@ def update_application_status(
 
 
 def get_stats(
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
     user_id: Optional[int] = None,
 ) -> Dict[str, int]:
     """Retrieve aggregate counts by status across all sessions, optionally scoped by user."""
@@ -242,7 +290,7 @@ def get_stats(
     return stats
 
 
-def get_applications(user_id: int, db_path: str = DEFAULT_DB_PATH) -> List[Dict[str, Any]]:
+def get_applications(user_id: int, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
     """Retrieve all application records for a specific user."""
     init_db(db_path)
     with get_db_connection(db_path) as conn:
@@ -253,7 +301,7 @@ def get_applications(user_id: int, db_path: str = DEFAULT_DB_PATH) -> List[Dict[
         return [dict(row) for row in cursor.fetchall()]
 
 
-def start_session(db_path: str = DEFAULT_DB_PATH) -> int:
+def start_session(db_path: Optional[str] = None) -> int:
     """Record the start of a new bot session, returning session_id."""
     init_db(db_path)
     with get_db_connection(db_path) as conn:
@@ -270,7 +318,7 @@ def end_session(
     applied: int,
     skipped: int,
     failed: int,
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
 ) -> None:
     """Update a session with end timestamp and final metrics."""
     with get_db_connection(db_path) as conn:
@@ -293,7 +341,7 @@ def end_session(
 
 # ── Multi-Tenant Candidate Profile Methods ────────────────────────────
 
-def get_candidate_profile(user_id: int, db_path: str = DEFAULT_DB_PATH) -> Optional[Dict[str, Any]]:
+def get_candidate_profile(user_id: int, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Get candidate profile for a user."""
     init_db(db_path)
     with get_db_connection(db_path) as conn:
@@ -317,7 +365,7 @@ def get_candidate_profile(user_id: int, db_path: str = DEFAULT_DB_PATH) -> Optio
         return d
 
 
-def save_candidate_profile(user_id: int, profile: Dict[str, Any], db_path: str = DEFAULT_DB_PATH) -> None:
+def save_candidate_profile(user_id: int, profile: Dict[str, Any], db_path: Optional[str] = None) -> None:
     """Save or update candidate profile with strict tenant ownership."""
     init_db(db_path)
     now = datetime.now().isoformat()
@@ -382,7 +430,7 @@ def save_candidate_profile(user_id: int, profile: Dict[str, Any], db_path: str =
 
 # ── Job Preferences Methods ───────────────────────────────────────────
 
-def get_job_preferences(user_id: int, db_path: str = DEFAULT_DB_PATH) -> Dict[str, Any]:
+def get_job_preferences(user_id: int, db_path: Optional[str] = None) -> Dict[str, Any]:
     """Retrieve job preferences for a user."""
     init_db(db_path)
     with get_db_connection(db_path) as conn:
@@ -416,7 +464,7 @@ def get_job_preferences(user_id: int, db_path: str = DEFAULT_DB_PATH) -> Dict[st
         return d
 
 
-def save_job_preferences(user_id: int, prefs: Dict[str, Any], db_path: str = DEFAULT_DB_PATH) -> None:
+def save_job_preferences(user_id: int, prefs: Dict[str, Any], db_path: Optional[str] = None) -> None:
     """Save or update job preferences for a user."""
     init_db(db_path)
     now = datetime.now().isoformat()
@@ -468,7 +516,7 @@ def save_resume_version(
     file_path: str,
     file_hash: str,
     parsed_data: Dict[str, Any],
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
 ) -> int:
     """Save a resume version with user isolation."""
     init_db(db_path)
@@ -486,7 +534,7 @@ def save_resume_version(
         return cur.lastrowid
 
 
-def get_resume_versions(user_id: int, db_path: str = DEFAULT_DB_PATH) -> List[Dict[str, Any]]:
+def get_resume_versions(user_id: int, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
     """List resume versions for a specific tenant."""
     init_db(db_path)
     with get_db_connection(db_path) as conn:
@@ -511,7 +559,7 @@ def save_resume_evidence(
     section: str,
     content: str,
     metadata: Dict[str, Any],
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
 ) -> int:
     """Store explicit resume evidence chunk tied to user and resume version."""
     init_db(db_path)
@@ -529,7 +577,7 @@ def save_resume_evidence(
         return cur.lastrowid
 
 
-def get_resume_evidence(user_id: int, resume_version_id: Optional[int] = None, db_path: str = DEFAULT_DB_PATH) -> List[Dict[str, Any]]:
+def get_resume_evidence(user_id: int, resume_version_id: Optional[int] = None, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
     """Retrieve verified resume evidence for a user."""
     init_db(db_path)
     with get_db_connection(db_path) as conn:
@@ -554,7 +602,10 @@ def get_resume_evidence(user_id: int, resume_version_id: Optional[int] = None, d
         return res
 
 
-# ── Audit Logging ─────────────────────────────────────────────────────
+# ── Audit Logging & Tamper-Evident Security ─────────────────────────
+
+AUDIT_GENESIS_HASH = "GENESIS_0000000000000000000000000000000000000000000000000000000000000000"
+
 
 def log_audit(
     user_id: Optional[int],
@@ -563,19 +614,106 @@ def log_audit(
     resource_id: Optional[str] = None,
     details: Any = None,
     ip_address: str = "",
-    db_path: str = DEFAULT_DB_PATH,
-) -> None:
-    """Record a security audit log event."""
+    db_path: Optional[str] = None,
+) -> str:
+    """
+    Record a cryptographically chained, tamper-evident security audit log event.
+    Returns the SHA-256 entry hash.
+    """
     init_db(db_path)
     now = datetime.now().isoformat()
-    details_str = json.dumps(details) if isinstance(details, (dict, list)) else str(details or "")
+    details_str = json.dumps(details, sort_keys=True) if isinstance(details, (dict, list)) else str(details or "")
+    clean_res_id = str(resource_id or "")
+
     with get_db_connection(db_path) as conn:
+        last_row = conn.execute("SELECT entry_hash FROM audit_logs ORDER BY id DESC LIMIT 1").fetchone()
+        prev_hash = last_row["entry_hash"] if last_row and last_row["entry_hash"] else AUDIT_GENESIS_HASH
+
+        payload = f"{prev_hash}|{user_id}|{action}|{resource_type}|{clean_res_id}|{details_str}|{now}"
+        entry_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
         conn.execute(
             """
             INSERT INTO audit_logs (
-                user_id, action, resource_type, resource_id, details, ip_address, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                user_id, action, resource_type, resource_id, details, ip_address, prev_hash, entry_hash, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, action, resource_type, str(resource_id or ""), details_str, ip_address, now),
+            (user_id, action, resource_type, clean_res_id, details_str, ip_address, prev_hash, entry_hash, now),
         )
         conn.commit()
+        return entry_hash
+
+
+def verify_audit_log_tamper_evidence(db_path: Optional[str] = None) -> Tuple[bool, List[str]]:
+    """
+    Verify the cryptographic hash chain of the audit_logs table.
+    Detects any unauthorized record modifications, deletions, or insertions.
+    Returns (is_valid, list_of_violations).
+    """
+    init_db(db_path)
+    violations: List[str] = []
+    with get_db_connection(db_path) as conn:
+        rows = conn.execute("SELECT * FROM audit_logs ORDER BY id ASC").fetchall()
+        expected_prev = AUDIT_GENESIS_HASH
+        for row in rows:
+            entry_id = row["id"]
+            row_prev = row["prev_hash"]
+            row_hash = row["entry_hash"]
+
+            # Backwards compatibility: skip unhashed legacy entries
+            if not row_hash:
+                continue
+
+            if row_prev != expected_prev:
+                violations.append(
+                    f"Audit chain broken at Row {entry_id}: prev_hash mismatch. Expected '{expected_prev}', got '{row_prev}'"
+                )
+
+            # Recompute expected hash
+            payload = f"{row_prev}|{row['user_id']}|{row['action']}|{row['resource_type']}|{row['resource_id'] or ''}|{row['details']}|{row['created_at']}"
+            computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+            if computed != row_hash:
+                violations.append(
+                    f"Audit record altered at Row {entry_id}: entry_hash mismatch. Computed '{computed}', stored '{row_hash}'"
+                )
+            expected_prev = row_hash
+
+    return len(violations) == 0, violations
+
+
+def backup_database(
+    db_path: Optional[str] = None,
+    backup_dir: Optional[Union[str, Path]] = None,
+) -> Path:
+    """
+    Perform an atomic online backup of the SQLite database using SQLite's backup API.
+    Enforces strict private permissions (0700 dir, 0600 file).
+    """
+    source_path = Path(db_path or get_db_path()).resolve()
+    if not source_path.exists():
+        raise FileNotFoundError(f"Source database '{source_path}' does not exist.")
+
+    target_dir = Path(backup_dir or (source_path.parent / "backups")).resolve()
+    target_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    try:
+        os.chmod(target_dir, 0o700)
+    except Exception:
+        pass
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = target_dir / f"autobot_backup_{timestamp}.db"
+
+    # Use SQLite online backup API
+    with get_db_connection(str(source_path)) as src_conn:
+        dest_conn = sqlite3.connect(str(backup_file))
+        try:
+            src_conn.backup(dest_conn)
+        finally:
+            dest_conn.close()
+
+    try:
+        os.chmod(backup_file, 0o600)
+    except Exception:
+        pass
+
+    return backup_file

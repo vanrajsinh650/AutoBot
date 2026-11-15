@@ -15,12 +15,15 @@ External job applications redirect away from LinkedIn to third-party ATS platfor
    Closes the temporary browser tab upon completion or error, preserving browser memory.
 """
 
+import inspect
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 from playwright.async_api import BrowserContext, Page
 
 from src.agent.state import JobPosting
+from src.application.workflows import AntiBotChallengeDetected, LinkedInPolicyViolationError
 from src.memory.form_rag import FormRAG
 from src.memory.models import FieldType
 from src.utils.config import AppConfig, get_config
@@ -31,7 +34,30 @@ from src.utils.logger import logger
 class ExternalApplyActuator:
     """
     Automates application submissions on external company career portals.
+    Enforces strict ATS domain whitelist and halts immediately upon anti-bot/CAPTCHA gates.
     """
+
+    AUTHORIZED_ATS_DOMAINS = [
+        "greenhouse.io",
+        "lever.co",
+        "ashbyhq.com",
+        "myworkdayjobs.com",
+        "smartrecruiters.com",
+        "workable.com",
+        "bamboohr.com",
+        "rippling-ats.com",
+        "icims.com",
+    ]
+
+    CHALLENGE_PATTERNS = [
+        "challenge", "cf-challenge", "challenge-platform", "turnstile", "hcaptcha", "recaptcha",
+        "captcha", "perimeterx", "datadome", "checkpoint", "authwall", "cloudflare"
+    ]
+
+    CHALLENGE_TEXTS = [
+        "verify you are human", "security check", "robot or human", "access denied",
+        "attention required", "cloudflare", "two-factor authentication", "2fa", "mfa"
+    ]
 
     def __init__(
         self,
@@ -39,16 +65,87 @@ class ExternalApplyActuator:
         form_rag: FormRAG,
         cfg: Optional[AppConfig] = None,
         resume_path: Optional[Path] = None,
+        authorized_domains: Optional[list] = None,
     ):
         self.context = context
         self.form_rag = form_rag
         self.cfg = cfg or get_config()
+        self.authorized_domains = list(authorized_domains) if authorized_domains else list(self.AUTHORIZED_ATS_DOMAINS)
 
         if resume_path is not None:
             self.resume_path = Path(resume_path)
         else:
             p = getattr(self.cfg.profile, "resume_path", "data/resume/resume.pdf")
             self.resume_path = Path(p)
+
+    def validate_target_domain(self, url: str) -> str:
+        """
+        Policy gate:
+        - Rejects LinkedIn domains/subdomains with LinkedInPolicyViolationError.
+        - Asserts target domain matches authorized ATS platforms.
+        """
+        clean = (url or "").lower().strip()
+        if "linkedin.com" in clean or "lnkd.in" in clean:
+            raise LinkedInPolicyViolationError(
+                f"Compliance Policy Violation: Automated browser application to LinkedIn ({clean}) is strictly prohibited."
+            )
+
+        try:
+            parsed = urlparse(clean)
+            hostname = parsed.hostname or ""
+        except Exception:
+            hostname = ""
+
+        # Check if domain matches any authorized ATS domain or subdomain
+        is_authorized = any(
+            hostname == d or hostname.endswith("." + d)
+            for d in self.authorized_domains
+        )
+        if not is_authorized:
+            raise ValueError(
+                f"Domain '{hostname}' is not authorized for automated ATS application. "
+                f"Authorized ATS platforms: {', '.join(self.authorized_domains)}"
+            )
+
+        return hostname
+
+    async def check_security_challenges(self, page: Page) -> None:
+        """
+        Check page URL and content for anti-bot challenges, CAPTCHAs, or MFA walls.
+        Halts immediately without attempting bypass.
+        """
+        page_url = str(getattr(page, "url", "") or "").lower()
+        for pat in self.CHALLENGE_PATTERNS:
+            if pat in page_url:
+                raise AntiBotChallengeDetected(
+                    f"Anti-bot challenge gate detected in URL: '{page_url}'. Halting execution immediately."
+                )
+
+        try:
+            raw_title = page.title() if callable(getattr(page, "title", None)) else getattr(page, "title", "")
+            if inspect.isawaitable(raw_title):
+                raw_title = await raw_title
+            title = str(raw_title or "").lower()
+            for text in self.CHALLENGE_TEXTS:
+                if text in title:
+                    raise AntiBotChallengeDetected(
+                        f"Anti-bot challenge gate detected in title '{title}'. Halting execution immediately."
+                    )
+
+            if hasattr(page, "evaluate") and callable(page.evaluate):
+                body_eval = page.evaluate("() => (document.body ? document.body.innerText.slice(0, 2000).toLowerCase() : '')")
+                if inspect.isawaitable(body_eval):
+                    body_eval = await body_eval
+                body_str = str(body_eval or "").lower()
+                for text in self.CHALLENGE_TEXTS:
+                    if text in body_str:
+                        raise AntiBotChallengeDetected(
+                            "Anti-bot verification challenge detected on page. Halting execution immediately."
+                        )
+        except AntiBotChallengeDetected:
+            raise
+        except Exception:
+            pass
 
     async def apply(
         self,
@@ -72,6 +169,9 @@ class ExternalApplyActuator:
             logger.warning("[browser]No external apply URL available.[/browser]")
             return False
 
+        # Validate domain before opening browser tab
+        self.validate_target_domain(target_url)
+
         logger.info(
             f"[browser]🌐 External Apply: '{job.title}' @ '{job.company}' -> {target_url[:50]}...[/browser]"
         )
@@ -85,6 +185,9 @@ class ExternalApplyActuator:
             await tab.goto(target_url, wait_until="domcontentloaded", timeout=30000)
             await human_delay(2000, 3500)
 
+            # Check for security challenges / CAPTCHA gates
+            await self.check_security_challenges(tab)
+
             # 1. Upload Resume
             await self._upload_resume(tab)
 
@@ -95,6 +198,9 @@ class ExternalApplyActuator:
             if cover_letter:
                 await self._fill_cover_letter(tab, cover_letter)
 
+            # Re-check challenges before submission
+            await self.check_security_challenges(tab)
+
             # 4. Attempt Submit
             submitted = await self._submit_form(tab)
             if submitted:
@@ -103,6 +209,11 @@ class ExternalApplyActuator:
                 logger.info("[browser]⚠ External portal submission requires manual verification.[/browser]")
             return submitted
 
+        except AntiBotChallengeDetected as abc:
+            logger.error(f"[browser]🛑 Anti-bot challenge: {abc}. Halting submission cleanly.[/browser]")
+            raise
+        except LinkedInPolicyViolationError:
+            raise
         except Exception as e:
             logger.warning(f"External apply error: {e}")
             return False

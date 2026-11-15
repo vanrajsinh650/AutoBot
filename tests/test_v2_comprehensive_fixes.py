@@ -290,7 +290,7 @@ async def test_update_application_status_tracker(client: TestClient):
         match_score=0.85,
         url="https://example.com/status-1",
         user_id=user_id,
-        db_path="logs/autobot.db",
+        db_path=None,
     )
 
     # Transition to interview

@@ -34,8 +34,8 @@ from src.memory.cover_letter import CoverLetterGenerator
 from src.memory.job_matcher import JobMatcher
 from src.memory.retriever import ProfileRetriever
 from src.storage.db import (
-    DEFAULT_DB_PATH,
     end_session,
+    get_db_path,
     get_stats,
     init_db,
     start_session,
@@ -85,7 +85,7 @@ def build_job_agent_graph(
     cover_letter_gen: Optional[CoverLetterGenerator] = None,
     blacklist_companies: Optional[list] = None,
     blacklist_keywords: Optional[list] = None,
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
 ) -> CompiledStateGraph:
     """
     Assemble and compile the AutoBot LangGraph state machine.
@@ -179,7 +179,7 @@ async def run_agent(
     matcher: Optional[JobMatcher] = None,
     retriever: Optional[ProfileRetriever] = None,
     cover_letter_gen: Optional[CoverLetterGenerator] = None,
-    db_path: str = DEFAULT_DB_PATH,
+    db_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     High-level entry point called from main.py to execute the autonomous job application loop.
@@ -227,34 +227,6 @@ async def run_agent(
             retriever=retriever,
             llm=llm,
         )
-
-    # 2.5 Auto-launch BrowserBridge if no custom provider supplied
-    if search_provider is None:
-        try:
-            from src.browser.bridge import BrowserBridge
-            from src.memory.form_rag import FormRAG
-
-            form_rag = FormRAG(retriever=retriever, llm=llm)
-            async with BrowserBridge(
-                form_rag=form_rag,
-                cfg=app_cfg,
-                env=app_env,
-            ) as bridge:
-                return await run_agent(
-                    cfg=app_cfg,
-                    env=app_env,
-                    dry_run=dry_run,
-                    search_provider=bridge.search_provider,
-                    application_executor=bridge.application_executor,
-                    matcher=matcher,
-                    retriever=retriever,
-                    cover_letter_gen=cover_letter_gen,
-                    db_path=db_path,
-                )
-        except Exception as e:
-            logger.warning(
-                f"[agent]Could not auto-start BrowserBridge ({e}). Running without live browser provider.[/agent]"
-            )
 
     # 3. Build & Compile StateGraph
     graph = build_job_agent_graph(

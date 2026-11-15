@@ -14,9 +14,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.discovery.models import NormalizedJob
 from src.storage.db import (
-    DEFAULT_DB_PATH,
     get_candidate_profile,
     get_db_connection,
+    get_db_path,
     get_job_preferences,
     init_db,
 )
@@ -29,8 +29,8 @@ class ApplicationPreparationService:
     Assembles truthful application packs for candidate review and approval.
     """
 
-    def __init__(self, db_path: str = DEFAULT_DB_PATH, llm: Optional[BaseChatModel] = None):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None, llm: Optional[BaseChatModel] = None):
+        self.db_path = db_path or get_db_path()
         self._llm = llm
 
     def _get_llm(self) -> Optional[BaseChatModel]:
@@ -192,7 +192,36 @@ class ApplicationPreparationService:
         now = datetime.now().isoformat()
         with get_db_connection(self.db_path) as conn:
             job_row = conn.execute("SELECT id FROM jobs WHERE stable_id = ?", (job.stable_id,)).fetchone()
-            job_internal_id = job_row["id"] if job_row else 0
+            if not job_row:
+                emp_type = job.employment_type.value if hasattr(job.employment_type, "value") else str(job.employment_type)
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO jobs (
+                        stable_id, source_name, title, company, description,
+                        employment_type, location, country, is_remote, salary_info,
+                        publication_date, application_url, raw_data, fingerprint, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?)
+                    """,
+                    (
+                        job.stable_id,
+                        job.source_name,
+                        job.title,
+                        job.company,
+                        job.description,
+                        emp_type,
+                        job.location or "",
+                        getattr(job, "country", "") or "",
+                        1 if job.is_remote else 0,
+                        job.salary_info or "",
+                        job.publication_date or "",
+                        job.application_url or "",
+                        job.fingerprint or job.stable_id,
+                        now,
+                    ),
+                )
+                conn.commit()
+                job_row = conn.execute("SELECT id FROM jobs WHERE stable_id = ?", (job.stable_id,)).fetchone()
+            job_internal_id = job_row["id"] if job_row else 1
 
             cur = conn.execute(
                 """

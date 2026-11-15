@@ -23,13 +23,14 @@ from typing import Optional
 
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
+from src.application.workflows import LinkedInPolicyViolationError
 from src.utils.config import AppConfig, EnvSettings, PROJECT_ROOT, get_config, get_env
 from src.utils.human_behavior import CURSOR_OVERLAY_SCRIPT
 from src.utils.logger import logger
 
 
 DEFAULT_SESSION_DIR = PROJECT_ROOT / "data" / "session"
-DEFAULT_SESSION_FILE = DEFAULT_SESSION_DIR / "linkedin_state.json"
+DEFAULT_SESSION_FILE = DEFAULT_SESSION_DIR / "browser_state.json"
 DEFAULT_USER_DATA_DIR = DEFAULT_SESSION_DIR / "user_data"
 
 
@@ -229,23 +230,50 @@ class BrowserManager:
         # Inject Gemini visual cursor & human interaction overlay script
         await self.context.add_init_script(CURSOR_OVERLAY_SCRIPT)
 
-        logger.info("[browser]✓ Browser window initialized with Gemini visual cursor overlay.[/browser]")
+        # Policy Gate: Block all network requests targeting LinkedIn domains and subdomains
+        async def _block_prohibited_domains(route):
+            req_url = route.request.url.lower()
+            if "linkedin.com" in req_url or "lnkd.in" in req_url:
+                logger.error(f"[browser]HARD POLICY GATE: Blocked request to prohibited domain '{req_url}'.")
+                await route.abort("blockedbyclient")
+            else:
+                await route.continue_()
+
+        try:
+            await self.context.route("**/*", _block_prohibited_domains)
+        except Exception:
+            pass
+
+        logger.info("[browser]✓ Browser window initialized with Gemini visual cursor overlay and domain guard.[/browser]")
+
+    @staticmethod
+    def verify_safe_url(url: str) -> None:
+        """Assert that a URL does not point to prohibited LinkedIn domains."""
+        clean = (url or "").lower().strip()
+        if "linkedin.com" in clean or "lnkd.in" in clean:
+            raise LinkedInPolicyViolationError(
+                f"Compliance Policy Violation: Automated browser navigation to LinkedIn ({clean}) is strictly prohibited."
+            )
 
     async def save_session_state(self, only_if_authenticated: bool = False) -> None:
-        """Persist current cookies and storage state to disk."""
+        """Persist current cookies and storage state to disk, stripping any prohibited tokens."""
         if not self.context:
             return
 
         try:
-            if only_if_authenticated and self.session_file.exists():
-                try:
-                    cookies = await self.context.cookies()
-                    has_li_at = any(c.get("name") == "li_at" and c.get("value") for c in cookies)
-                    if not has_li_at:
-                        logger.debug("Skipping session state save: context missing li_at cookie; preserving existing session.")
-                        return
-                except Exception:
-                    pass
+            # Policy requirement: Ensure no li_at or LinkedIn cookies are ever persisted
+            try:
+                cookies = await self.context.cookies()
+                prohibited = [c for c in cookies if c.get("name") == "li_at" or "linkedin.com" in c.get("domain", "").lower()]
+                if prohibited:
+                    logger.warning("[browser]Stripping prohibited LinkedIn tokens from browser storage state.[/browser]")
+                    for c in prohibited:
+                        try:
+                            await self.context.clear_cookies(name=c.get("name"), domain=c.get("domain"))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
 
             self.session_file.parent.mkdir(parents=True, exist_ok=True)
             await self.context.storage_state(path=str(self.session_file))
