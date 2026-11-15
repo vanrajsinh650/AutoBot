@@ -792,6 +792,28 @@
             Automated LinkedIn scraping is strictly disabled per compliance directives.
           </p>
 
+          <!-- Source Health & Synchronization Status -->
+          <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h3 style="font-size: 13px; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">ATS Source Health & Synchronization Status</h3>
+              <button id="btn-refresh-sources" class="btn btn-secondary" style="font-size: 11px; padding: 3px 8px;">Refresh Sources</button>
+            </div>
+            <div id="sources-health-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+              <div style="color: var(--text-muted); font-size: 12px;">Loading ATS source status...</div>
+            </div>
+          </div>
+
+          <!-- Personalized Search & Keyword Expansion -->
+          <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h3 style="font-size: 13px; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Personalized Keyword Expansion</h3>
+              <button id="btn-load-personalized" class="btn btn-primary" style="font-size: 11px; padding: 4px 10px;">Find My Strong Matches</button>
+            </div>
+            <div id="keyword-expansion-container" style="font-size: 12px; color: var(--text-muted);">
+              Loading candidate profile keyword expansion...
+            </div>
+          </div>
+
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <!-- Manual Import Box -->
             <div class="form-grid" style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px;">
@@ -819,10 +841,42 @@
               <button id="btn-submit-import" class="btn btn-secondary full-width">Import Job Description</button>
             </div>
 
-            <!-- Discovered Jobs List -->
+            <!-- Discovered Jobs List & Filters -->
             <div>
-              <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--text-main);">Available Jobs in Registry</h3>
-              <div id="discovery-jobs-container" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h3 style="font-size: 14px; margin: 0; color: var(--text-main);">Available Jobs in Registry</h3>
+                <span id="discovery-job-count" style="font-size: 11px; color: var(--text-muted);">0 jobs</span>
+              </div>
+
+              <!-- Filter Bar -->
+              <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+                <input type="text" id="discovery-filter-search" class="form-input" placeholder="Search title or company..." style="flex: 1; min-width: 140px; padding: 4px 8px; font-size: 12px;">
+                <select id="discovery-filter-status" class="form-input" style="width: auto; padding: 4px 8px; font-size: 12px;">
+                  <option value="active">Active Only</option>
+                  <option value="expired">Expired</option>
+                  <option value="all">All Statuses</option>
+                </select>
+                <select id="discovery-filter-score" class="form-input" style="width: auto; padding: 4px 8px; font-size: 12px;">
+                  <option value="">All Scores</option>
+                  <option value="75">Strong Matches (≥75%)</option>
+                  <option value="60">Good Fit (≥60%)</option>
+                </select>
+                <select id="discovery-filter-type" class="form-input" style="width: auto; padding: 4px 8px; font-size: 12px;">
+                  <option value="">All Types</option>
+                  <option value="full-time">Full-time</option>
+                  <option value="internship">Internship</option>
+                  <option value="contract">Contract</option>
+                  <option value="part-time">Part-time</option>
+                </select>
+                <select id="discovery-filter-workplace" class="form-input" style="width: auto; padding: 4px 8px; font-size: 12px;">
+                  <option value="">All Workplaces</option>
+                  <option value="remote">Remote Only</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="on-site">On-site</option>
+                </select>
+              </div>
+
+              <div id="discovery-jobs-container" style="max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
                 <div style="color: var(--text-muted); font-size: 13px;">No jobs loaded. Click 'Run Discovery' or import above.</div>
               </div>
             </div>

@@ -227,7 +227,11 @@
     if (viewName === "applications") loadJobs();
     if (viewName === "profile") loadProfile();
     if (viewName === "settings") loadConfig();
-    if (viewName === "discovery") loadDiscoveryJobs();
+    if (viewName === "discovery") {
+      loadDiscoveryJobs();
+      loadSourceHealth();
+      loadKeywordExpansion();
+    }
     if (viewName === "privacy") loadAuditLogs();
   }
 
@@ -1163,6 +1167,29 @@
       });
     }
 
+    const btnRefreshSources = document.getElementById("btn-refresh-sources");
+    if (btnRefreshSources) {
+      btnRefreshSources.addEventListener("click", () => {
+        loadSourceHealth();
+      });
+    }
+
+    const btnLoadPersonalized = document.getElementById("btn-load-personalized");
+    if (btnLoadPersonalized) {
+      btnLoadPersonalized.addEventListener("click", () => {
+        loadPersonalizedMatches();
+      });
+    }
+
+    ["discovery-filter-search", "discovery-filter-status", "discovery-filter-score", "discovery-filter-type", "discovery-filter-workplace"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () => {
+          loadDiscoveryJobs();
+        });
+      }
+    });
+
     if (els.resumeDropzone) {
       els.resumeDropzone.addEventListener("click", (e) => {
         if (e.target.tagName !== "INPUT" && els.resumeFileInput) {
@@ -1342,6 +1369,29 @@
       });
     }
 
+    const btnRefreshSources = document.getElementById("btn-refresh-sources");
+    if (btnRefreshSources) {
+      btnRefreshSources.addEventListener("click", () => {
+        loadSourceHealth();
+      });
+    }
+
+    const btnLoadPersonalized = document.getElementById("btn-load-personalized");
+    if (btnLoadPersonalized) {
+      btnLoadPersonalized.addEventListener("click", () => {
+        loadPersonalizedMatches();
+      });
+    }
+
+    ["discovery-filter-search", "discovery-filter-status", "discovery-filter-score", "discovery-filter-type", "discovery-filter-workplace"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () => {
+          loadDiscoveryJobs();
+        });
+      }
+    });
+
     const btnAuthLogin = document.getElementById("btn-auth-login");
     if (btnAuthLogin) {
       btnAuthLogin.addEventListener("click", async () => {
@@ -1416,6 +1466,29 @@
         }
       });
     }
+
+    const btnRefreshSources = document.getElementById("btn-refresh-sources");
+    if (btnRefreshSources) {
+      btnRefreshSources.addEventListener("click", () => {
+        loadSourceHealth();
+      });
+    }
+
+    const btnLoadPersonalized = document.getElementById("btn-load-personalized");
+    if (btnLoadPersonalized) {
+      btnLoadPersonalized.addEventListener("click", () => {
+        loadPersonalizedMatches();
+      });
+    }
+
+    ["discovery-filter-search", "discovery-filter-status", "discovery-filter-score", "discovery-filter-type", "discovery-filter-workplace"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () => {
+          loadDiscoveryJobs();
+        });
+      }
+    });
   }
 
   // ── Clipboard & Tracker Helper ────────────────────────────────────
@@ -1470,30 +1543,159 @@
   };
 
   // ── Discovery, Matching, & Workflow Helpers ───────────────────────
+  async function loadSourceHealth() {
+    const container = document.getElementById("sources-health-container");
+    if (!container) return;
+    try {
+      const res = await authedFetch("/api/discovery/sources/health");
+      const data = await res.json();
+      const sources = data.sources || [];
+      if (!sources.length) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">No ATS sources configured.</div>';
+        return;
+      }
+      container.innerHTML = "";
+      sources.forEach((s) => {
+        const card = document.createElement("div");
+        const statusBadge = s.status === "active" ? '<span class="badge badge-normal" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid #10b981;">Active</span>' : '<span class="badge badge-normal" style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid #ef4444;">Error</span>';
+        card.style.cssText = "background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; padding: 10px;";
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 12px; color: var(--text-main);">${escapeHtml(s.name)}</strong>
+            ${statusBadge}
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px;">
+            ATS: <span style="color: var(--primary);">${escapeHtml(s.source_type)}</span> (${escapeHtml(s.board_slug)})
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 3px;">
+            Vacancies: <strong style="color: var(--text-main);">${s.active_jobs_count} active</strong> ${s.expired_jobs_count ? `(${s.expired_jobs_count} expired)` : ''}
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted);">
+            Last Synced: ${escapeHtml(s.last_synced_at ? (s.last_synced_at.includes('T') ? s.last_synced_at.split('T')[0] + ' ' + s.last_synced_at.split('T')[1].slice(0,5) : s.last_synced_at) : 'Never')}
+          </div>
+          ${s.last_error ? `<div style="font-size: 10px; color: #ef4444; margin-top: 4px;">${escapeHtml(s.last_error.slice(0, 80))}</div>` : ''}
+        `;
+        container.appendChild(card);
+      });
+    } catch (err) {
+      container.innerHTML = `<div style="color: #ef4444; font-size: 11px;">Error loading ATS sources: ${err.message}</div>`;
+    }
+  }
+
+  async function loadKeywordExpansion() {
+    const container = document.getElementById("keyword-expansion-container");
+    if (!container) return;
+    try {
+      const res = await authedFetch("/api/matching/expand-keywords");
+      const data = await res.json();
+      const keywords = data.expanded_keywords || [];
+      const explanations = data.explanations || [];
+      if (!keywords.length) {
+        container.innerHTML = '<div>No skills configured. Add skills in Candidate Profile.</div>';
+        return;
+      }
+      const tags = keywords.map(k => `<span class="badge" style="background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); font-size: 11px; margin-right: 4px; margin-bottom: 4px; display: inline-block;">${escapeHtml(k)}</span>`).join('');
+      const explCount = explanations.length;
+      container.innerHTML = `
+        <div style="margin-bottom: 8px;">${tags}</div>
+        <div style="font-size: 11px; color: var(--text-muted);">
+          Derived ${keywords.length} expanded industry terms (${explCount} synonym/framework mappings) from candidate skills: <em>${escapeHtml((data.original_skills || []).join(', '))}</em>
+        </div>
+      `;
+    } catch (err) {
+      container.innerHTML = `<div style="color: #ef4444; font-size: 11px;">Failed to load keyword expansion: ${err.message}</div>`;
+    }
+  }
+
+  async function loadPersonalizedMatches() {
+    const container = document.getElementById("discovery-jobs-container");
+    if (!container) return;
+    container.innerHTML = '<div style="color: var(--primary); font-size: 13px;">Searching personalized jobs matching candidate profile...</div>';
+    try {
+      const res = await authedFetch("/api/discovery/personalized");
+      const data = await res.json();
+      renderDiscoveredJobsList(data.jobs || []);
+      const countEl = document.getElementById("discovery-job-count");
+      if (countEl) countEl.innerText = `${(data.jobs || []).length} personalized matches`;
+    } catch (err) {
+      container.innerHTML = `<div style="color: #ef4444; font-size: 12px;">Error loading personalized matches: ${err.message}</div>`;
+    }
+  }
+
+  function renderDiscoveredJobsList(jobs) {
+    const container = document.getElementById("discovery-jobs-container");
+    if (!container) return;
+    if (!jobs.length) {
+      container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">No matching jobs found with current filters.</div>';
+      return;
+    }
+    container.innerHTML = "";
+    jobs.forEach((j) => {
+      const item = document.createElement("div");
+      const isExpired = j.status === "expired";
+      const statusBadge = isExpired
+        ? '<span class="badge" style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid #ef4444; font-size: 10px;">Expired</span>'
+        : '<span class="badge" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid #10b981; font-size: 10px;">Active</span>';
+      
+      const workplaceBadge = `<span class="badge badge-dry-run" style="font-size: 10px;">${escapeHtml(j.workplace_type || (j.is_remote ? 'remote' : 'on-site'))}</span>`;
+      const empBadge = `<span class="badge badge-dry-run" style="font-size: 10px;">${escapeHtml(j.employment_type || "full-time")}</span>`;
+      
+      let fitScoreBadge = '';
+      if (j.fit_score != null) {
+        const score = Number(j.fit_score);
+        const scoreColor = score >= 75 ? '#10b981' : (score >= 60 ? '#f59e0b' : '#94a3b8');
+        fitScoreBadge = `<span class="badge" style="background: rgba(255,255,255,0.05); color: ${scoreColor}; border: 1px solid ${scoreColor}; font-weight: 600; font-size: 11px;">Fit: ${score.toFixed(0)}%</span>`;
+      }
+
+      item.style.cssText = `background: ${isExpired ? 'rgba(239,68,68,0.03)' : 'rgba(255,255,255,0.03)'}; border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center;`;
+      item.innerHTML = `
+        <div style="flex: 1; min-width: 0; padding-right: 12px;">
+          <div style="font-weight: 600; font-size: 13px; color: var(--text-main); margin-bottom: 2px;">
+            ${escapeHtml(j.title)} ${fitScoreBadge}
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+            <span>${escapeHtml(j.company)}</span> · 
+            <span>${escapeHtml(j.location || "Remote")}</span>
+            ${statusBadge} ${workplaceBadge} ${empBadge}
+          </div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 3px;">
+            Discovered: ${escapeHtml((j.discovered_at || j.created_at || '').slice(0, 10))} · Verified: ${escapeHtml((j.last_verified_at || '').slice(0, 10) || 'Recent')}
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="window.evaluateCandidateJob('${j.stable_id}')">Evaluate</button>
+          ${j.application_url ? `<a href="${escapeHtml(j.application_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none;">View</a>` : ''}
+        </div>
+      `;
+      container.appendChild(item);
+    });
+  }
+
   async function loadDiscoveryJobs() {
     const container = document.getElementById("discovery-jobs-container");
     if (!container) return;
     try {
-      const res = await authedFetch("/api/discovery/jobs");
+      const searchVal = document.getElementById("discovery-filter-search")?.value.trim() || "";
+      const statusVal = document.getElementById("discovery-filter-status")?.value || "active";
+      const scoreVal = document.getElementById("discovery-filter-score")?.value || "";
+      const typeVal = document.getElementById("discovery-filter-type")?.value || "";
+      const workplaceVal = document.getElementById("discovery-filter-workplace")?.value || "";
+
+      const params = new URLSearchParams();
+      if (searchVal) params.set("q", searchVal);
+      if (statusVal) params.set("status", statusVal);
+      if (scoreVal) params.set("min_score", scoreVal);
+      if (typeVal) params.set("employment_type", typeVal);
+      if (workplaceVal) params.set("workplace_type", workplaceVal);
+
+      const res = await authedFetch(`/api/discovery/jobs?${params.toString()}`);
       const data = await res.json();
       const jobs = data.jobs || [];
-      if (!jobs.length) {
-        container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">No jobs found. Run discovery or import above.</div>';
-        return;
-      }
-      container.innerHTML = "";
-      jobs.forEach((j) => {
-        const item = document.createElement("div");
-        item.style.cssText = "background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center;";
-        item.innerHTML = `
-          <div>
-            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);">${escapeHtml(j.title)}</div>
-            <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(j.company)} · ${escapeHtml(j.location || "Remote")} · <span class="badge badge-dry-run">${escapeHtml(j.employment_type || "full-time")}</span></div>
-          </div>
-          <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="window.evaluateCandidateJob('${j.stable_id}')">Evaluate Fit</button>
-        `;
-        container.appendChild(item);
-      });
+
+      const countEl = document.getElementById("discovery-job-count");
+      if (countEl) countEl.innerText = `${jobs.length} jobs`;
+
+      renderDiscoveredJobsList(jobs);
     } catch (err) {
       container.innerHTML = `<div style="color: #ef4444; font-size: 12px;">Error loading jobs: ${err.message}</div>`;
     }

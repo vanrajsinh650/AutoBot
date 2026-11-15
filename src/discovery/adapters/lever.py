@@ -1,10 +1,12 @@
 """
-Lever Published Postings API Adapter.
+Lever Published Postings API Adapter for AutoBot v2.3.
 Endpoint: https://api.lever.co/v0/postings/{company}?mode=json
+Includes SSRF validation, size capping, workplace classification, and compensation extraction.
 """
 
 import asyncio
 from datetime import datetime
+import json
 from typing import Any, Dict, List, Optional
 import aiohttp
 
@@ -12,9 +14,18 @@ from src.discovery.adapters.base import (
     BaseJobSourceAdapter,
     classify_employment_type,
     detect_remote,
+    detect_workplace_type,
+    extract_compensation,
     strip_html,
 )
 from src.discovery.models import EmploymentType, JobSourceConfig, NormalizedJob, SourceType
+from src.discovery.security import (
+    MAX_RESPONSE_BYTES,
+    SSRFValidationError,
+    safe_read_json,
+    validate_ats_url,
+    validate_board_slug,
+)
 from src.matching.eligibility import resolve_job_country
 from src.utils.logger import logger
 
@@ -25,8 +36,19 @@ class LeverAdapter(BaseJobSourceAdapter):
     BASE_URL = "https://api.lever.co/v0/postings/{company}?mode=json"
 
     async def fetch_jobs(self, session: Optional[aiohttp.ClientSession] = None) -> List[NormalizedJob]:
-        company = self.config.board_token_or_slug.strip()
+        raw_company = self.config.board_token_or_slug.strip()
+        try:
+            company = validate_board_slug(raw_company)
+        except SSRFValidationError as e:
+            logger.error(f"[discovery]SSRF Blocked: Invalid Lever board slug '{raw_company}': {e}")
+            return []
+
         url = self.config.base_url or self.BASE_URL.format(company=company)
+        try:
+            validate_ats_url(url, expected_source_type=SourceType.LEVER)
+        except SSRFValidationError as e:
+            logger.error(f"[discovery]SSRF Blocked: Invalid Lever destination '{url}': {e}")
+            return []
 
         close_session = False
         if session is None:
@@ -36,7 +58,9 @@ class LeverAdapter(BaseJobSourceAdapter):
         payload: Any = None
         for attempt in range(2):
             try:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                headers = {"User-Agent": "AutoBot/2.3 (+https://github.com/autobot-platform)"}
+                timeout = aiohttp.ClientTimeout(total=20, connect=5, sock_read=15)
+                async with session.get(url, headers=headers, timeout=timeout) as resp:
                     if resp.status == 429:
                         logger.warning(f"Rate limited (HTTP 429) by Lever for '{company}'. Attempt {attempt+1}/2.")
                         if attempt == 0:
@@ -52,7 +76,12 @@ class LeverAdapter(BaseJobSourceAdapter):
                     elif resp.status != 200:
                         logger.warning(f"Lever API returned HTTP {resp.status} for company '{company}'")
                         return []
-                    payload = await resp.json()
+
+                    try:
+                        payload = await safe_read_json(resp, MAX_RESPONSE_BYTES)
+                    except SSRFValidationError as e:
+                        logger.error(f"[discovery]Lever response for '{company}' size violation: {e}")
+                        return []
                     break
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 logger.warning(f"Network error querying Lever for '{company}': {e}. Attempt {attempt+1}/2.")
@@ -74,6 +103,7 @@ class LeverAdapter(BaseJobSourceAdapter):
             return []
 
         normalized: List[NormalizedJob] = []
+        now_iso = datetime.now().isoformat()
 
         for item in payload:
             if not isinstance(item, dict):
@@ -93,7 +123,6 @@ class LeverAdapter(BaseJobSourceAdapter):
             if not desc_plain:
                 desc_plain = strip_html(item.get("description", ""))
 
-            # Append lists/additional sections if present
             lists = item.get("lists") or []
             if isinstance(lists, list):
                 for lst in lists:
@@ -104,17 +133,19 @@ class LeverAdapter(BaseJobSourceAdapter):
                     desc_plain += f"\n\n{text_block}:\n" + strip_html(content_html)
 
             is_remote = detect_remote(location_name, commitment) or detect_remote("", title)
+            workplace_type = detect_workplace_type(location_name, f"{commitment} {title}")
             emp_type = classify_employment_type(f"{commitment} {title} {desc_plain[:300]}")
+            comp_min, comp_max, currency = extract_compensation(desc_plain)
 
             stable_id = f"lever:{company}:{job_id}"
             app_url = item.get("hostedUrl", f"https://jobs.lever.co/{company}/{job_id}")
 
-            created_at = ""
+            created_at = now_iso
             if item.get("createdAt"):
                 try:
                     created_at = datetime.fromtimestamp(item["createdAt"] / 1000).isoformat()
                 except Exception:
-                    created_at = datetime.now().isoformat()
+                    created_at = now_iso
 
             job = NormalizedJob(
                 stable_id=stable_id,
@@ -127,12 +158,19 @@ class LeverAdapter(BaseJobSourceAdapter):
                 location=location_name,
                 country=resolve_job_country(location_name) or "",
                 is_remote=is_remote,
-                publication_date=created_at or datetime.now().isoformat(),
+                workplace_type=workplace_type,
+                status="active",
+                compensation_min=comp_min,
+                compensation_max=comp_max,
+                currency=currency,
+                publication_date=created_at,
+                discovered_at=now_iso,
+                source_updated_at=created_at,
+                last_verified_at=now_iso,
                 application_url=app_url,
                 raw_data=item,
             )
             job.fingerprint = job.compute_fingerprint()
             normalized.append(job)
 
-        logger.info(f"[discovery]Discovered {len(normalized)} jobs from Lever company '{company}'[/discovery]")
         return normalized

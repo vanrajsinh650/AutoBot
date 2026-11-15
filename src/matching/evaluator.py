@@ -48,8 +48,11 @@ def extract_requirements_heuristic(description: str) -> JobRequirementsExtracted
     for skill in COMMON_TECH_KEYWORDS:
         pattern = r"\b" + re.escape(skill.lower()) + r"\b"
         if re.search(pattern, desc_lower):
-            # Negation guard: Check for phrases like "no python", "without java", "not required"
-            neg_pattern = rf"\b(?:no|not|without|never)\b[^.\n]{{0,35}}\b{re.escape(skill.lower())}\b|\b{re.escape(skill.lower())}\b[^.\n]{{0,35}}\b(?:not required|not needed)\b"
+            # Negation guard: Check for phrases like "no python", "without java", "not required", "strictly not used"
+            neg_pattern = (
+                rf"\b(?:no|not|without|never|avoid|strictly no)\b[^.\n]{{0,35}}\b{re.escape(skill.lower())}\b|"
+                rf"\b{re.escape(skill.lower())}\b[^.\n]{{0,35}}\b(?:not required|not needed|not used|never used|strictly not used|not accepted|prohibited)\b"
+            )
             if re.search(neg_pattern, desc_lower):
                 continue
             found_skills.append(skill)

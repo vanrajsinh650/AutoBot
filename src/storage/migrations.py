@@ -260,6 +260,44 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_fingerprint ON jobs(fingerprint)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_company_title ON jobs(company, title)")
 
+    # 8b. v2.3 Columns on job_sources
+    source_cols = {r[1] if isinstance(r, (tuple, list)) else r["name"] for r in conn.execute("PRAGMA table_info(job_sources)").fetchall()}
+    if "refresh_interval" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN refresh_interval INTEGER DEFAULT 3600")
+    if "status" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN status TEXT DEFAULT 'active'")
+    if "last_synced_at" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN last_synced_at TEXT DEFAULT ''")
+    if "concurrency_limit" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN concurrency_limit INTEGER DEFAULT 2")
+    if "failure_count" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN failure_count INTEGER DEFAULT 0")
+    if "last_error" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN last_error TEXT DEFAULT ''")
+
+    # 9b. v2.3 Columns on jobs
+    job_cols = {r[1] if isinstance(r, (tuple, list)) else r["name"] for r in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+    if "workplace_type" not in job_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN workplace_type TEXT DEFAULT 'on-site'")
+    if "status" not in job_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN status TEXT DEFAULT 'active'")
+    if "compensation_min" not in job_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN compensation_min REAL")
+    if "compensation_max" not in job_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN compensation_max REAL")
+    if "currency" not in job_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN currency TEXT DEFAULT 'USD'")
+    if "discovered_at" not in job_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN discovered_at TEXT DEFAULT ''")
+    if "source_updated_at" not in job_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN source_updated_at TEXT DEFAULT ''")
+    if "last_verified_at" not in job_cols:
+        conn.execute("ALTER TABLE jobs ADD COLUMN last_verified_at TEXT DEFAULT ''")
+
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_workplace ON jobs(workplace_type)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_job_sources_status ON job_sources(status)")
+
     # 10. job_requirements
     conn.execute("""
         CREATE TABLE IF NOT EXISTS job_requirements (

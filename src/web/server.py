@@ -28,6 +28,9 @@ from src.web.routes import (
     get_profile_handler,
     get_resume_versions_handler,
     get_sources_handler,
+    get_sources_health_handler,
+    get_keyword_expansion_handler,
+    get_personalized_jobs_handler,
     get_stats_handler,
     get_status,
     get_tracker_handler,
@@ -143,13 +146,16 @@ def create_app() -> web.Application:
 
     # ── Job Discovery Routes ──────────────────────────────────────
     app.router.add_get("/api/discovery/sources", get_sources_handler)
+    app.router.add_get("/api/discovery/sources/health", get_sources_health_handler)
     app.router.add_post("/api/discovery/sources", add_source_handler)
     app.router.add_post("/api/discovery/run", discover_jobs_handler)
     app.router.add_post("/api/discovery/import", import_job_handler)
     app.router.add_get("/api/discovery/jobs", get_discovered_jobs_handler)
+    app.router.add_get("/api/discovery/personalized", get_personalized_jobs_handler)
 
     # ── Matching & Evaluation Routes ──────────────────────────────
     app.router.add_post("/api/matching/evaluate", evaluate_job_handler)
+    app.router.add_get("/api/matching/expand-keywords", get_keyword_expansion_handler)
 
     # ── Application Preparation & Workflow Routes ─────────────────
     app.router.add_post("/api/application/prepare", prepare_application_handler)

@@ -1,10 +1,12 @@
 """
-Ashby Public Job Postings API Adapter.
+Ashby Public Job Postings API Adapter for AutoBot v2.3.
 Endpoint: https://api.ashbyhq.com/posting-api/job-board/{organization_slug}
+Includes SSRF validation, size capping, workplace classification, and compensation extraction.
 """
 
 import asyncio
 from datetime import datetime
+import json
 from typing import Any, Dict, List, Optional
 import aiohttp
 
@@ -12,9 +14,18 @@ from src.discovery.adapters.base import (
     BaseJobSourceAdapter,
     classify_employment_type,
     detect_remote,
+    detect_workplace_type,
+    extract_compensation,
     strip_html,
 )
 from src.discovery.models import EmploymentType, JobSourceConfig, NormalizedJob, SourceType
+from src.discovery.security import (
+    MAX_RESPONSE_BYTES,
+    SSRFValidationError,
+    safe_read_json,
+    validate_ats_url,
+    validate_board_slug,
+)
 from src.matching.eligibility import resolve_job_country
 from src.utils.logger import logger
 
@@ -25,8 +36,19 @@ class AshbyAdapter(BaseJobSourceAdapter):
     BASE_URL = "https://api.ashbyhq.com/posting-api/job-board/{org}"
 
     async def fetch_jobs(self, session: Optional[aiohttp.ClientSession] = None) -> List[NormalizedJob]:
-        org = self.config.board_token_or_slug.strip()
+        raw_org = self.config.board_token_or_slug.strip()
+        try:
+            org = validate_board_slug(raw_org)
+        except SSRFValidationError as e:
+            logger.error(f"[discovery]SSRF Blocked: Invalid Ashby organization slug '{raw_org}': {e}")
+            return []
+
         url = self.config.base_url or self.BASE_URL.format(org=org)
+        try:
+            validate_ats_url(url, expected_source_type=SourceType.ASHBY)
+        except SSRFValidationError as e:
+            logger.error(f"[discovery]SSRF Blocked: Invalid Ashby destination '{url}': {e}")
+            return []
 
         close_session = False
         if session is None:
@@ -36,7 +58,9 @@ class AshbyAdapter(BaseJobSourceAdapter):
         payload: Any = None
         for attempt in range(2):
             try:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                headers = {"User-Agent": "AutoBot/2.3 (+https://github.com/autobot-platform)"}
+                timeout = aiohttp.ClientTimeout(total=20, connect=5, sock_read=15)
+                async with session.get(url, headers=headers, timeout=timeout) as resp:
                     if resp.status == 429:
                         logger.warning(f"Rate limited (HTTP 429) by Ashby for '{org}'. Attempt {attempt+1}/2.")
                         if attempt == 0:
@@ -52,7 +76,12 @@ class AshbyAdapter(BaseJobSourceAdapter):
                     elif resp.status != 200:
                         logger.warning(f"Ashby API returned HTTP {resp.status} for organization '{org}'")
                         return []
-                    payload = await resp.json()
+
+                    try:
+                        payload = await safe_read_json(resp, MAX_RESPONSE_BYTES)
+                    except SSRFValidationError as e:
+                        logger.error(f"[discovery]Ashby response for '{org}' size violation: {e}")
+                        return []
                     break
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 logger.warning(f"Network error querying Ashby for '{org}': {e}. Attempt {attempt+1}/2.")
@@ -72,6 +101,7 @@ class AshbyAdapter(BaseJobSourceAdapter):
 
         raw_jobs = payload.get("jobs", []) if isinstance(payload, dict) else []
         normalized: List[NormalizedJob] = []
+        now_iso = datetime.now().isoformat()
 
         for item in raw_jobs:
             if not isinstance(item, dict):
@@ -89,10 +119,18 @@ class AshbyAdapter(BaseJobSourceAdapter):
             raw_emp = str(item.get("employmentType", ""))
             emp_type = classify_employment_type(f"{raw_emp} {title}")
 
-            is_remote = item.get("isRemote", False) or detect_remote(location_name, title)
+            is_remote = bool(item.get("isRemote", False)) or detect_remote(location_name, title)
+            workplace_type = detect_workplace_type(location_name, f"{title} {desc_plain[:300]}")
+            if is_remote and workplace_type == "on-site":
+                workplace_type = "remote"
+
+            # Compensation extraction: check explicit fields or parse text
+            comp_tier = str(item.get("compensationTierSummary", ""))
+            comp_min, comp_max, currency = extract_compensation(f"{comp_tier} {desc_plain}")
 
             stable_id = f"ashby:{org}:{job_id}"
             app_url = item.get("jobUrl", f"https://jobs.ashbyhq.com/{org}/{job_id}")
+            pub_date = item.get("publishedAt") or now_iso
 
             job = NormalizedJob(
                 stable_id=stable_id,
@@ -105,12 +143,19 @@ class AshbyAdapter(BaseJobSourceAdapter):
                 location=location_name,
                 country=resolve_job_country(location_name) or "",
                 is_remote=is_remote,
-                publication_date=item.get("publishedAt", datetime.now().isoformat()),
+                workplace_type=workplace_type,
+                status="active",
+                compensation_min=comp_min,
+                compensation_max=comp_max,
+                currency=currency,
+                publication_date=pub_date,
+                discovered_at=now_iso,
+                source_updated_at=pub_date,
+                last_verified_at=now_iso,
                 application_url=app_url,
                 raw_data=item,
             )
             job.fingerprint = job.compute_fingerprint()
             normalized.append(job)
 
-        logger.info(f"[discovery]Discovered {len(normalized)} jobs from Ashby org '{org}'[/discovery]")
         return normalized

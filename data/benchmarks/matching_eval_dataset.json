@@ -1,0 +1,4004 @@
+[
+  {
+    "pair_id": "exact_01",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_01",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "Docker",
+        "Redis"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "Redis"
+      ],
+      "experience": [
+        {
+          "role": "Senior Python Backend Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with Python and FastAPI."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Python Backend Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_01",
+      "title": "Senior Python Backend Engineer",
+      "company": "Acme Corp",
+      "description": "Build scalable microservices in Python, FastAPI, and PostgreSQL with Docker. Required skills: Python, FastAPI, PostgreSQL. Preferred skills: Docker, Redis. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for Python Backend."
+  },
+  {
+    "pair_id": "exact_02",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_02",
+      "technical_skills": [
+        "Python",
+        "PyTorch",
+        "LLM",
+        "LangChain",
+        "Vector DB"
+      ],
+      "primary_skills": [
+        "Python",
+        "PyTorch",
+        "LLM",
+        "LangChain"
+      ],
+      "secondary_skills": [
+        "Vector DB"
+      ],
+      "experience": [
+        {
+          "role": "Applied AI Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with Python and PyTorch."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Applied AI Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_02",
+      "title": "Applied AI Engineer",
+      "company": "Acme Corp",
+      "description": "Design and deploy generative AI applications with Python, PyTorch, and LangChain. Required skills: Python, PyTorch, LLM. Preferred skills: LangChain, Vector DB. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for AI / ML."
+  },
+  {
+    "pair_id": "exact_03",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_03",
+      "technical_skills": [
+        "React",
+        "TypeScript",
+        "Next.js",
+        "Tailwind CSS",
+        "HTML5"
+      ],
+      "primary_skills": [
+        "React",
+        "TypeScript",
+        "Next.js",
+        "Tailwind CSS"
+      ],
+      "secondary_skills": [
+        "HTML5"
+      ],
+      "experience": [
+        {
+          "role": "Senior Frontend Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with React and TypeScript."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Frontend Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_03",
+      "title": "Senior Frontend Engineer",
+      "company": "Acme Corp",
+      "description": "Develop responsive web applications using React, TypeScript, and Next.js. Required skills: React, TypeScript, Next.js. Preferred skills: Tailwind CSS, HTML5. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for Frontend React."
+  },
+  {
+    "pair_id": "exact_04",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_04",
+      "technical_skills": [
+        "Kubernetes",
+        "Docker",
+        "Terraform",
+        "AWS",
+        "CI/CD"
+      ],
+      "primary_skills": [
+        "Kubernetes",
+        "Docker",
+        "Terraform",
+        "AWS"
+      ],
+      "secondary_skills": [
+        "CI/CD"
+      ],
+      "experience": [
+        {
+          "role": "Platform / DevOps Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with Kubernetes and Docker."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Platform / DevOps Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_04",
+      "title": "Platform / DevOps Engineer",
+      "company": "Acme Corp",
+      "description": "Maintain cloud infrastructure on AWS using Kubernetes, Terraform, and CI/CD pipelines. Required skills: Kubernetes, Docker, Terraform. Preferred skills: AWS, CI/CD. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for DevOps Cloud."
+  },
+  {
+    "pair_id": "exact_05",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_05",
+      "technical_skills": [
+        "Python",
+        "SQL",
+        "Apache Spark",
+        "Snowflake",
+        "dbt"
+      ],
+      "primary_skills": [
+        "Python",
+        "SQL",
+        "Apache Spark",
+        "Snowflake"
+      ],
+      "secondary_skills": [
+        "dbt"
+      ],
+      "experience": [
+        {
+          "role": "Staff Data Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with Python and SQL."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Staff Data Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_05",
+      "title": "Staff Data Engineer",
+      "company": "Acme Corp",
+      "description": "Build scalable batch and streaming pipelines using Python, SQL, Apache Spark, and Snowflake. Required skills: Python, SQL, Apache Spark. Preferred skills: Snowflake, dbt. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for Data Engineer."
+  },
+  {
+    "pair_id": "exact_06",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_06",
+      "technical_skills": [
+        "JavaScript",
+        "TypeScript",
+        "Node.js",
+        "React",
+        "PostgreSQL"
+      ],
+      "primary_skills": [
+        "JavaScript",
+        "TypeScript",
+        "Node.js",
+        "React"
+      ],
+      "secondary_skills": [
+        "PostgreSQL"
+      ],
+      "experience": [
+        {
+          "role": "Full Stack Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with JavaScript and TypeScript."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Full Stack Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_06",
+      "title": "Full Stack Engineer",
+      "company": "Acme Corp",
+      "description": "End-to-end web engineering using TypeScript, Node.js, React, and PostgreSQL. Required skills: JavaScript, TypeScript, Node.js. Preferred skills: React, PostgreSQL. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for Full Stack JS."
+  },
+  {
+    "pair_id": "exact_07",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_07",
+      "technical_skills": [
+        "Python",
+        "AppSec",
+        "OAuth",
+        "OWASP",
+        "IAM"
+      ],
+      "primary_skills": [
+        "Python",
+        "AppSec",
+        "OAuth",
+        "OWASP"
+      ],
+      "secondary_skills": [
+        "IAM"
+      ],
+      "experience": [
+        {
+          "role": "Application Security Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with Python and AppSec."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Application Security Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_07",
+      "title": "Application Security Engineer",
+      "company": "Acme Corp",
+      "description": "Perform vulnerability scanning, threat modeling, and secure IAM and OAuth implementations. Required skills: Python, AppSec, OAuth. Preferred skills: OWASP, IAM. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for Security AppSec."
+  },
+  {
+    "pair_id": "exact_08",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_08",
+      "technical_skills": [
+        "Golang",
+        "Kubernetes",
+        "gRPC",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "primary_skills": [
+        "Golang",
+        "Kubernetes",
+        "gRPC",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "PostgreSQL"
+      ],
+      "experience": [
+        {
+          "role": "Go Systems Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with Golang and Kubernetes."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Go Systems Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_08",
+      "title": "Go Systems Engineer",
+      "company": "Acme Corp",
+      "description": "Develop high-throughput microservices using Golang, gRPC, and Kubernetes. Required skills: Golang, Kubernetes, gRPC. Preferred skills: Docker, PostgreSQL. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for Go Microservices."
+  },
+  {
+    "pair_id": "exact_09",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_09",
+      "technical_skills": [
+        "Kotlin",
+        "Android SDK",
+        "Jetpack Compose",
+        "Coroutines",
+        "Java"
+      ],
+      "primary_skills": [
+        "Kotlin",
+        "Android SDK",
+        "Jetpack Compose",
+        "Coroutines"
+      ],
+      "secondary_skills": [
+        "Java"
+      ],
+      "experience": [
+        {
+          "role": "Senior Android Developer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with Kotlin and Android SDK."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Android Developer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_09",
+      "title": "Senior Android Developer",
+      "company": "Acme Corp",
+      "description": "Build native mobile experiences using Kotlin, Jetpack Compose, and modern Android SDK. Required skills: Kotlin, Android SDK, Jetpack Compose. Preferred skills: Coroutines, Java. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for Android Kotlin."
+  },
+  {
+    "pair_id": "exact_10",
+    "category": "exact_match",
+    "resume": {
+      "full_name": "Candidate exact_10",
+      "technical_skills": [
+        "C++",
+        "Linux",
+        "Multithreading",
+        "Algorithms",
+        "Git"
+      ],
+      "primary_skills": [
+        "C++",
+        "Linux",
+        "Multithreading",
+        "Algorithms"
+      ],
+      "secondary_skills": [
+        "Git"
+      ],
+      "experience": [
+        {
+          "role": "Systems Software Engineer",
+          "company": "Tech Corp",
+          "years": 4.0,
+          "bullets": [
+            "Architected systems with C++ and Linux."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Systems Software Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:exact_10",
+      "title": "Systems Software Engineer",
+      "company": "Acme Corp",
+      "description": "Low-latency systems development in modern C++ on Linux with multithreading. Required skills: C++, Linux, Multithreading. Preferred skills: Algorithms, Git. 3+ years experience. Bachelor degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      75.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Strong direct alignment for Systems C++."
+  },
+  {
+    "pair_id": "alias_01",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_01",
+      "technical_skills": [
+        "k8s",
+        "docker"
+      ],
+      "primary_skills": [
+        "k8s",
+        "docker"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Cloud Engineer",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented k8s solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Cloud Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_01",
+      "title": "Cloud Engineer",
+      "company": "Alias Corp",
+      "description": "Requires Kubernetes container orchestration and docker. Required skills: Kubernetes container orchestration and docker. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles k8s to Kubernetes."
+  },
+  {
+    "pair_id": "alias_02",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_02",
+      "technical_skills": [
+        "py",
+        "fastapi"
+      ],
+      "primary_skills": [
+        "py",
+        "fastapi"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Backend Engineer",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented py solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Backend Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_02",
+      "title": "Backend Engineer",
+      "company": "Alias Corp",
+      "description": "Requires Python 3 and FastAPI development. Required skills: Python 3 and FastAPI development. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles py to Python."
+  },
+  {
+    "pair_id": "alias_03",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_03",
+      "technical_skills": [
+        "psql",
+        "python"
+      ],
+      "primary_skills": [
+        "psql",
+        "python"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Database Backend Dev",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented psql solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Database Backend Dev",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_03",
+      "title": "Database Backend Dev",
+      "company": "Alias Corp",
+      "description": "Requires PostgreSQL database queries and Python. Required skills: PostgreSQL database queries and Python. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles psql to PostgreSQL."
+  },
+  {
+    "pair_id": "alias_04",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_04",
+      "technical_skills": [
+        "ts",
+        "react"
+      ],
+      "primary_skills": [
+        "ts",
+        "react"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "UI Engineer",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented ts solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "UI Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_04",
+      "title": "UI Engineer",
+      "company": "Alias Corp",
+      "description": "Requires TypeScript and React web development. Required skills: TypeScript and React web development. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles ts to TypeScript."
+  },
+  {
+    "pair_id": "alias_05",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_05",
+      "technical_skills": [
+        "js",
+        "html"
+      ],
+      "primary_skills": [
+        "js",
+        "html"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Web Developer",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented js solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Web Developer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_05",
+      "title": "Web Developer",
+      "company": "Alias Corp",
+      "description": "Requires JavaScript and modern web standards. Required skills: JavaScript and modern web standards. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles js to JavaScript."
+  },
+  {
+    "pair_id": "alias_06",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_06",
+      "technical_skills": [
+        "aws",
+        "terraform"
+      ],
+      "primary_skills": [
+        "aws",
+        "terraform"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Infra Engineer",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented aws solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Infra Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_06",
+      "title": "Infra Engineer",
+      "company": "Alias Corp",
+      "description": "Requires Amazon Web Services cloud and Terraform. Required skills: Amazon Web Services cloud and Terraform. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles aws to Amazon Web Services."
+  },
+  {
+    "pair_id": "alias_07",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_07",
+      "technical_skills": [
+        "gcp",
+        "kubernetes"
+      ],
+      "primary_skills": [
+        "gcp",
+        "kubernetes"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "SRE",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented gcp solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "SRE",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_07",
+      "title": "SRE",
+      "company": "Alias Corp",
+      "description": "Requires Google Cloud Platform and Kubernetes. Required skills: Google Cloud Platform and Kubernetes. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles gcp to Google Cloud."
+  },
+  {
+    "pair_id": "alias_08",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_08",
+      "technical_skills": [
+        "mongo",
+        "nodejs"
+      ],
+      "primary_skills": [
+        "mongo",
+        "nodejs"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Node Engineer",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented mongo solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Node Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_08",
+      "title": "Node Engineer",
+      "company": "Alias Corp",
+      "description": "Requires MongoDB document store and NodeJS. Required skills: MongoDB document store and NodeJS. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles mongo to MongoDB."
+  },
+  {
+    "pair_id": "alias_09",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_09",
+      "technical_skills": [
+        "reactjs",
+        "typescript"
+      ],
+      "primary_skills": [
+        "reactjs",
+        "typescript"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Frontend Dev",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented reactjs solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Frontend Dev",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_09",
+      "title": "Frontend Dev",
+      "company": "Alias Corp",
+      "description": "Requires React and TypeScript components. Required skills: React and TypeScript components. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles reactjs to React."
+  },
+  {
+    "pair_id": "alias_10",
+    "category": "abbreviations_and_aliases",
+    "resume": {
+      "full_name": "Candidate alias_10",
+      "technical_skills": [
+        "cicd",
+        "docker"
+      ],
+      "primary_skills": [
+        "cicd",
+        "docker"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Build Engineer",
+          "company": "Cloud Co",
+          "years": 3.0,
+          "bullets": [
+            "Implemented cicd solutions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology",
+          "institution": "Tech Institute"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Build Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:alias_10",
+      "title": "Build Engineer",
+      "company": "Alias Corp",
+      "description": "Requires CI/CD deployment automation and Docker. Required skills: CI/CD deployment automation and Docker. 2+ years of experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Verify alias normalization handles cicd to CI/CD."
+  },
+  {
+    "pair_id": "neg_01",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_01",
+      "technical_skills": [
+        "Python",
+        "Django"
+      ],
+      "primary_skills": [
+        "Python",
+        "Django"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with Python."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Go Microservices Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_01",
+      "title": "Go Microservices Developer",
+      "company": "Negation Inc",
+      "description": "We write high performance services in Go. No Python or Django required. Must know Golang and gRPC.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in No Python do not inflate score."
+  },
+  {
+    "pair_id": "neg_02",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_02",
+      "technical_skills": [
+        "Java",
+        "Spring Boot"
+      ],
+      "primary_skills": [
+        "Java",
+        "Spring Boot"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with Java."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Modern Rust Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_02",
+      "title": "Modern Rust Engineer",
+      "company": "Negation Inc",
+      "description": "Greenfield Rust engineering. Without Java or legacy JVM frameworks. Must have Rust experience.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in Without Java do not inflate score."
+  },
+  {
+    "pair_id": "neg_03",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_03",
+      "technical_skills": [
+        "React",
+        "Redux"
+      ],
+      "primary_skills": [
+        "React",
+        "Redux"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with React."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Native iOS Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_03",
+      "title": "Native iOS Engineer",
+      "company": "Negation Inc",
+      "description": "Native Swift development. React is not required or needed. Only Swift and UIKit.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in React not needed do not inflate score."
+  },
+  {
+    "pair_id": "neg_04",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_04",
+      "technical_skills": [
+        "PHP",
+        "Laravel"
+      ],
+      "primary_skills": [
+        "PHP",
+        "Laravel"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with PHP."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Node.js Backend Dev"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_04",
+      "title": "Node.js Backend Dev",
+      "company": "Negation Inc",
+      "description": "Modern TypeScript APIs. Candidates must not use PHP. TypeScript and Express required.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in Candidate must not use PHP do not inflate score."
+  },
+  {
+    "pair_id": "neg_05",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_05",
+      "technical_skills": [
+        "Docker",
+        "Kubernetes"
+      ],
+      "primary_skills": [
+        "Docker",
+        "Kubernetes"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with Docker."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Embedded Bare Metal Dev"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_05",
+      "title": "Embedded Bare Metal Dev",
+      "company": "Negation Inc",
+      "description": "Firmware programming on ARM chips. We never use Docker or containerization. C and assembly required.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in Never use Docker do not inflate score."
+  },
+  {
+    "pair_id": "neg_06",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_06",
+      "technical_skills": [
+        "SQL",
+        "PostgreSQL"
+      ],
+      "primary_skills": [
+        "SQL",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with SQL."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Vector DB Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_06",
+      "title": "Vector DB Architect",
+      "company": "Negation Inc",
+      "description": "Pure semantic search engine. No SQL or relational databases needed. Graph neural nets required.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in No SQL needed do not inflate score."
+  },
+  {
+    "pair_id": "neg_07",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_07",
+      "technical_skills": [
+        "Flutter",
+        "Dart"
+      ],
+      "primary_skills": [
+        "Flutter",
+        "Dart"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with Flutter."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Native Android Dev"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_07",
+      "title": "Native Android Dev",
+      "company": "Negation Inc",
+      "description": "Native Android apps. No Flutter or cross-platform tools. Kotlin required.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in No Flutter do not inflate score."
+  },
+  {
+    "pair_id": "neg_08",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_08",
+      "technical_skills": [
+        "Python"
+      ],
+      "primary_skills": [
+        "Python"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with Python."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Ruby on Rails Senior Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_08",
+      "title": "Ruby on Rails Senior Engineer",
+      "company": "Negation Inc",
+      "description": "Legacy Rails stack. Python is not needed. Ruby and Rails required.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in Python is not needed do not inflate score."
+  },
+  {
+    "pair_id": "neg_09",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_09",
+      "technical_skills": [
+        "Kubernetes"
+      ],
+      "primary_skills": [
+        "Kubernetes"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with Kubernetes."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Serverless Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_09",
+      "title": "Serverless Architect",
+      "company": "Negation Inc",
+      "description": "Pure AWS Lambda architectures. Kubernetes is strictly not used here. Serverless framework required.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in Kubernetes strictly not used do not inflate score."
+  },
+  {
+    "pair_id": "neg_10",
+    "category": "negations_and_not_required",
+    "resume": {
+      "full_name": "Candidate neg_10",
+      "technical_skills": [
+        "AWS"
+      ],
+      "primary_skills": [
+        "AWS"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Developer",
+          "company": "Legacy Corp",
+          "years": 3.0,
+          "bullets": [
+            "Worked with AWS."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor Degree",
+          "institution": "University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Azure Enterprise Consultant"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:neg_10",
+      "title": "Azure Enterprise Consultant",
+      "company": "Negation Inc",
+      "description": "Microsoft ecosystem. No AWS experience required; we are exclusively Azure.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      45.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Negation check: ensure negated skills in No AWS required do not inflate score."
+  },
+  {
+    "pair_id": "mismatch_01",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_01",
+      "technical_skills": [
+        "Python",
+        "FastAPI"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "US On-Site Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_01",
+      "title": "US On-Site Engineer",
+      "company": "Strict Corp",
+      "description": "Must work in New York City office. United States work authorization required. Required skills: Python, FastAPI.",
+      "employment_type": "full-time",
+      "location": "New York, NY",
+      "country": "United States",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Country Mismatch US vs India."
+  },
+  {
+    "pair_id": "mismatch_02",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_02",
+      "technical_skills": [
+        "Java",
+        "Spring"
+      ],
+      "primary_skills": [
+        "Java",
+        "Spring"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Berlin On-Site Lead"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_02",
+      "title": "Berlin On-Site Lead",
+      "company": "Strict Corp",
+      "description": "Work in Berlin office. Germany residency required. Required skills: Java, Spring.",
+      "employment_type": "full-time",
+      "location": "Berlin, Germany",
+      "country": "Germany",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Country Mismatch Germany vs US."
+  },
+  {
+    "pair_id": "mismatch_03",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_03",
+      "technical_skills": [
+        "Python"
+      ],
+      "primary_skills": [
+        "Python"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Tokyo Backend Dev"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_03",
+      "title": "Tokyo Backend Dev",
+      "company": "Strict Corp",
+      "description": "Work on-site in Tokyo. Japan work visa required. Required skills: Python.",
+      "employment_type": "full-time",
+      "location": "Tokyo, Japan",
+      "country": "Japan",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Country Mismatch Japan vs US."
+  },
+  {
+    "pair_id": "mismatch_04",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_04",
+      "technical_skills": [
+        "React"
+      ],
+      "primary_skills": [
+        "React"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Staff Principal Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_04",
+      "title": "Staff Principal Architect",
+      "company": "Strict Corp",
+      "description": "Requires minimum 10+ years of professional engineering experience. Required skills: React.",
+      "employment_type": "full-time",
+      "location": "New York, NY",
+      "country": "United States",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Experience 10+ yrs vs 1 yr."
+  },
+  {
+    "pair_id": "mismatch_05",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_05",
+      "technical_skills": [
+        "Python"
+      ],
+      "primary_skills": [
+        "Python"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Staff Lead"
+      ],
+      "employment_types": [
+        "internship"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_05",
+      "title": "Senior Staff Lead",
+      "company": "Strict Corp",
+      "description": "Full-time senior leadership role. 8+ years experience. Required skills: Python.",
+      "employment_type": "full-time",
+      "location": "New York, NY",
+      "country": "United States",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Employment Internship vs Senior."
+  },
+  {
+    "pair_id": "mismatch_06",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_06",
+      "technical_skills": [
+        "Go",
+        "Kubernetes"
+      ],
+      "primary_skills": [
+        "Go",
+        "Kubernetes"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Tokyo On-Site Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_06",
+      "title": "Tokyo On-Site Engineer",
+      "company": "Strict Corp",
+      "description": "Strict 5 days on-site Tokyo office. No remote permitted. Required skills: Go, Kubernetes.",
+      "employment_type": "full-time",
+      "location": "Tokyo, Japan",
+      "country": "Japan",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Workplace On-Site Japan vs US Candidate."
+  },
+  {
+    "pair_id": "mismatch_07",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_07",
+      "technical_skills": [
+        "HTML",
+        "CSS"
+      ],
+      "primary_skills": [
+        "HTML",
+        "CSS"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Nonprofit Volunteer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_07",
+      "title": "Nonprofit Volunteer",
+      "company": "Strict Corp",
+      "description": "Unpaid part-time volunteer position, 5 hours weekly. Required skills: HTML, CSS.",
+      "employment_type": "full-time",
+      "location": "New York, NY",
+      "country": "United States",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Full-Time vs Unpaid Volunteer."
+  },
+  {
+    "pair_id": "mismatch_08",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_08",
+      "technical_skills": [
+        "C++",
+        "Linux"
+      ],
+      "primary_skills": [
+        "C++",
+        "Linux"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Toronto Systems Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_08",
+      "title": "Toronto Systems Engineer",
+      "company": "Strict Corp",
+      "description": "Toronto office. Canadian permanent residency required. Required skills: C++, Linux.",
+      "employment_type": "full-time",
+      "location": "Toronto, Canada",
+      "country": "Canada",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Country Mismatch Canada vs US."
+  },
+  {
+    "pair_id": "mismatch_09",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_09",
+      "technical_skills": [
+        "Python",
+        "SQL"
+      ],
+      "primary_skills": [
+        "Python",
+        "SQL"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "London Data Analyst"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_09",
+      "title": "London Data Analyst",
+      "company": "Strict Corp",
+      "description": "London office on-site. UK work authorization required. Required skills: Python, SQL.",
+      "employment_type": "full-time",
+      "location": "London, UK",
+      "country": "United Kingdom",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Country Mismatch UK vs US."
+  },
+  {
+    "pair_id": "mismatch_10",
+    "category": "mandatory_requirements_mismatch",
+    "resume": {
+      "full_name": "Candidate mismatch_10",
+      "technical_skills": [
+        "Python"
+      ],
+      "primary_skills": [
+        "Python"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Engineer",
+          "company": "Co",
+          "years": 1.0,
+          "bullets": [
+            "Built applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Sydney FinTech Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mismatch_10",
+      "title": "Sydney FinTech Architect",
+      "company": "Strict Corp",
+      "description": "Sydney office on-site. Australian citizenship required. Required skills: Python.",
+      "employment_type": "full-time",
+      "location": "Sydney, Australia",
+      "country": "Australia",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      85.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Mandatory requirement failure: Country Mismatch Australia vs India."
+  },
+  {
+    "pair_id": "mislead_01",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_01",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "AI Solutions Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_01",
+      "title": "AI Solutions Engineer",
+      "company": "Shady Corp",
+      "description": "Cold-calling outbound telephone sales representative selling CRM subscriptions. 100 calls daily.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: AI Title Sales Job has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_02",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_02",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Machine Learning Associate",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_02",
+      "title": "Machine Learning Associate",
+      "company": "Shady Corp",
+      "description": "Manual data entry typing numbers from scanned paper invoices into Excel spreadsheets.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: ML Title Data Entry has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_03",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_03",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Full Stack Ninja",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_03",
+      "title": "Full Stack Ninja",
+      "company": "Shady Corp",
+      "description": "Install off-the-shelf WordPress themes and write promotional marketing copy.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: Full Stack Title WordPress has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_04",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_04",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Cloud Solutions Architect",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_04",
+      "title": "Cloud Solutions Architect",
+      "company": "Shady Corp",
+      "description": "Inbound customer support call center agent answering billing and password reset calls.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: Cloud Architect Title Call Center has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_05",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_05",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Lead Web3 Developer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_05",
+      "title": "Lead Web3 Developer",
+      "company": "Shady Corp",
+      "description": "Post promotional memes and hype messages in Telegram and Discord community groups.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: Blockchain Dev Title Telegram Shiller has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_06",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_06",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Python Software Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_06",
+      "title": "Python Software Engineer",
+      "company": "Shady Corp",
+      "description": "Baby-sit and teach 8-year-old elementary school children basic Scratch and turtle graphics.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: Python Dev Title Elementary Tutor has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_07",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_07",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "DevOps Infrastructure Specialist",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_07",
+      "title": "DevOps Infrastructure Specialist",
+      "company": "Shady Corp",
+      "description": "Replace office printer paper and untangle HDMI projector cables in meeting rooms.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: DevOps Title Cable Repair has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_08",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_08",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Data Scientist",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_08",
+      "title": "Senior Data Scientist",
+      "company": "Shady Corp",
+      "description": "Copy and paste quarterly revenue figures from PDF emails into Google Sheets.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: Data Scientist Title Copy Paste has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_09",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_09",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Cybersecurity Operations Analyst",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_09",
+      "title": "Cybersecurity Operations Analyst",
+      "company": "Shady Corp",
+      "description": "Physical lobby door guard checking badges and visitor IDs at security turnstile.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: Cybersecurity Title Door Guard has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "mislead_10",
+    "category": "misleading_job_descriptions",
+    "resume": {
+      "full_name": "Candidate mislead_10",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "React"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "React"
+      ],
+      "experience": [
+        {
+          "role": "Senior Engineer",
+          "company": "Software Co",
+          "years": 5.0,
+          "bullets": [
+            "Built cloud microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Science",
+          "institution": "Tech University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Mobile React Specialist",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:mislead_10",
+      "title": "Mobile React Specialist",
+      "company": "Shady Corp",
+      "description": "Walk door-to-door in residential neighborhoods with an iPad asking paper surveys.",
+      "employment_type": "full-time",
+      "location": "Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "expected_eligibility": "ELIGIBLE",
+    "expected_score_range": [
+      0.0,
+      35.0
+    ],
+    "expected_disagreement": false,
+    "notes": "Misleading title detection: Mobile Dev Title Survey Taker has low actual technical requirement overlap."
+  },
+  {
+    "pair_id": "disagree_01",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_01",
+      "technical_skills": [
+        "Python",
+        "PyTorch",
+        "FastAPI",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "primary_skills": [
+        "Python",
+        "PyTorch",
+        "FastAPI",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "Docker"
+      ],
+      "experience": [
+        {
+          "role": "Staff AI Engineer",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected Python and PyTorch systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Staff AI Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_01",
+      "title": "Staff AI Engineer",
+      "company": "Global Corp",
+      "description": "Build generative AI systems in Python, PyTorch, and FastAPI. Required skills: Python, PyTorch, FastAPI. Preferred skills: PostgreSQL, Docker. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site United States",
+      "country": "United States",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: US Citizen Only vs India Candidate. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_02",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_02",
+      "technical_skills": [
+        "Kubernetes",
+        "Terraform",
+        "AWS",
+        "Docker",
+        "CI/CD"
+      ],
+      "primary_skills": [
+        "Kubernetes",
+        "Terraform",
+        "AWS",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "CI/CD"
+      ],
+      "experience": [
+        {
+          "role": "Platform Architect",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected Kubernetes and Terraform systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Platform Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Canada"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_02",
+      "title": "Platform Architect",
+      "company": "Global Corp",
+      "description": "Lead Kubernetes infrastructure on AWS using Terraform. Required skills: Kubernetes, Terraform, AWS. Preferred skills: Docker, CI/CD. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site United Kingdom",
+      "country": "United Kingdom",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: UK Gov Clearance vs Canada Candidate. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_03",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_03",
+      "technical_skills": [
+        "React",
+        "TypeScript",
+        "Next.js",
+        "Node.js"
+      ],
+      "primary_skills": [
+        "React",
+        "TypeScript",
+        "Next.js",
+        "Node.js"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Lead Frontend Dev",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected React and TypeScript systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Lead Frontend Dev"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_03",
+      "title": "Lead Frontend Dev",
+      "company": "Global Corp",
+      "description": "Develop web UI in React and TypeScript. 100% on-site Munich. Required skills: React, TypeScript, Next.js. Preferred skills: Node.js. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site Germany",
+      "country": "Germany",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: Germany On-Site vs US Candidate. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_04",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_04",
+      "technical_skills": [
+        "Python",
+        "Go",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "primary_skills": [
+        "Python",
+        "Go",
+        "Docker",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Principal Engineering Director",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected Python and Go systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Principal Engineering Director"
+      ],
+      "employment_types": [
+        "internship"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_04",
+      "title": "Principal Engineering Director",
+      "company": "Global Corp",
+      "description": "Direct 50 engineers. Requires 12+ years experience. Required skills: Python, Go, Docker. Preferred skills: PostgreSQL. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site United States",
+      "country": "United States",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: Staff Exec vs Candidate Internship. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_05",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_05",
+      "technical_skills": [
+        "Java",
+        "Spring Boot",
+        "Microservices",
+        "Kafka"
+      ],
+      "primary_skills": [
+        "Java",
+        "Spring Boot",
+        "Microservices",
+        "Kafka"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Senior Java Backend Engineer",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected Java and Spring Boot systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Java Backend Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_05",
+      "title": "Senior Java Backend Engineer",
+      "company": "Global Corp",
+      "description": "Build banking microservices in Java and Kafka. Must relocate to Singapore. Required skills: Java, Spring Boot, Microservices. Preferred skills: Kafka. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site Singapore",
+      "country": "Singapore",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: Singapore On-Site vs Remote Only. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_06",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_06",
+      "technical_skills": [
+        "C++",
+        "Linux",
+        "gRPC",
+        "Docker"
+      ],
+      "primary_skills": [
+        "C++",
+        "Linux",
+        "gRPC",
+        "Docker"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "High Performance C++ Dev",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected C++ and Linux systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "High Performance C++ Dev"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_06",
+      "title": "High Performance C++ Dev",
+      "company": "Global Corp",
+      "description": "Develop low latency trading platform in Paris. EU citizens only. Required skills: C++, Linux, gRPC. Preferred skills: Docker. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site France",
+      "country": "France",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: France Citizen Only vs US Candidate. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_07",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_07",
+      "technical_skills": [
+        "Rust",
+        "Linux",
+        "Security",
+        "Networking"
+      ],
+      "primary_skills": [
+        "Rust",
+        "Linux",
+        "Security",
+        "Networking"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Defense Systems Programmer",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected Rust and Linux systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Defense Systems Programmer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_07",
+      "title": "Defense Systems Programmer",
+      "company": "Global Corp",
+      "description": "Firmware security in Rust. Active US DoD Secret clearance strictly required. On-site Maryland. Required skills: Rust, Linux, Security. Preferred skills: Networking. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site United States",
+      "country": "United States",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: Active DoD Secret vs Foreign Candidate. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_08",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_08",
+      "technical_skills": [
+        "Python",
+        "SQL",
+        "Spark",
+        "Snowflake"
+      ],
+      "primary_skills": [
+        "Python",
+        "SQL",
+        "Spark",
+        "Snowflake"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Data Platform Lead",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected Python and SQL systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Data Platform Lead"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_08",
+      "title": "Data Platform Lead",
+      "company": "Global Corp",
+      "description": "Lead data warehouse in Sydney on-site 5 days a week. Required skills: Python, SQL, Spark. Preferred skills: Snowflake. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site Australia",
+      "country": "Australia",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: Australia On-Site vs Remote Pref. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_09",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_09",
+      "technical_skills": [
+        "Ruby",
+        "Rails",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "primary_skills": [
+        "Ruby",
+        "Rails",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Senior Rails Developer",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected Ruby and Rails systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Rails Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_09",
+      "title": "Senior Rails Developer",
+      "company": "Global Corp",
+      "description": "Tokyo web service. Fluent bilingual Japanese JLPT N1 mandatory. Required skills: Ruby, Rails, PostgreSQL. Preferred skills: Docker. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site Japan",
+      "country": "Japan",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: Japan Fluent vs English Only. High technical qualification, but strictly INELIGIBLE."
+  },
+  {
+    "pair_id": "disagree_10",
+    "category": "eligibility_fit_disagreement",
+    "resume": {
+      "full_name": "Candidate disagree_10",
+      "technical_skills": [
+        "TypeScript",
+        "React",
+        "GraphQL",
+        "Node.js"
+      ],
+      "primary_skills": [
+        "TypeScript",
+        "React",
+        "GraphQL",
+        "Node.js"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Full Stack Architect",
+          "company": "Top Tier Tech",
+          "years": 6.0,
+          "bullets": [
+            "Architected TypeScript and React systems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Computer Science",
+          "institution": "Elite University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Full Stack Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "benchmark:disagree_10",
+      "title": "Full Stack Architect",
+      "company": "Global Corp",
+      "description": "Zurich engineering hub. Swiss work permit required. Required skills: TypeScript, React, GraphQL. Preferred skills: Node.js. 5+ years experience.",
+      "employment_type": "full-time",
+      "location": "On-Site Switzerland",
+      "country": "Switzerland",
+      "is_remote": false
+    },
+    "expected_eligibility": "INELIGIBLE",
+    "expected_score_range": [
+      65.0,
+      100.0
+    ],
+    "expected_disagreement": true,
+    "notes": "Disagreement case: Switzerland On-Site vs India Candidate. High technical qualification, but strictly INELIGIBLE."
+  }
+]

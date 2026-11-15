@@ -49,6 +49,68 @@ def detect_remote(location_str: str, text: str = "") -> bool:
     return any(k in comb for k in ["remote", "anywhere", "work from home", "wfh", "telecommute"])
 
 
+def detect_workplace_type(location_str: str, text: str = "") -> str:
+    """
+    Classify workplace model: 'remote', 'hybrid', or 'on-site'.
+    """
+    comb = f"{location_str} {text}".lower()
+    if "hybrid" in comb:
+        return "hybrid"
+    if detect_remote(location_str, text):
+        return "remote"
+    return "on-site"
+
+
+def extract_compensation(text: str) -> tuple[Optional[float], Optional[float], str]:
+    """
+    Extract minimum compensation, maximum compensation, and currency symbol/code.
+    Handles ranges like $120,000 - $160,000, 15 - 20 LPA, €80k - €110k, etc.
+    """
+    if not text:
+        return None, None, ""
+
+    # Detect currency
+    currency = ""
+    if "$" in text or "usd" in text.lower():
+        currency = "USD"
+    elif "€" in text or "eur" in text.lower():
+        currency = "EUR"
+    elif "£" in text or "gbp" in text.lower():
+        currency = "GBP"
+    elif "₹" in text or "inr" in text.lower() or "lpa" in text.lower():
+        currency = "INR"
+
+    # Match LPA (e.g., "15 - 20 LPA", "12 LPA")
+    lpa_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)\s*lpa", text, re.IGNORECASE)
+    if lpa_match:
+        return float(lpa_match.group(1)) * 100000, float(lpa_match.group(2)) * 100000, "INR"
+
+    single_lpa = re.search(r"(\d+(?:\.\d+)?)\s*lpa", text, re.IGNORECASE)
+    if single_lpa:
+        val = float(single_lpa.group(1)) * 100000
+        return val, val, "INR"
+
+    # Match standard dollar/euro amounts e.g. "$120,000 - $160,000" or "$120k - $160k"
+    range_match = re.search(
+        r"[\$€£]?\s*(\d{2,3}(?:,\d{3})+|\d{2,3}k|\d{4,6})\s*(?:-|to)\s*[\$€£]?\s*(\d{2,3}(?:,\d{3})+|\d{2,3}k|\d{4,6})",
+        text,
+        re.IGNORECASE,
+    )
+    if range_match:
+        def _parse(val_str: str) -> float:
+            clean = val_str.lower().replace(",", "").replace("$", "").replace("€", "").replace("£", "").strip()
+            if clean.endswith("k"):
+                return float(clean[:-1]) * 1000.0
+            return float(clean)
+
+        try:
+            return _parse(range_match.group(1)), _parse(range_match.group(2)), currency or "USD"
+        except Exception:
+            pass
+
+    return None, None, currency
+
+
 class BaseJobSourceAdapter(ABC):
     """Abstract interface for all job discovery source adapters."""
 

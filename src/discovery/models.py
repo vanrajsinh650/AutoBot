@@ -33,6 +33,12 @@ class JobSourceConfig(BaseModel):
     board_token_or_slug: str
     base_url: Optional[str] = None
     is_active: bool = True
+    refresh_interval: int = 3600
+    status: str = "active"
+    last_synced_at: Optional[str] = None
+    concurrency_limit: int = 2
+    failure_count: int = 0
+    last_error: str = ""
 
 
 class NormalizedJob(BaseModel):
@@ -49,8 +55,16 @@ class NormalizedJob(BaseModel):
     location: str = ""
     country: str = ""
     is_remote: bool = False
+    workplace_type: str = "on-site"  # "remote", "hybrid", "on-site"
+    status: str = "active"           # "active", "expired", "unavailable"
     salary_info: str = ""
+    compensation_min: Optional[float] = None
+    compensation_max: Optional[float] = None
+    currency: str = ""
     publication_date: str = ""
+    discovered_at: str = ""
+    source_updated_at: str = ""
+    last_verified_at: str = ""
     application_url: str = ""
     requirements: List[str] = Field(default_factory=list)
     raw_data: Dict[str, Any] = Field(default_factory=dict)

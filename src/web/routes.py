@@ -926,23 +926,126 @@ async def get_discovered_jobs_handler(request: web.Request) -> web.Response:
     offset = int(request.query.get("offset", "0"))
     query = request.query.get("q", "").strip().lower()
     source = request.query.get("source", "").strip().lower()
+    status = request.query.get("status", "active").strip().lower()
+    employment_type = request.query.get("employment_type", "").strip().lower()
+    workplace_type = request.query.get("workplace_type", "").strip().lower()
+    country = request.query.get("country", "").strip().lower()
 
     with get_db_connection() as conn:
-        sql = "SELECT * FROM jobs WHERE 1=1"
-        params = []
+        sql = (
+            "SELECT j.*, me.overall_score as fit_score, me.eligibility_status "
+            "FROM jobs j "
+            "LEFT JOIN match_evaluations me ON j.id = me.job_id AND me.user_id = ? "
+            "WHERE 1=1"
+        )
+        params: List[Any] = [user_id]
+
+        if status != "all":
+            sql += " AND j.status = ?"
+            params.append(status)
         if query:
-            sql += " AND (LOWER(title) LIKE ? OR LOWER(company) LIKE ?)"
+            sql += " AND (LOWER(j.title) LIKE ? OR LOWER(j.company) LIKE ?)"
             params.extend([f"%{query}%", f"%{query}%"])
         if source:
-            sql += " AND LOWER(source_name) = ?"
+            sql += " AND LOWER(j.source_name) = ?"
             params.append(source)
+        if employment_type:
+            sql += " AND LOWER(j.employment_type) = ?"
+            params.append(employment_type)
+        if workplace_type:
+            sql += " AND (LOWER(j.workplace_type) = ? OR (? = 'remote' AND j.is_remote = 1))"
+            params.extend([workplace_type, workplace_type])
+        if country:
+            sql += " AND (LOWER(j.country) = ? OR j.country = '')"
+            params.append(country)
 
-        sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
+        min_score_str = request.query.get("min_score", "").strip()
+        if min_score_str:
+            try:
+                min_score = float(min_score_str)
+                sql += " AND me.overall_score >= ?"
+                params.append(min_score)
+            except ValueError:
+                pass
+
+        sql += " ORDER BY j.id DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         rows = conn.execute(sql, params).fetchall()
 
     return web.json_response({"jobs": [dict(r) for r in rows]})
+
+
+async def get_sources_health_handler(request: web.Request) -> web.Response:
+    """Return configured ATS boards and health statistics."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    init_db()
+    from src.discovery.board_registry import BoardRegistry
+    registry = BoardRegistry()
+    boards = registry.get_boards(active_only=False)
+
+    with get_db_connection() as conn:
+        health_list = []
+        for b in boards:
+            source_prefix = f"{b.source_type.value}:{b.board_token_or_slug}:"
+            row = conn.execute(
+                """
+                SELECT 
+                    COUNT(CASE WHEN status = 'active' THEN 1 END) as active_jobs,
+                    COUNT(CASE WHEN status = 'expired' THEN 1 END) as expired_jobs,
+                    MAX(last_verified_at) as latest_verification
+                FROM jobs
+                WHERE stable_id LIKE ?
+                """,
+                (f"{source_prefix}%",),
+            ).fetchone()
+            active_count = row["active_jobs"] if row else 0
+            expired_count = row["expired_jobs"] if row else 0
+            latest_ver = row["latest_verification"] if row else None
+
+            health_list.append({
+                "name": b.name,
+                "source_type": b.source_type.value,
+                "board_slug": b.board_token_or_slug,
+                "status": b.status,
+                "is_active": b.is_active,
+                "refresh_interval": b.refresh_interval,
+                "concurrency_limit": b.concurrency_limit,
+                "last_synced_at": b.last_synced_at or latest_ver or "Never",
+                "failure_count": b.failure_count,
+                "last_error": b.last_error,
+                "active_jobs_count": active_count,
+                "expired_jobs_count": expired_count,
+            })
+
+    return web.json_response({"sources": health_list})
+
+
+async def get_keyword_expansion_handler(request: web.Request) -> web.Response:
+    """Return transparent keyword expansion explanations and filters for authenticated user."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    from src.matching.keyword_expansion import expand_candidate_keywords
+    result = expand_candidate_keywords(user_id)
+    return web.json_response(result.to_dict())
+
+
+async def get_personalized_jobs_handler(request: web.Request) -> web.Response:
+    """Execute personalized search tailored to candidate skills and preferences."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    status_filter = request.query.get("status", "active")
+    limit = int(request.query.get("limit", "50"))
+    from src.matching.keyword_expansion import search_personalized_jobs
+    res = search_personalized_jobs(user_id=user_id, status_filter=status_filter, limit=limit)
+    return web.json_response(res)
 
 
 # ── Matching & Eligibility Handlers ─────────────────────────────────
