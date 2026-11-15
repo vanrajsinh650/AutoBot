@@ -9,6 +9,7 @@ __pycache__/
 # Data
 data/resume/*.pdf
 data/portfolio/
+data/users/
 
 # Logs & DB
 logs/autobot.db

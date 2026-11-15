@@ -1,20 +1,61 @@
 """
-REST API & SSE Event Stream Routes for AutoBot v2 Web Dashboard.
+REST API & SSE Event Stream Routes for AutoBot v2 Mission Control Dashboard.
+Supports multi-user authentication, candidate profile management, job discovery,
+deterministic matching, application preparation, and compliant application workflows.
 """
 
 import asyncio
 from datetime import datetime
 import json
+import os
 from pathlib import Path
+import shutil
 from typing import Any, Dict, List, Optional, Set
 
 from aiohttp import web
 import yaml
 
-from src.agent.state import JobPosting
-from src.storage.db import DEFAULT_DB_PATH, get_db_connection, get_stats
+from src.application.preparation import ApplicationPreparationService
+from src.application.workflows import (
+    AntiBotChallengeDetected,
+    ExternalATSWorkflowManager,
+    HumanApprovalRequiredError,
+    LinkedInPolicyViolationError,
+    LinkedInWorkflowManager,
+)
+from src.discovery.models import JobSourceConfig, NormalizedJob, SourceType
+from src.discovery.registry import JobDiscoveryEngine
+from src.matching.evaluator import JobFitEvaluator
+from src.storage.auth import (
+    authenticate_user,
+    create_session,
+    create_user,
+    revoke_session,
+    validate_session,
+)
+from src.storage.db import (
+    DEFAULT_DB_PATH,
+    end_session,
+    get_candidate_profile,
+    get_db_connection,
+    get_job_preferences,
+    get_resume_evidence,
+    get_resume_versions,
+    get_stats,
+    init_db,
+    is_already_applied,
+    log_audit,
+    save_application,
+    save_candidate_profile,
+    save_job_preferences,
+    save_resume_evidence,
+    save_resume_version,
+    start_session,
+)
 from src.utils.config import get_config, get_env
 from src.utils.logger import logger
+from src.utils.security import delete_user_account_and_data, sanitize_for_logs
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -35,14 +76,15 @@ class AgentExecutionManager:
         self.active_task: Optional[asyncio.Task] = None
         self.is_running: bool = False
         self.current_node: str = "idle"
-        self.subscribers: Set[web.Response] = set()
+        self.subscribers: Set[web.StreamResponse] = set()
         self.recent_logs: List[Dict[str, Any]] = []
 
     def broadcast(self, event_type: str, data: Dict[str, Any]) -> None:
-        """Enqueue an event to all connected SSE clients."""
+        """Enqueue an event to all connected SSE clients with PII sanitization."""
+        safe_data = sanitize_for_logs(data)
         payload = {
             "type": event_type,
-            "data": data,
+            "data": safe_data,
             "timestamp": datetime.now().isoformat(),
         }
         self.recent_logs.append(payload)
@@ -52,7 +94,7 @@ class AgentExecutionManager:
         # Broadcast to active SSE streams
         for ws in list(self.subscribers):
             try:
-                msg = f"event: {event_type}\ndata: {json.dumps(data)}\n\n".encode("utf-8")
+                msg = f"event: {event_type}\ndata: {json.dumps(safe_data)}\n\n".encode("utf-8")
                 async def _send(res=ws, m=msg):
                     try:
                         await res.write(m)
@@ -66,16 +108,36 @@ class AgentExecutionManager:
 execution_manager = AgentExecutionManager()
 
 
-# ── Route Handlers ─────────────────────────────────────────────────
+def get_current_user_id(request: web.Request) -> int:
+    """
+    Extract user_id from session header/cookie, defaulting to 1 for legacy backwards compatibility.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        token = request.cookies.get("auth_token") or request.query.get("token")
+
+    if token:
+        session = validate_session(token)
+        if session:
+            return session["user_id"]
+
+    return 1
+
+
+# ── Legacy & Dashboard Telemetry Handlers ──────────────────────────
 
 async def get_status(request: web.Request) -> web.Response:
     """Return runtime agent state and system status."""
     cfg = get_config()
     env = get_env()
+    user_id = get_current_user_id(request)
 
     resume_exists = _resolve_path(cfg.profile.resume_path).exists()
     session_exists = _resolve_path("data/session/linkedin_state.json").exists()
-    db_stats = get_stats()
+    db_stats = get_stats(user_id=user_id)
     db_stats["total"] = sum(db_stats.values())
 
     return web.json_response({
@@ -89,26 +151,30 @@ async def get_status(request: web.Request) -> web.Response:
         "qdrant_url": env.qdrant_url,
         "qdrant_collection": env.qdrant_collection,
         "stats": db_stats,
+        "user_id": user_id,
     })
 
 
 async def get_stats_handler(request: web.Request) -> web.Response:
     """Return aggregate application counts."""
-    stats = get_stats()
+    user_id = get_current_user_id(request)
+    stats = get_stats(user_id=user_id)
     stats["total"] = sum(stats.values())
     return web.json_response(stats)
 
 
 async def get_jobs(request: web.Request) -> web.Response:
     """Return paginated, filterable list of processed applications from SQLite."""
+    user_id = get_current_user_id(request)
     status_filter = request.query.get("status", "").strip().lower()
     search_query = request.query.get("q", "").strip().lower()
     limit = int(request.query.get("limit", "50"))
     offset = int(request.query.get("offset", "0"))
 
+    init_db()
     with get_db_connection(DEFAULT_DB_PATH) as conn:
         query = "SELECT * FROM applications WHERE 1=1"
-        params = []
+        params: List[Any] = []
 
         if status_filter:
             query += " AND status = ?"
@@ -125,7 +191,7 @@ async def get_jobs(request: web.Request) -> web.Response:
 
         # Count total
         count_query = "SELECT COUNT(*) FROM applications WHERE 1=1"
-        count_params = []
+        count_params: List[Any] = []
         if status_filter:
             count_query += " AND status = ?"
             count_params.append(status_filter)
@@ -160,7 +226,6 @@ async def save_config_handler(request: web.Request) -> web.Response:
         with open(cfg_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(new_cfg, f, default_flow_style=False, sort_keys=False)
 
-        # Clear cached config so next lookup picks up changes
         from src.utils.config import get_config
         get_config.cache_clear()
 
@@ -173,36 +238,39 @@ async def save_config_handler(request: web.Request) -> web.Response:
 
 async def get_profile_handler(request: web.Request) -> web.Response:
     """Extract and return candidate resume sections and vector memory telemetry."""
+    user_id = get_current_user_id(request)
+    profile = get_candidate_profile(user_id)
+
     cfg = get_config()
     resume_path = _resolve_path(cfg.profile.resume_path)
 
-    if not resume_path.exists():
-        return web.json_response({
-            "found": False,
-            "path": str(resume_path),
-            "sections": {},
-            "total_chunks": 0,
-        })
-
-    from src.ingestion.resume_parser import parse_resume
-    chunks = parse_resume(resume_path)
-
     sections_grouped: Dict[str, List[str]] = {}
-    for c in chunks:
-        sec = c.section.value
-        sections_grouped.setdefault(sec, []).append(c.content)
+    total_chunks = 0
+
+    if resume_path.exists():
+        from src.ingestion.resume_parser import parse_resume
+        try:
+            chunks = parse_resume(resume_path)
+            total_chunks = len(chunks)
+            for c in chunks:
+                sec = c.section.value
+                sections_grouped.setdefault(sec, []).append(c.content)
+        except Exception:
+            pass
 
     return web.json_response({
-        "found": True,
+        "found": resume_path.exists() or (profile is not None),
         "path": str(resume_path),
-        "total_chunks": len(chunks),
+        "total_chunks": total_chunks,
         "sections": sections_grouped,
+        "candidate_profile": profile or {},
     })
 
 
 async def upload_resume_handler(request: web.Request) -> web.Response:
-    """Handle resume PDF or document upload and trigger optional re-indexing."""
+    """Handle resume document upload with tenant isolation."""
     try:
+        user_id = get_current_user_id(request)
         reader = await request.multipart()
         field = await reader.next()
         if not field or field.name != "file":
@@ -216,44 +284,71 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
                 status=400,
             )
 
-        # Ensure destination directory exists
-        dest_dir = _resolve_path("data/resume")
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_path = dest_dir / f"resume{ext}"
+        # User-isolated storage directory
+        user_storage = PROJECT_ROOT / "data" / "users" / str(user_id) / "resumes"
+        user_storage.mkdir(parents=True, exist_ok=True)
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dest_path = user_storage / f"resume_{timestamp_str}{ext}"
 
-        # Write uploaded bytes
+        # Also write to legacy data/resume/resume.pdf for backward compatibility
+        legacy_dest = PROJECT_ROOT / "data" / "resume" / f"resume{ext}"
+        legacy_dest.parent.mkdir(parents=True, exist_ok=True)
+
         size = 0
+        content_bytes = bytearray()
+        while True:
+            chunk = await field.read_chunk()
+            if not chunk:
+                break
+            content_bytes.extend(chunk)
+            size += len(chunk)
+
         with open(dest_path, "wb") as f:
-            while True:
-                chunk = await field.read_chunk()
-                if not chunk:
-                    break
-                size += len(chunk)
-                f.write(chunk)
+            f.write(content_bytes)
+        with open(legacy_dest, "wb") as f:
+            f.write(content_bytes)
 
-        # Update config.yaml with relative path
-        cfg_path = _resolve_path("config.yaml")
-        rel_path = f"data/resume/resume{ext}"
-        if cfg_path.exists():
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                raw_cfg = yaml.safe_load(f) or {}
-            raw_cfg.setdefault("profile", {})["resume_path"] = rel_path
-            with open(cfg_path, "w", encoding="utf-8") as f:
-                yaml.safe_dump(raw_cfg, f, default_flow_style=False, sort_keys=False)
-            from src.utils.config import get_config
-            get_config.cache_clear()
+        # Compute SHA-256
+        import hashlib
+        file_hash = hashlib.sha256(content_bytes).hexdigest()
 
-        # Try parsing sections if it's a PDF
+        # Parse structured information
         chunks_count = 0
-        sections_found = []
+        sections_found: List[str] = []
+        structured_data: Dict[str, Any] = {}
+
         if ext == ".pdf":
             try:
                 from src.ingestion.resume_parser import parse_resume
+                from src.ingestion.structured_resume import parse_structured_profile
                 parsed_chunks = parse_resume(dest_path)
                 chunks_count = len(parsed_chunks)
                 sections_found = list({c.section.value for c in parsed_chunks})
+
+                structured_data = parse_structured_profile(parsed_chunks)
+                # Save into candidate profile
+                save_candidate_profile(user_id, structured_data)
+
+                # Save resume version
+                v_id = save_resume_version(
+                    user_id=user_id,
+                    version_name=filename,
+                    file_path=str(dest_path),
+                    file_hash=file_hash,
+                    parsed_data=structured_data,
+                )
+
+                # Save evidence chunks
+                for c in parsed_chunks:
+                    save_resume_evidence(
+                        user_id=user_id,
+                        resume_version_id=v_id,
+                        section=c.section.value,
+                        content=c.content,
+                        metadata=c.metadata,
+                    )
             except Exception as pe:
-                logger.warning(f"Resume uploaded but extraction preview failed: {pe}")
+                logger.warning(f"Structured resume parsing error: {pe}")
 
         execution_manager.broadcast("log", {
             "level": "success",
@@ -263,10 +358,11 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
         return web.json_response({
             "success": True,
             "filename": filename,
-            "path": rel_path,
+            "path": str(dest_path),
             "size_bytes": size,
             "chunks_count": chunks_count,
             "sections": sections_found,
+            "structured_data": structured_data,
             "message": "Resume uploaded and indexed successfully!",
         })
     except Exception as e:
@@ -338,8 +434,11 @@ async def stop_run(request: web.Request) -> web.Response:
 
 
 async def logout_handler(request: web.Request) -> web.Response:
-    """Clear saved session state and browser user data to disconnect/switch LinkedIn accounts."""
-    import shutil
+    """Clear session state and browser user data."""
+    token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if token:
+        revoke_session(token)
+
     session_file = _resolve_path("data/session/linkedin_state.json")
     user_data_dir = _resolve_path("data/session/user_data")
 
@@ -351,14 +450,10 @@ async def logout_handler(request: web.Request) -> web.Response:
         shutil.rmtree(user_data_dir, ignore_errors=True)
         cleared = True
 
-    execution_manager.broadcast("log", {
-        "level": "warning",
-        "message": "LinkedIn session and Chrome profile cleared. Please log into your alternative account.",
-    })
     return web.json_response({
         "success": True,
         "cleared": cleared,
-        "message": "LinkedIn session cleared successfully. The next browser launch will prompt for your new login.",
+        "message": "Session cleared successfully.",
     })
 
 
@@ -383,14 +478,12 @@ async def sse_logs_stream(request: web.Request) -> web.StreamResponse:
             msg = f"event: {item['type']}\ndata: {json.dumps(item['data'])}\n\n"
             await response.write(msg.encode("utf-8"))
 
-        # Send initial status
         init_status = {
             "state": "running" if execution_manager.is_running else "idle",
             "node": execution_manager.current_node,
         }
         await response.write(f"event: status\ndata: {json.dumps(init_status)}\n\n".encode("utf-8"))
 
-        # Keep connection open with periodic heartbeat ping
         while True:
             await asyncio.sleep(15)
             await response.write(b": ping\n\n")
@@ -401,3 +494,421 @@ async def sse_logs_stream(request: web.Request) -> web.StreamResponse:
         execution_manager.subscribers.discard(response)
 
     return response
+
+
+auth_logout_handler = logout_handler
+
+async def auth_register_handler(request: web.Request) -> web.Response:
+    """Register a new user account."""
+    try:
+        body = await request.json()
+        email = body.get("email", "")
+        password = body.get("password", "")
+
+        success, user_id, msg = create_user(email=email, password=password)
+        if not success:
+            return web.json_response({"error": msg}, status=400)
+
+        token = create_session(user_id=user_id, email=email)
+        return web.json_response({
+            "success": True,
+            "token": token,
+            "user": {"id": user_id, "email": email},
+            "message": msg,
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def auth_login_handler(request: web.Request) -> web.Response:
+    """Authenticate existing user credentials."""
+    try:
+        body = await request.json()
+        email = body.get("email", "")
+        password = body.get("password", "")
+
+        success, user_data, msg = authenticate_user(email=email, password=password)
+        if not success or not user_data:
+            return web.json_response({"error": msg}, status=401)
+
+        token = create_session(user_id=user_data["id"], email=user_data["email"])
+        return web.json_response({
+            "success": True,
+            "token": token,
+            "user": user_data,
+            "message": msg,
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def auth_me_handler(request: web.Request) -> web.Response:
+    """Get current authenticated user information."""
+    user_id = get_current_user_id(request)
+    profile = get_candidate_profile(user_id)
+    return web.json_response({
+        "authenticated": True,
+        "user_id": user_id,
+        "profile": profile,
+    })
+
+
+# ── Candidate Profile & Preferences Handlers ────────────────────────
+
+async def get_candidate_profile_handler(request: web.Request) -> web.Response:
+    """Get structured candidate profile."""
+    user_id = get_current_user_id(request)
+    profile = get_candidate_profile(user_id) or {}
+    return web.json_response(profile)
+
+
+async def update_candidate_profile_handler(request: web.Request) -> web.Response:
+    """Allow user to update and correct extracted profile data."""
+    try:
+        user_id = get_current_user_id(request)
+        data = await request.json()
+        save_candidate_profile(user_id, data)
+        return web.json_response({"success": True, "message": "Candidate profile updated."})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
+async def get_preferences_handler(request: web.Request) -> web.Response:
+    """Get candidate job search preferences."""
+    user_id = get_current_user_id(request)
+    prefs = get_job_preferences(user_id)
+    return web.json_response(prefs)
+
+
+async def update_preferences_handler(request: web.Request) -> web.Response:
+    """Update candidate job search preferences."""
+    try:
+        user_id = get_current_user_id(request)
+        data = await request.json()
+        save_job_preferences(user_id, data)
+        return web.json_response({"success": True, "message": "Job preferences saved."})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
+async def get_resume_versions_handler(request: web.Request) -> web.Response:
+    """List resume versions for current user."""
+    user_id = get_current_user_id(request)
+    versions = get_resume_versions(user_id)
+    return web.json_response({"versions": versions})
+
+
+# ── Job Discovery Handlers ──────────────────────────────────────────
+
+async def get_sources_handler(request: web.Request) -> web.Response:
+    """List registered job sources."""
+    engine = JobDiscoveryEngine()
+    sources = engine.get_sources()
+    return web.json_response({"sources": [s.model_dump() for s in sources]})
+
+
+async def add_source_handler(request: web.Request) -> web.Response:
+    """Register a new job source."""
+    try:
+        data = await request.json()
+        src = JobSourceConfig(**data)
+        engine = JobDiscoveryEngine()
+        engine.register_source(src)
+        return web.json_response({"success": True, "source": src.model_dump()})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
+async def discover_jobs_handler(request: web.Request) -> web.Response:
+    """Run discovery across sources, normalize and deduplicate."""
+    try:
+        engine = JobDiscoveryEngine()
+        body = {}
+        try:
+            body = await request.json()
+        except Exception:
+            pass
+        keywords = body.get("keywords")
+        jobs = await engine.discover_jobs(keywords=keywords)
+        return web.json_response({
+            "success": True,
+            "discovered_count": len(jobs),
+            "jobs": [j.model_dump() for j in jobs],
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def import_job_handler(request: web.Request) -> web.Response:
+    """User-submitted job description import (including LinkedIn)."""
+    try:
+        user_id = get_current_user_id(request)
+        data = await request.json()
+        title = data.get("title", "").strip()
+        company = data.get("company", "").strip()
+        description = data.get("description", "").strip()
+        app_url = data.get("application_url", "").strip()
+
+        if not title or not company or not description:
+            return web.json_response({"error": "Title, company, and description are required."}, status=400)
+
+        # Route via LinkedInWorkflowManager if URL is LinkedIn, else manual
+        manager = LinkedInWorkflowManager()
+        job = manager.import_job(
+            user_id=user_id,
+            title=title,
+            company=company,
+            description=description,
+            application_url=app_url,
+            location=data.get("location", ""),
+            salary_info=data.get("salary_info", ""),
+        )
+
+        return web.json_response({
+            "success": True,
+            "job": job.model_dump(),
+            "message": "Job imported successfully without automated scraping.",
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
+async def get_discovered_jobs_handler(request: web.Request) -> web.Response:
+    """List jobs available in the repository database with filters."""
+    init_db()
+    limit = int(request.query.get("limit", "50"))
+    offset = int(request.query.get("offset", "0"))
+    query = request.query.get("q", "").strip().lower()
+    source = request.query.get("source", "").strip().lower()
+
+    with get_db_connection(DEFAULT_DB_PATH) as conn:
+        sql = "SELECT * FROM jobs WHERE 1=1"
+        params = []
+        if query:
+            sql += " AND (LOWER(title) LIKE ? OR LOWER(company) LIKE ?)"
+            params.extend([f"%{query}%", f"%{query}%"])
+        if source:
+            sql += " AND LOWER(source_name) = ?"
+            params.append(source)
+
+        sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        rows = conn.execute(sql, params).fetchall()
+
+    return web.json_response({"jobs": [dict(r) for r in rows]})
+
+
+# ── Matching & Eligibility Handlers ─────────────────────────────────
+
+async def evaluate_job_handler(request: web.Request) -> web.Response:
+    """Evaluate job match and eligibility deterministically."""
+    try:
+        user_id = get_current_user_id(request)
+        data = await request.json()
+        job_id = data.get("job_id")
+        stable_id = data.get("stable_id")
+
+        with get_db_connection(DEFAULT_DB_PATH) as conn:
+            if stable_id:
+                row = conn.execute("SELECT * FROM jobs WHERE stable_id = ?", (stable_id,)).fetchone()
+            else:
+                row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+
+            if not row:
+                return web.json_response({"error": "Job not found in database"}, status=404)
+
+            job = NormalizedJob(
+                stable_id=row["stable_id"],
+                source_name=row["source_name"],
+                source_type=SourceType.MANUAL,
+                title=row["title"],
+                company=row["company"],
+                description=row["description"],
+                employment_type=row["employment_type"],
+                location=row["location"],
+                country=row["country"],
+                is_remote=bool(row["is_remote"]),
+                salary_info=row["salary_info"],
+                publication_date=row["publication_date"],
+                application_url=row["application_url"],
+            )
+
+        evaluator = JobFitEvaluator()
+        result = evaluator.evaluate_job(user_id=user_id, job=job)
+        return web.json_response(result)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+# ── Application Preparation & Workflows Handlers ────────────────────
+
+async def prepare_application_handler(request: web.Request) -> web.Response:
+    """Prepare application pack for human candidate review."""
+    try:
+        user_id = get_current_user_id(request)
+        data = await request.json()
+        stable_id = data.get("stable_id")
+
+        with get_db_connection(DEFAULT_DB_PATH) as conn:
+            row = conn.execute("SELECT * FROM jobs WHERE stable_id = ?", (stable_id,)).fetchone()
+            if not row:
+                return web.json_response({"error": "Job not found"}, status=404)
+
+            job = NormalizedJob(
+                stable_id=row["stable_id"],
+                source_name=row["source_name"],
+                source_type=SourceType.MANUAL,
+                title=row["title"],
+                company=row["company"],
+                description=row["description"],
+                employment_type=row["employment_type"],
+                location=row["location"],
+                country=row["country"],
+                is_remote=bool(row["is_remote"]),
+                salary_info=row["salary_info"],
+                publication_date=row["publication_date"],
+                application_url=row["application_url"],
+            )
+
+        prep = ApplicationPreparationService()
+        pack = prep.prepare_application_pack(user_id=user_id, job=job)
+        return web.json_response(pack)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def approve_application_pack_handler(request: web.Request) -> web.Response:
+    """Record candidate review and explicit approval of an application pack."""
+    try:
+        user_id = get_current_user_id(request)
+        data = await request.json()
+        pack_id = int(data.get("pack_id", 0))
+        approved = bool(data.get("approved", True))
+
+        prep = ApplicationPreparationService()
+        ok = prep.set_user_approval(user_id=user_id, pack_id=pack_id, approved=approved)
+        if not ok:
+            return web.json_response({"error": "Pack not found or not owned by user"}, status=404)
+
+        return web.json_response({"success": True, "user_approved": approved})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
+async def submit_external_application_handler(request: web.Request) -> web.Response:
+    """Execute assisted application for authorized external ATS."""
+    try:
+        user_id = get_current_user_id(request)
+        data = await request.json()
+        pack_id = data.get("pack_id")
+        dry_run = bool(data.get("dry_run", False))
+
+        with get_db_connection(DEFAULT_DB_PATH) as conn:
+            pack_row = conn.execute("SELECT * FROM application_packs WHERE id = ? AND user_id = ?", (pack_id, user_id)).fetchone()
+            if not pack_row:
+                return web.json_response({"error": "Application pack not found"}, status=404)
+
+            pack_dict = dict(pack_row)
+            job_row = conn.execute("SELECT * FROM jobs WHERE id = ?", (pack_dict["job_id"],)).fetchone()
+            if not job_row:
+                return web.json_response({"error": "Associated job record not found"}, status=404)
+
+            job = NormalizedJob(
+                stable_id=job_row["stable_id"],
+                source_name=job_row["source_name"],
+                source_type=SourceType.MANUAL,
+                title=job_row["title"],
+                company=job_row["company"],
+                description=job_row["description"],
+                employment_type=job_row["employment_type"],
+                location=job_row["location"],
+                country=job_row["country"],
+                is_remote=bool(job_row["is_remote"]),
+                salary_info=job_row["salary_info"],
+                publication_date=job_row["publication_date"],
+                application_url=job_row["application_url"],
+            )
+
+        manager = ExternalATSWorkflowManager()
+        result = manager.execute_assisted_application(
+            user_id=user_id,
+            job=job,
+            pack=pack_dict,
+            dry_run=dry_run,
+        )
+        return web.json_response(result)
+    except (HumanApprovalRequiredError, LinkedInPolicyViolationError, AntiBotChallengeDetected, PermissionError) as pe:
+        return web.json_response({"error": str(pe)}, status=403)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def confirm_linkedin_submission_handler(request: web.Request) -> web.Response:
+    """Record verified candidate manual submission on LinkedIn."""
+    try:
+        user_id = get_current_user_id(request)
+        data = await request.json()
+        stable_id = data.get("stable_id", "")
+        confirmed = bool(data.get("confirmed", True))
+        notes = data.get("notes", "")
+
+        manager = LinkedInWorkflowManager()
+        ok = manager.record_submission(
+            user_id=user_id,
+            job_stable_id=stable_id,
+            user_confirmed=confirmed,
+            notes=notes,
+        )
+        if not ok:
+            return web.json_response({"error": "Failed to record submission: confirmation required or job missing."}, status=400)
+
+        return web.json_response({"success": True, "message": "Application recorded in tracker as submitted."})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+# ── Tracker & Privacy Handlers ──────────────────────────────────────
+
+async def get_tracker_handler(request: web.Request) -> web.Response:
+    """Return applications grouped by lifecycle status."""
+    user_id = get_current_user_id(request)
+    init_db()
+    with get_db_connection(DEFAULT_DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT e.id, e.job_id, e.event_type, e.status, e.user_confirmed, e.created_at,
+                   j.title, j.company, j.location, j.application_url, j.stable_id
+            FROM application_events e
+            JOIN jobs j ON e.job_id = j.id
+            WHERE e.user_id = ?
+            ORDER BY e.id DESC
+            """,
+            (user_id,),
+        ).fetchall()
+
+    return web.json_response({"events": [dict(r) for r in rows]})
+
+
+async def delete_account_handler(request: web.Request) -> web.Response:
+    """Erase user profile, files, and tracker records (GDPR erasure)."""
+    try:
+        user_id = get_current_user_id(request)
+        ok = delete_user_account_and_data(user_id=user_id)
+        if ok:
+            return web.json_response({"success": True, "message": "All personal data erased permanently."})
+        return web.json_response({"error": "Failed to delete account"}, status=500)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
+async def get_audit_logs_handler(request: web.Request) -> web.Response:
+    """List security audit trail for user."""
+    user_id = get_current_user_id(request)
+    init_db()
+    with get_db_connection(DEFAULT_DB_PATH) as conn:
+        rows = conn.execute(
+            "SELECT * FROM audit_logs WHERE user_id = ? ORDER BY id DESC LIMIT 100",
+            (user_id,),
+        ).fetchall()
+    return web.json_response({"audit_logs": [dict(r) for r in rows]})

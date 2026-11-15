@@ -185,6 +185,10 @@
       applications: "Applications Hologrid",
       profile: "Candidate Profile & Vector Memory",
       settings: "Agent Parameters",
+      discovery: "Multi-Source Job Discovery",
+      matching: "Deterministic Fit & Eligibility",
+      packs: "Application Materials & Workflows",
+      privacy: "Privacy, Security & Erasure",
     };
     els.topbarTitle.innerHTML = `
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" color="var(--primary)">
@@ -198,6 +202,8 @@
     if (viewName === "applications") loadJobs();
     if (viewName === "profile") loadProfile();
     if (viewName === "settings") loadConfig();
+    if (viewName === "discovery") loadDiscoveryJobs();
+    if (viewName === "privacy") loadAuditLogs();
   }
 
   // ── LangGraph Active Node Visualizer ──────────────────────────────
@@ -990,6 +996,350 @@
         }
       });
     }
+
+    // ── Milestone 7 Discovery, Matching & Privacy Bindings ───────────
+    const btnTriggerDiscovery = document.getElementById("btn-trigger-discovery");
+    if (btnTriggerDiscovery) {
+      btnTriggerDiscovery.addEventListener("click", async () => {
+        sfx.launch();
+        showToast("Starting multi-source job discovery...");
+        try {
+          const res = await fetch("/api/discovery/run", { method: "POST" });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`Discovered & normalized ${data.discovered_count} vacancies!`);
+            loadDiscoveryJobs();
+          } else {
+            showToast(data.error || "Discovery failed", "error");
+          }
+        } catch (err) {
+          showToast(`Discovery error: ${err.message}`, "error");
+        }
+      });
+    }
+
+    const btnSubmitImport = document.getElementById("btn-submit-import");
+    if (btnSubmitImport) {
+      btnSubmitImport.addEventListener("click", async () => {
+        const title = document.getElementById("import-job-title").value.trim();
+        const company = document.getElementById("import-job-company").value.trim();
+        const location = document.getElementById("import-job-location").value.trim();
+        const url = document.getElementById("import-job-url").value.trim();
+        const description = document.getElementById("import-job-desc").value.trim();
+
+        if (!title || !company || !description) {
+          showToast("Please provide title, company, and description", "error");
+          return;
+        }
+
+        sfx.click();
+        try {
+          const res = await fetch("/api/discovery/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, company, location, application_url: url, description }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            sfx.success();
+            showToast("Job description imported successfully!");
+            document.getElementById("import-job-title").value = "";
+            document.getElementById("import-job-company").value = "";
+            document.getElementById("import-job-location").value = "";
+            document.getElementById("import-job-url").value = "";
+            document.getElementById("import-job-desc").value = "";
+            loadDiscoveryJobs();
+          } else {
+            showToast(data.error || "Import failed", "error");
+          }
+        } catch (err) {
+          showToast(`Error: ${err.message}`, "error");
+        }
+      });
+    }
+
+    const btnAuthLogin = document.getElementById("btn-auth-login");
+    if (btnAuthLogin) {
+      btnAuthLogin.addEventListener("click", async () => {
+        const email = document.getElementById("auth-email").value.trim();
+        const password = document.getElementById("auth-password").value.trim();
+        try {
+          const res = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            localStorage.setItem("auth_token", data.token);
+            showToast(`Logged in as ${email}`);
+            loadStatus();
+          } else {
+            showToast(data.error || "Login failed", "error");
+          }
+        } catch (err) {
+          showToast(`Login error: ${err.message}`, "error");
+        }
+      });
+    }
+
+    const btnAuthRegister = document.getElementById("btn-auth-register");
+    if (btnAuthRegister) {
+      btnAuthRegister.addEventListener("click", async () => {
+        const email = document.getElementById("auth-email").value.trim();
+        const password = document.getElementById("auth-password").value.trim();
+        try {
+          const res = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            localStorage.setItem("auth_token", data.token);
+            showToast(`Registered successfully as ${email}`);
+            loadStatus();
+          } else {
+            showToast(data.error || "Registration failed", "error");
+          }
+        } catch (err) {
+          showToast(`Register error: ${err.message}`, "error");
+        }
+      });
+    }
+
+    const btnDeleteAccount = document.getElementById("btn-delete-account");
+    if (btnDeleteAccount) {
+      btnDeleteAccount.addEventListener("click", async () => {
+        if (!confirm("Are you sure? This will permanently erase your profile, resume files, evaluations, and history.")) {
+          return;
+        }
+        try {
+          const res = await fetch("/api/privacy/delete-account", { method: "POST" });
+          const data = await res.json();
+          if (data.success) {
+            localStorage.removeItem("auth_token");
+            showToast("All personal candidate data erased permanently.");
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            showToast(data.error || "Erasure failed", "error");
+          }
+        } catch (err) {
+          showToast(`Error: ${err.message}`, "error");
+        }
+      });
+    }
+  }
+
+  // ── Discovery, Matching, & Workflow Helpers ───────────────────────
+  async function loadDiscoveryJobs() {
+    const container = document.getElementById("discovery-jobs-container");
+    if (!container) return;
+    try {
+      const res = await fetch("/api/discovery/jobs");
+      const data = await res.json();
+      const jobs = data.jobs || [];
+      if (!jobs.length) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">No jobs found. Run discovery or import above.</div>';
+        return;
+      }
+      container.innerHTML = "";
+      jobs.forEach((j) => {
+        const item = document.createElement("div");
+        item.style.cssText = "background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center;";
+        item.innerHTML = `
+          <div>
+            <div style="font-weight: 600; font-size: 13px; color: var(--text-main);">${escapeHtml(j.title)}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(j.company)} · ${escapeHtml(j.location || "Remote")} · <span class="badge badge-dry-run">${escapeHtml(j.employment_type || "full-time")}</span></div>
+          </div>
+          <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="window.evaluateCandidateJob('${j.stable_id}')">Evaluate Fit</button>
+        `;
+        container.appendChild(item);
+      });
+    } catch (err) {
+      container.innerHTML = `<div style="color: #ef4444; font-size: 12px;">Error loading jobs: ${err.message}</div>`;
+    }
+  }
+
+  window.evaluateCandidateJob = async function (stableId) {
+    switchView("matching");
+    const card = document.getElementById("matching-evaluation-card");
+    if (!card) return;
+    card.innerHTML = `<div style="color: var(--primary); font-size: 13px;">Computing deterministic fit score in Python...</div>`;
+
+    try {
+      const res = await fetch("/api/matching/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stable_id: stableId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Evaluation failed");
+
+      const eligColor = data.eligibility_status === "eligible" ? "#10b981" : (data.eligibility_status === "uncertain" ? "#f59e0b" : "#ef4444");
+
+      card.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <h2 style="font-size: 18px; color: var(--text-main); margin-bottom: 4px;">${escapeHtml(data.job_title)} at ${escapeHtml(data.company)}</h2>
+            <span style="font-size: 12px; font-weight: 700; color: ${eligColor}; text-transform: uppercase;">● Eligibility: ${escapeHtml(data.eligibility_status)}</span>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 28px; font-weight: 800; color: var(--primary); font-family: monospace;">${data.overall_score.toFixed(1)}<span style="font-size: 14px; color: var(--text-muted);">/100</span></div>
+            <div style="font-size: 10px; color: var(--text-muted);">Deterministic Fit Score</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; text-align: center;">
+          <div><div style="font-size: 10px; color: var(--text-muted);">Required Skills (35%)</div><div style="font-size: 14px; font-weight: 700; color: #10b981;">${data.required_skills_score}%</div></div>
+          <div><div style="font-size: 10px; color: var(--text-muted);">Duties (25%)</div><div style="font-size: 14px; font-weight: 700; color: #3b82f6;">${data.responsibilities_score}%</div></div>
+          <div><div style="font-size: 10px; color: var(--text-muted);">Role Target (15%)</div><div style="font-size: 14px; font-weight: 700; color: #a855f7;">${data.target_role_score}%</div></div>
+          <div><div style="font-size: 10px; color: var(--text-muted);">Exp & Edu (15%)</div><div style="font-size: 14px; font-weight: 700; color: #f59e0b;">${data.experience_edu_score}%</div></div>
+          <div><div style="font-size: 10px; color: var(--text-muted);">Preferred (10%)</div><div style="font-size: 14px; font-weight: 700; color: #06b6d4;">${data.preferred_skills_score}%</div></div>
+        </div>
+
+        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
+          ${escapeHtml(data.explanation)}
+        </div>
+
+        <button class="btn btn-primary" onclick="window.preparePack('${stableId}')">Prepare Application Materials</button>
+      `;
+    } catch (err) {
+      card.innerHTML = `<div style="color: #ef4444; font-size: 13px;">Error: ${err.message}</div>`;
+    }
+  };
+
+  window.preparePack = async function (stableId) {
+    switchView("packs");
+    const container = document.getElementById("application-pack-container");
+    if (!container) return;
+    container.innerHTML = `<div style="color: var(--primary); font-size: 13px;">Assembling application pack...</div>`;
+
+    try {
+      const res = await fetch("/api/application/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stable_id: stableId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Preparation failed");
+
+      container.innerHTML = `
+        <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--text-main);">Application Pack #${data.id} (Candidate Review)</h3>
+        
+        <div style="margin-bottom: 16px;">
+          <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 4px;">Tailored Summary:</div>
+          <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; font-size: 12px;">${escapeHtml(data.tailored_resume_summary)}</div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 4px;">Tailored Cover Letter:</div>
+          <textarea style="width: 100%; height: 120px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text-main); border-radius: 6px; padding: 10px; font-size: 12px;">${escapeHtml(data.cover_letter)}</textarea>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <div style="font-weight: 600; font-size: 12px; color: var(--primary); margin-bottom: 4px;">Screening Question Drafts:</div>
+          ${data.question_drafts.map((q) => `
+            <div style="font-size: 12px; margin-bottom: 6px; background: rgba(0,0,0,0.15); padding: 6px 10px; border-radius: 4px;">
+              <strong>${escapeHtml(q.question)}:</strong> ${escapeHtml(q.draft_answer)}
+            </div>
+          `).join("")}
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+            <input type="checkbox" id="check-user-approval" onchange="window.toggleApproval(${data.id}, this.checked)">
+            I have reviewed and approved these application materials.
+          </label>
+        </div>
+
+        <div style="display: flex; gap: 12px;">
+          <button class="btn btn-primary" onclick="window.confirmLinkedInSubmission('${stableId}')">Confirm Manual LinkedIn Submission</button>
+          <button class="btn btn-secondary" onclick="window.submitExternalATS(${data.id})">Assisted External ATS Submit</button>
+        </div>
+      `;
+    } catch (err) {
+      container.innerHTML = `<div style="color: #ef4444; font-size: 13px;">Error: ${err.message}</div>`;
+    }
+  };
+
+  window.toggleApproval = async function (packId, approved) {
+    try {
+      await fetch("/api/application/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pack_id: packId, approved }),
+      });
+      showToast(approved ? "Pack approved by candidate" : "Approval revoked");
+    } catch (e) {
+      showToast(`Approval update error: ${e.message}`, "error");
+    }
+  };
+
+  window.confirmLinkedInSubmission = async function (stableId) {
+    try {
+      const res = await fetch("/api/application/confirm-linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stable_id: stableId, confirmed: true, notes: "Confirmed via dashboard" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("LinkedIn application recorded in tracker!");
+        switchView("applications");
+      } else {
+        showToast(data.error || "Failed to record submission", "error");
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, "error");
+    }
+  };
+
+  window.submitExternalATS = async function (packId) {
+    const dryRun = document.getElementById("dry-run-checkbox").checked;
+    try {
+      const res = await fetch("/api/application/submit-external", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pack_id: packId, dry_run: dryRun }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message || "Submitted successfully!");
+        switchView("applications");
+      } else {
+        showToast(data.error || "Submission failed", "error");
+      }
+    } catch (err) {
+      showToast(`Error: ${err.message}`, "error");
+    }
+  };
+
+  async function loadAuditLogs() {
+    const container = document.getElementById("audit-log-container");
+    if (!container) return;
+    try {
+      const res = await fetch("/api/privacy/audit-logs");
+      const data = await res.json();
+      const logs = data.audit_logs || [];
+      if (!logs.length) {
+        container.innerHTML = "No audit log entries found.";
+        return;
+      }
+      container.innerHTML = logs.map(l => `[${l.created_at}] ${l.action} (${l.resource_type}:${l.resource_id}) - ${l.details}`).join("<br>");
+    } catch (e) {
+      container.innerHTML = `Error loading audit logs: ${e.message}`;
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   // ── Lifecycle Boot ────────────────────────────────────────────────
