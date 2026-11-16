@@ -4,7 +4,7 @@ Supports multi-tenant isolation, structured candidate profiles, application trac
 and legacy backwards compatibility.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import hashlib
 import json
 import os
@@ -729,3 +729,157 @@ def backup_database(
         pass
 
     return backup_file
+
+
+# ── Multi-Process Scheduler Leases ──────────────────────────────
+
+def acquire_scheduler_lease(
+    resource_key: str,
+    owner_token: str,
+    ttl_seconds: int = 60,
+    metadata: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> bool:
+    """
+    Atomically acquire or reclaim an expired database-backed lease for multi-process worker coordination.
+    Guarantees mutual exclusion across separate OS processes or containers.
+    Returns True if lease acquired or refreshed; False if currently held by an active worker.
+    """
+    now = datetime.now()
+    now_iso = now.isoformat()
+    expires_at_iso = (now + timedelta(seconds=ttl_seconds)).isoformat()
+    meta = metadata or ""
+
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("BEGIN IMMEDIATE")
+        row = cursor.execute(
+            "SELECT owner_token, expires_at FROM scheduler_leases WHERE resource_key = ?",
+            (resource_key,),
+        ).fetchone()
+
+        if not row:
+            # No existing lease -> acquire
+            cursor.execute(
+                """
+                INSERT INTO scheduler_leases (resource_key, owner_token, acquired_at, expires_at, last_heartbeat_at, metadata)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (resource_key, owner_token, now_iso, expires_at_iso, now_iso, meta),
+            )
+            conn.commit()
+            return True
+
+        existing_token = row[0]
+        existing_expires = row[1]
+
+        # If same owner -> renew/extend
+        if existing_token == owner_token:
+            cursor.execute(
+                """
+                UPDATE scheduler_leases
+                SET expires_at = ?, last_heartbeat_at = ?, metadata = ?
+                WHERE resource_key = ? AND owner_token = ?
+                """,
+                (expires_at_iso, now_iso, meta, resource_key, owner_token),
+            )
+            conn.commit()
+            return True
+
+        # If existing lease expired -> crash recovery takeover
+        try:
+            exp_dt = datetime.fromisoformat(existing_expires)
+            if now >= exp_dt:
+                cursor.execute(
+                    """
+                    UPDATE scheduler_leases
+                    SET owner_token = ?, acquired_at = ?, expires_at = ?, last_heartbeat_at = ?, metadata = ?
+                    WHERE resource_key = ?
+                    """,
+                    (owner_token, now_iso, expires_at_iso, now_iso, meta, resource_key),
+                )
+                conn.commit()
+                return True
+        except Exception:
+            # Malformed timestamp -> reclaim
+            cursor.execute(
+                """
+                UPDATE scheduler_leases
+                SET owner_token = ?, acquired_at = ?, expires_at = ?, last_heartbeat_at = ?, metadata = ?
+                WHERE resource_key = ?
+                """,
+                (owner_token, now_iso, expires_at_iso, now_iso, meta, resource_key),
+            )
+            conn.commit()
+            return True
+
+        # Active unexpired lease held by another worker
+        conn.commit()
+        return False
+
+
+def renew_scheduler_lease(
+    resource_key: str,
+    owner_token: str,
+    ttl_seconds: int = 60,
+    db_path: Optional[str] = None,
+) -> bool:
+    """
+    Extend an existing lease if still held by the calling owner_token.
+    """
+    now = datetime.now()
+    now_iso = now.isoformat()
+    expires_at_iso = (now + timedelta(seconds=ttl_seconds)).isoformat()
+    with get_db_connection(db_path) as conn:
+        cursor = conn.execute(
+            """
+            UPDATE scheduler_leases
+            SET expires_at = ?, last_heartbeat_at = ?
+            WHERE resource_key = ? AND owner_token = ? AND expires_at > ?
+            """,
+            (expires_at_iso, now_iso, resource_key, owner_token, now_iso),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def release_scheduler_lease(
+    resource_key: str,
+    owner_token: str,
+    db_path: Optional[str] = None,
+) -> bool:
+    """
+    Safely release a lease only if the owner_token matches the current lease holder.
+    Prevents a slow/delayed worker from releasing a lease reclaimed by another worker.
+    """
+    with get_db_connection(db_path) as conn:
+        cursor = conn.execute(
+            "DELETE FROM scheduler_leases WHERE resource_key = ? AND owner_token = ?",
+            (resource_key, owner_token),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def get_scheduler_lease(
+    resource_key: str,
+    db_path: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Inspect active lease state for a specific resource key.
+    """
+    with get_db_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT resource_key, owner_token, acquired_at, expires_at, last_heartbeat_at, metadata FROM scheduler_leases WHERE resource_key = ?",
+            (resource_key,),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "resource_key": row[0],
+            "owner_token": row[1],
+            "acquired_at": row[2],
+            "expires_at": row[3],
+            "last_heartbeat_at": row[4],
+            "metadata": row[5],
+        }

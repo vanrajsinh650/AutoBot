@@ -10,6 +10,7 @@ Strictly preserves:
 """
 
 from dataclasses import dataclass, field
+import hashlib
 import json
 import math
 import os
@@ -21,10 +22,50 @@ from src.matching.eligibility import EligibilityEngine, EligibilityStatus
 from src.matching.evaluator import extract_requirements_heuristic
 from src.matching.scorer import DISCLAIMER_NOTICE, DeterministicFitScorer, MatchBreakdown
 
+class BenchmarkIntegrityError(RuntimeError):
+    """Raised when benchmark dataset checksum does not match frozen baseline."""
+    pass
+
+
+FROZEN_BENCHMARK_SHA256 = "df30da05653a4b654bd44fda1a5fa67ee4fc4974437190ce40ac9b96a70b8683"
+BENCHMARK_MANIFEST_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data", "benchmarks", "benchmark_manifest.json"
+)
+
 INDEPENDENT_DATASET_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "data", "benchmarks", "independent_eval_dataset.json"
 )
+
+
+def verify_benchmark_integrity(dataset_path: Optional[str] = None) -> bool:
+    """
+    Verify that the evaluation dataset matches the frozen SHA-256 baseline.
+    Prevents benchmark drift and unrecorded modifications.
+    """
+    path = dataset_path or INDEPENDENT_DATASET_PATH
+    if not os.path.exists(path):
+        raise BenchmarkIntegrityError(f"Benchmark dataset file not found: '{path}'")
+
+    with open(path, "rb") as f:
+        actual_sha = hashlib.sha256(f.read()).hexdigest()
+
+    expected_sha = FROZEN_BENCHMARK_SHA256
+    if os.path.exists(BENCHMARK_MANIFEST_PATH):
+        try:
+            with open(BENCHMARK_MANIFEST_PATH, "r", encoding="utf-8") as mf:
+                manifest_data = json.load(mf)
+                expected_sha = manifest_data.get("sha256", expected_sha)
+        except Exception:
+            pass
+
+    if actual_sha != expected_sha:
+        raise BenchmarkIntegrityError(
+            f"Benchmark integrity violation! Checksum mismatch on '{path}'. "
+            f"Expected {expected_sha}, got {actual_sha}."
+        )
+    return True
 
 
 @dataclass
@@ -154,10 +195,12 @@ class IndependentBenchmarkSuite:
     Orchestrates independent evaluation over the human-labeled dataset.
     """
 
-    def __init__(self, dataset_path: Optional[str] = None):
+    def __init__(self, dataset_path: Optional[str] = None, check_integrity: bool = True):
         self.dataset_path = dataset_path or INDEPENDENT_DATASET_PATH
         if not os.path.exists(self.dataset_path):
             raise FileNotFoundError(f"Independent benchmark dataset not found at '{self.dataset_path}'")
+        if check_integrity:
+            verify_benchmark_integrity(self.dataset_path)
         with open(self.dataset_path, "r", encoding="utf-8") as f:
             self.dataset = json.load(f)
 

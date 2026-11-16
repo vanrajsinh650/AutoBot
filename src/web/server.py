@@ -64,6 +64,13 @@ PUBLIC_EXACT_PATHS = {
 }
 
 
+# Typed aiohttp keys to prevent NotAppKeyWarning
+SCHEDULER_KEY: Any = web.AppKey("discovery_scheduler", object) if hasattr(web, "AppKey") else "discovery_scheduler"
+USER_ID_KEY: Any = web.RequestKey("user_id", object) if hasattr(web, "RequestKey") else "user_id"
+USER_EMAIL_KEY: Any = web.RequestKey("user_email", object) if hasattr(web, "RequestKey") else "user_email"
+SESSION_KEY: Any = web.RequestKey("session", object) if hasattr(web, "RequestKey") else "session"
+
+
 @web.middleware
 async def auth_middleware(request: web.Request, handler):
     """
@@ -101,9 +108,9 @@ async def auth_middleware(request: web.Request, handler):
             )
 
         # Attach validated session data to request state
-        request["user_id"] = session["user_id"]
-        request["user_email"] = session.get("email")
-        request["session"] = session
+        request[USER_ID_KEY] = session["user_id"]
+        request[USER_EMAIL_KEY] = session.get("email")
+        request[SESSION_KEY] = session
 
     return await handler(request)
 
@@ -119,12 +126,12 @@ async def _start_scheduler(app: web.Application) -> None:
     from src.discovery.scheduler import DiscoveryScheduler
     scheduler = DiscoveryScheduler()
     scheduler.start()
-    app["discovery_scheduler"] = scheduler
+    app[SCHEDULER_KEY] = scheduler
 
 
 async def _stop_scheduler(app: web.Application) -> None:
     """Gracefully shutdown the background discovery scheduler."""
-    scheduler = app.get("discovery_scheduler")
+    scheduler = app.get(SCHEDULER_KEY)
     if scheduler:
         await scheduler.stop()
 

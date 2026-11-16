@@ -113,6 +113,11 @@ def get_current_user_id(request: web.Request, allow_fallback: bool = False) -> O
     Extract user_id from request state (attached by auth_middleware) or validate session header/cookie.
     Strictly fail-closed: defaults to allow_fallback=False and returns None when unauthenticated.
     """
+    from src.web.server import USER_ID_KEY
+    if USER_ID_KEY in request and request[USER_ID_KEY] is not None:
+        return request[USER_ID_KEY]
+    if hasattr(request, "_state") and "user_id" in request._state:
+        return request._state["user_id"]
     if "user_id" in request and request["user_id"] is not None:
         return request["user_id"]
 

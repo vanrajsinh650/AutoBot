@@ -1,0 +1,21 @@
+{
+  "benchmark_name": "AutoBot Independent Matching Evaluation Benchmark",
+  "version": "2.3.1-frozen",
+  "frozen_at": "2026-11-16T10:30:00+05:30",
+  "dataset_path": "data/benchmarks/independent_eval_dataset.json",
+  "sha256": "df30da05653a4b654bd44fda1a5fa67ee4fc4974437190ce40ac9b96a70b8683",
+  "byte_size": 161434,
+  "total_pairs": 80,
+  "status": "FROZEN_BASELINE",
+  "categories": [
+    "realistic_matched",
+    "ambiguous_descriptions",
+    "career_changers",
+    "incomplete_profiles",
+    "misleading_titles",
+    "negation_constraints",
+    "mandatory_requirements",
+    "location_conflicts"
+  ],
+  "disclaimer": "Scores (0–100) measure deterministic semantic and constraint alignment between structured profiles and vacancies. They do not represent hiring probabilities, candidate competency assessments, or employment guarantees."
+}

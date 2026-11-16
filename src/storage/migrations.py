@@ -438,6 +438,19 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_runs_status ON sync_runs(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_runs_started ON sync_runs(started_at)")
 
+    # 16. scheduler_leases (Multi-process distributed leases with ownership tokens & crash recovery)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS scheduler_leases (
+            resource_key       TEXT PRIMARY KEY,
+            owner_token        TEXT NOT NULL,
+            acquired_at        TEXT NOT NULL,
+            expires_at         TEXT NOT NULL,
+            last_heartbeat_at  TEXT NOT NULL,
+            metadata           TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_scheduler_leases_expires ON scheduler_leases(expires_at)")
+
     # Legacy indexes
     conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status)")

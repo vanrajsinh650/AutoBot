@@ -13,7 +13,7 @@ from typing import List, Optional
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Load .env into os.environ immediately on import
 load_dotenv()
@@ -114,10 +114,11 @@ class EnvSettings(BaseSettings):
     # Logging
     log_level:         str = "INFO"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 
 # ── Loaders ──────────────────────────────────────────────────────
