@@ -293,3 +293,62 @@ def test_stale_worker_fencing_prevents_job_expiration(temp_multiprocess_db):
         row = conn.execute("SELECT status FROM jobs WHERE stable_id = 'lever:datadog:job2'").fetchone()
         assert row is not None
         assert row[0] == "active"  # Safely preserved!
+
+
+def test_repeated_reclaim_cycles_and_generational_fencing(temp_multiprocess_db):
+    """
+    Verifies that across repeated reclaim cycles (Worker 1 -> Worker 2 -> Worker 3),
+    older generation worker tokens remain strictly locked out from committing mutations,
+    and only the latest valid generation owner can commit.
+    """
+    engine = JobDiscoveryEngine(temp_multiprocess_db)
+    source = JobSourceConfig(
+        name="Figma",
+        source_type=SourceType.LEVER,
+        board_token_or_slug="figma",
+    )
+    res_key = f"{source.source_type.value}:{source.board_token_or_slug}"
+
+    # Cycle 1: Worker 1 acquires 1s lease
+    token_gen1 = f"worker-gen1:{uuid.uuid4().hex}"
+    assert acquire_scheduler_lease(res_key, token_gen1, ttl_seconds=1, db_path=temp_multiprocess_db) is True
+    time.sleep(1.1)
+
+    # Cycle 2: Worker 2 reclaims 1s lease
+    token_gen2 = f"worker-gen2:{uuid.uuid4().hex}"
+    assert acquire_scheduler_lease(res_key, token_gen2, ttl_seconds=1, db_path=temp_multiprocess_db) is True
+    time.sleep(1.1)
+
+    # Cycle 3: Worker 3 reclaims 30s lease
+    token_gen3 = f"worker-gen3:{uuid.uuid4().hex}"
+    assert acquire_scheduler_lease(res_key, token_gen3, ttl_seconds=30, db_path=temp_multiprocess_db) is True
+
+    # Generation 1 tries to commit -> Fails
+    job = NormalizedJob(
+        stable_id="lever:figma:designer",
+        source_name="Figma",
+        source_type=SourceType.LEVER,
+        title="Product Designer",
+        company="Figma",
+        description="Design role",
+        employment_type=EmploymentType.FULL_TIME,
+        location="SF",
+        is_remote=False,
+    )
+    with pytest.raises(StaleWorkerLeaseError, match="Fencing violation"):
+        engine.persist_and_update_freshness(source, [job], is_complete=True, lease_token=token_gen1)
+
+    # Generation 2 tries to commit -> Fails
+    with pytest.raises(StaleWorkerLeaseError, match="Fencing violation"):
+        engine.persist_and_update_freshness(source, [job], is_complete=True, lease_token=token_gen2)
+
+    # Generation 3 (current owner) commits -> Succeeds
+    saved = engine.persist_and_update_freshness(source, [job], is_complete=True, lease_token=token_gen3)
+    assert len(saved) == 1
+
+    # Verify job was committed
+    with get_db_connection(temp_multiprocess_db) as conn:
+        row = conn.execute("SELECT title, status FROM jobs WHERE stable_id = 'lever:figma:designer'").fetchone()
+        assert row is not None
+        assert row["title"] == "Product Designer"
+        assert row["status"] == "active"

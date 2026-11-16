@@ -233,6 +233,7 @@ class JobDiscoveryEngine:
         resource_key = f"{source.source_type.value}:{source.board_token_or_slug}"
 
         with get_db_connection(self.db_path) as conn:
+            conn.execute("BEGIN IMMEDIATE")
             # Lease fencing check: verify worker still owns the unexpired lease before committing
             if lease_token:
                 from src.storage.db import StaleWorkerLeaseError, validate_lease_fencing
