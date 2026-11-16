@@ -21,6 +21,7 @@ from src.web.routes import (
     get_audit_logs_handler,
     get_browser_health_handler,
     get_candidate_profile_handler,
+    get_candidate_search_history_handler,
     get_config_handler,
     get_discovered_jobs_handler,
     get_jobs,
@@ -29,7 +30,9 @@ from src.web.routes import (
     get_resume_versions_handler,
     get_sources_handler,
     get_sources_health_handler,
+    get_sync_runs_handler,
     get_keyword_expansion_handler,
+    get_matching_benchmark_handler,
     get_personalized_jobs_handler,
     get_stats_handler,
     get_status,
@@ -111,9 +114,26 @@ async def index_handler(request: web.Request) -> web.FileResponse:
     return web.FileResponse(index_file)
 
 
+async def _start_scheduler(app: web.Application) -> None:
+    """Initialize and start the background recurring job discovery scheduler."""
+    from src.discovery.scheduler import DiscoveryScheduler
+    scheduler = DiscoveryScheduler()
+    scheduler.start()
+    app["discovery_scheduler"] = scheduler
+
+
+async def _stop_scheduler(app: web.Application) -> None:
+    """Gracefully shutdown the background discovery scheduler."""
+    scheduler = app.get("discovery_scheduler")
+    if scheduler:
+        await scheduler.stop()
+
+
 def create_app() -> web.Application:
     """Build and configure the aiohttp Application instance with centralized auth middleware."""
     app = web.Application(middlewares=[auth_middleware])
+    app.on_startup.append(_start_scheduler)
+    app.on_cleanup.append(_stop_scheduler)
 
     # ── Legacy & Telemetry API Routes ─────────────────────────────
     app.router.add_get("/api/status", get_status)
@@ -143,10 +163,12 @@ def create_app() -> web.Application:
     app.router.add_get("/api/candidate/preferences", get_preferences_handler)
     app.router.add_put("/api/candidate/preferences", update_preferences_handler)
     app.router.add_get("/api/candidate/resumes", get_resume_versions_handler)
+    app.router.add_get("/api/candidate/search-history", get_candidate_search_history_handler)
 
     # ── Job Discovery Routes ──────────────────────────────────────
     app.router.add_get("/api/discovery/sources", get_sources_handler)
     app.router.add_get("/api/discovery/sources/health", get_sources_health_handler)
+    app.router.add_get("/api/discovery/sync-runs", get_sync_runs_handler)
     app.router.add_post("/api/discovery/sources", add_source_handler)
     app.router.add_post("/api/discovery/run", discover_jobs_handler)
     app.router.add_post("/api/discovery/import", import_job_handler)
@@ -156,6 +178,7 @@ def create_app() -> web.Application:
     # ── Matching & Evaluation Routes ──────────────────────────────
     app.router.add_post("/api/matching/evaluate", evaluate_job_handler)
     app.router.add_get("/api/matching/expand-keywords", get_keyword_expansion_handler)
+    app.router.add_get("/api/matching/benchmark", get_matching_benchmark_handler)
 
     # ── Application Preparation & Workflow Routes ─────────────────
     app.router.add_post("/api/application/prepare", prepare_application_handler)

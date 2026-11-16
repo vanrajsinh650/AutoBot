@@ -7,6 +7,7 @@ transparent, explainable, and editable search query expansions.
 
 from dataclasses import dataclass, field
 import json
+import re
 import sqlite3
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -271,16 +272,38 @@ def expand_candidate_keywords(
     if workplace_pref == "remote":
         workplace_filters.append("hybrid")  # allow hybrid consideration
 
+    # Prioritize: core target roles and primary skills first, then synonyms, then other expanded terms
+    prioritized_keywords = []
+    seen = set()
+    for term in (manual_overrides or []) + target_roles + primary_skills:
+        tc = term.lower().strip()
+        if tc in expanded_set and tc not in seen:
+            prioritized_keywords.append(tc)
+            seen.add(tc)
+    for term in sorted(list(expanded_set)):
+        if term not in seen:
+            prioritized_keywords.append(term)
+            seen.add(term)
+
     return ExpansionResult(
         user_id=user_id,
         original_skills=all_raw_skills,
         target_roles=target_roles,
-        expanded_keywords=sorted(list(expanded_set)),
+        expanded_keywords=prioritized_keywords,
         explanations=explanations,
         employment_filters=emp_types,
         workplace_filters=workplace_filters,
         eligible_countries=prefs.get("eligible_countries", []),
     )
+
+
+def _build_regex_boundary_pattern(term: str) -> str:
+    """Build regex pattern enforcing word boundaries at alphanumeric edges to prevent substring collisions."""
+    clean = term.strip()
+    escaped = re.escape(clean)
+    start_b = r"\b" if re.match(r"^\w", clean) else ""
+    end_b = r"\b" if re.match(r".*\w$", clean) else r"(?:\s|$|[^a-zA-Z0-9])"
+    return f"{start_b}{escaped}{end_b}"
 
 
 def search_personalized_jobs(
@@ -292,7 +315,7 @@ def search_personalized_jobs(
 ) -> Dict[str, Any]:
     """
     Search jobs strictly scoped to candidate preferences, tenant isolation,
-    and keyword expansion.
+    and keyword expansion with word-boundary precision.
     """
     db_file = db_path or get_db_path()
     init_db(db_file)
@@ -305,18 +328,18 @@ def search_personalized_jobs(
         query = "SELECT * FROM jobs WHERE 1=1"
         params: List[Any] = []
 
-        # 1. Status filter (defaults to active, suppresses expired)
+        # 1. Status filter (defaults to active, strictly suppresses expired and stale listings)
         if status_filter != "all":
             query += " AND status = ?"
             params.append(status_filter)
 
-        # 2. Employment type filter
+        # 2. Employment type filter (strictly separates internships, full-time, contract, part-time)
         if expansion.employment_filters:
             placeholders = ",".join("?" for _ in expansion.employment_filters)
             query += f" AND (employment_type IN ({placeholders}) OR employment_type = 'other')"
             params.extend(expansion.employment_filters)
 
-        # 3. Country / Location eligibility filter
+        # 3. Country / Location eligibility filter (respects remote vs country restrictions)
         countries = [c.lower().strip() for c in expansion.eligible_countries if c.strip()]
         if countries:
             country_clauses = ["is_remote = 1", "country = ''"]
@@ -329,12 +352,13 @@ def search_personalized_jobs(
         if "remote" in expansion.workplace_filters:
             query += " AND (is_remote = 1 OR workplace_type IN ('remote', 'hybrid'))"
 
-        # 5. Keywords matching
+        # 5. Keywords matching using boundary-aware regex to prevent substring false positives
         if expansion.expanded_keywords:
             kw_clauses = []
-            for kw in expansion.expanded_keywords[:15]:  # top 15 expanded keywords
-                kw_clauses.append("(LOWER(title) LIKE ? OR LOWER(description) LIKE ?)")
-                params.extend([f"%{kw}%", f"%{kw}%"])
+            for kw in expansion.expanded_keywords[:15]:  # top 15 prioritized keywords
+                pattern = _build_regex_boundary_pattern(kw)
+                kw_clauses.append("(title REGEXP ? OR description REGEXP ?)")
+                params.extend([pattern, pattern])
             if kw_clauses:
                 query += f" AND ({' OR '.join(kw_clauses)})"
 

@@ -26,6 +26,31 @@ class SourceType(str, Enum):
     USER_IMPORT = "user_import"
 
 
+class SyncRunStatus(str, Enum):
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+class SyncRunRecord(BaseModel):
+    """Execution log and audit record for a single board synchronization run."""
+    sync_run_id: str
+    source_name: str
+    source_type: SourceType
+    board_slug: str
+    status: SyncRunStatus = SyncRunStatus.IN_PROGRESS
+    is_complete: bool = False
+    total_retrieved: int = 0
+    new_jobs: int = 0
+    updated_jobs: int = 0
+    duplicates_removed: int = 0
+    expired_jobs: int = 0
+    error_message: str = ""
+    started_at: str
+    completed_at: str = ""
+
+
 class JobSourceConfig(BaseModel):
     """Configuration record for a discovery job source."""
     name: str
@@ -39,6 +64,12 @@ class JobSourceConfig(BaseModel):
     concurrency_limit: int = 2
     failure_count: int = 0
     last_error: str = ""
+    last_success_at: Optional[str] = None
+    last_failure_at: Optional[str] = None
+    next_sync_at: Optional[str] = None
+    last_sync_complete: bool = False
+    last_retrieved_count: int = 0
+    last_expired_count: int = 0
 
 
 class NormalizedJob(BaseModel):

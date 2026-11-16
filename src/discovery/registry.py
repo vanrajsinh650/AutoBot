@@ -1,12 +1,13 @@
 """
-Job Source Registry & Discovery Orchestration Engine for AutoBot v2.3.
+Job Source Registry & Discovery Orchestration Engine for AutoBot v2.3.1.
 Manages sources, executes fetching across adapters with concurrency control,
-normalizes, deduplicates, and tracks job freshness & expiration.
+normalizes, deduplicates, and tracks job freshness, sync runs & authoritative expiration.
 """
 
 import asyncio
 from datetime import datetime
 import json
+import uuid
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import aiohttp
@@ -22,10 +23,23 @@ from src.storage.db import get_db_connection, get_db_path, init_db
 from src.utils.logger import logger
 
 
+class FetchSourceResult(tuple):
+    """3-tuple subclass preserving (src, jobs, error) unpacking with is_complete attribute."""
+
+    def __new__(cls, src: JobSourceConfig, jobs: Optional[List[NormalizedJob]], error: Optional[Exception], is_complete: bool = False):
+        return super().__new__(cls, (src, jobs, error))
+
+    def __init__(self, src: JobSourceConfig, jobs: Optional[List[NormalizedJob]], error: Optional[Exception], is_complete: bool = False):
+        self.src = src
+        self.jobs = jobs
+        self.error = error
+        self.is_complete = is_complete
+
+
 class JobDiscoveryEngine:
     """
     Coordinates multi-source job discovery, concurrency limiting, deduplication,
-    freshness tracking, and persistence.
+    freshness tracking, sync run auditing, and authoritative expiration gating.
     """
 
     DEFAULT_SOURCES = [
@@ -90,19 +104,47 @@ class JobDiscoveryEngine:
         self,
         src: JobSourceConfig,
         session: aiohttp.ClientSession,
-    ) -> Tuple[JobSourceConfig, Optional[List[NormalizedJob]], Optional[Exception]]:
-        """Fetch jobs for a single source under its concurrency semaphore."""
+    ) -> FetchSourceResult:
+        """Fetch jobs for a single source under its concurrency semaphore, returning FetchSourceResult."""
+        sync_run_id = f"sync_{src.source_type.value}_{src.board_token_or_slug}_{int(datetime.now().timestamp() * 1000)}"
+        started_at = datetime.now().isoformat()
         sem = self.board_registry.get_semaphore(src.source_type.value, src.concurrency_limit)
+
         async with sem:
             adapter = self._get_adapter(src)
             try:
-                jobs = await adapter.fetch_jobs(session=session)
-                self.board_registry.record_sync_success(src.source_type.value, src.board_token_or_slug)
-                return (src, jobs, None)
+                if hasattr(adapter, "fetch_jobs_detailed"):
+                    jobs, is_complete = await adapter.fetch_jobs_detailed(session=session)
+                else:
+                    jobs = await adapter.fetch_jobs(session=session)
+                    is_complete = getattr(adapter, "is_last_sync_complete", True)
+
+                return FetchSourceResult(src, jobs, None, is_complete=is_complete)
             except Exception as e:
                 logger.warning(f"Error fetching from {src.name} ({src.board_token_or_slug}): {e}")
-                self.board_registry.record_sync_failure(src.source_type.value, src.board_token_or_slug, str(e))
-                return (src, None, e)
+                self.board_registry.record_sync_failure(
+                    src.source_type.value,
+                    src.board_token_or_slug,
+                    str(e),
+                    is_complete=False,
+                )
+                self.board_registry.record_sync_run(
+                    sync_run_id=sync_run_id,
+                    source_name=src.name,
+                    source_type=src.source_type.value,
+                    board_slug=src.board_token_or_slug,
+                    status="failed",
+                    is_complete=False,
+                    total_retrieved=0,
+                    new_jobs=0,
+                    updated_jobs=0,
+                    duplicates_removed=0,
+                    expired_jobs=0,
+                    error_message=str(e),
+                    started_at=started_at,
+                    completed_at=datetime.now().isoformat(),
+                )
+                return FetchSourceResult(src, None, e, is_complete=False)
 
     async def discover_jobs(
         self,
@@ -132,9 +174,10 @@ class JobDiscoveryEngine:
                     logger.warning(f"Discovery task exception: {item}")
                     continue
                 src, jobs, err = item
+                is_complete = getattr(item, "is_complete", False)
                 if err is None and isinstance(jobs, list):
-                    # Successfully fetched: update freshness and handle expiration
-                    self.persist_and_update_freshness(src, jobs)
+                    # Successfully fetched: persist with explicit completeness status
+                    self.persist_and_update_freshness(src, jobs, is_complete=is_complete)
                     discovered_jobs.extend(jobs)
 
         # Filter by keywords if specified
@@ -163,15 +206,26 @@ class JobDiscoveryEngine:
         self,
         source: JobSourceConfig,
         active_jobs: List[NormalizedJob],
+        is_complete: bool = True,
+        sync_run_id: Optional[str] = None,
     ) -> List[NormalizedJob]:
         """
         Persist newly discovered jobs, update last_verified_at on existing jobs,
-        and mark vanished jobs from this source as expired.
-        INVARIANT: Never treat a failed network request as proof that a vacancy has expired.
+        and mark vanished jobs from this source as expired ONLY IF is_complete is True.
+
+        CRITICAL INVARIANT:
+        Never expire previously discovered jobs after a partial fetch, truncated response,
+        parse failure, or incomplete pagination. Expire jobs only after a fully successful
+        authoritative sync of the relevant board.
         """
         init_db(self.db_path)
-        now_iso = datetime.now().isoformat()
+        now = datetime.now()
+        now_iso = now.isoformat()
+        sync_id = sync_run_id or f"sync_{source.source_type.value}_{source.board_token_or_slug}_{int(now.timestamp() * 1000)}"
         newly_saved: List[NormalizedJob] = []
+        updated_count = 0
+        duplicates_removed = 0
+        expired_count = 0
         source_prefix = f"{source.source_type.value}:{source.board_token_or_slug}:"
 
         with get_db_connection(self.db_path) as conn:
@@ -211,6 +265,7 @@ class JobDiscoveryEngine:
                             job.stable_id,
                         ),
                     )
+                    updated_count += 1
                 else:
                     # Check fingerprint deduplication before inserting
                     fp_row = conn.execute(
@@ -223,6 +278,7 @@ class JobDiscoveryEngine:
                             "UPDATE jobs SET last_verified_at = ?, status = 'active' WHERE id = ?",
                             (now_iso, fp_row["id"]),
                         )
+                        duplicates_removed += 1
                         continue
 
                     # Insert new job
@@ -264,19 +320,51 @@ class JobDiscoveryEngine:
                     )
                     newly_saved.append(job)
 
-            # 3. Detect Expired Vacancies:
-            # If the source returned an active list (even empty if verified 200),
-            # any job previously in DB with this source prefix but NOT in fetched_ids is expired.
-            # INVARIANT: Only apply when active_jobs was retrieved without network failure.
-            for stable_id, r in db_job_map.items():
-                if stable_id not in fetched_ids and r["status"] == "active":
-                    conn.execute(
-                        "UPDATE jobs SET status = 'expired', last_verified_at = ? WHERE stable_id = ?",
-                        (now_iso, stable_id),
-                    )
-                    logger.info(f"[discovery]Marked vacancy '{stable_id}' as expired (absent from source).")
+            # 3. Detect Expired Vacancies (Strictly Gated by is_complete):
+            if is_complete:
+                for stable_id, r in db_job_map.items():
+                    if stable_id not in fetched_ids and r["status"] == "active":
+                        conn.execute(
+                            "UPDATE jobs SET status = 'expired', last_verified_at = ? WHERE stable_id = ?",
+                            (now_iso, stable_id),
+                        )
+                        expired_count += 1
+                        logger.info(f"[discovery]Marked vacancy '{stable_id}' as expired (authoritative board sync omission).")
+            else:
+                logger.warning(
+                    f"[discovery]Preserved active vacancies for '{source.name}' ({source.board_token_or_slug}): "
+                    f"sync is marked partial (is_complete={is_complete}). Mass expiration skipped."
+                )
 
             conn.commit()
+
+        # Update board health and schedule next run
+        self.board_registry.record_sync_success(
+            source_type=source.source_type.value,
+            board_slug=source.board_token_or_slug,
+            retrieved_count=len(active_jobs),
+            expired_count=expired_count,
+            is_complete=is_complete,
+        )
+
+        # Audit sync run in sync_runs table
+        status_str = "completed" if is_complete else "partial"
+        self.board_registry.record_sync_run(
+            sync_run_id=sync_id,
+            source_name=source.name,
+            source_type=source.source_type.value,
+            board_slug=source.board_token_or_slug,
+            status=status_str,
+            is_complete=is_complete,
+            total_retrieved=len(active_jobs),
+            new_jobs=len(newly_saved),
+            updated_jobs=updated_count,
+            duplicates_removed=duplicates_removed,
+            expired_jobs=expired_count,
+            error_message="" if is_complete else "Partial sync: incomplete pagination or truncated fetch",
+            started_at=now_iso,
+            completed_at=datetime.now().isoformat(),
+        )
 
         return newly_saved
 

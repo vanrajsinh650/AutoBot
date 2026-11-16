@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sqlite3
 import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -22,6 +23,16 @@ DEFAULT_DB_PATH = "logs/autobot.db"
 def get_db_path() -> str:
     """Return active database path from environment or default."""
     return os.environ.get("AUTOBOT_DB_PATH", DEFAULT_DB_PATH)
+
+
+def _sqlite_regexp(pattern: Any, text: Any) -> bool:
+    """Safe regex evaluator for SQLite REGEXP operator with null/type guarding."""
+    if pattern is None or text is None:
+        return False
+    try:
+        return bool(re.search(str(pattern), str(text), re.IGNORECASE))
+    except Exception:
+        return False
 
 
 def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
@@ -52,6 +63,7 @@ def get_db_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
     conn = sqlite3.connect(target_path)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
+    conn.create_function("REGEXP", 2, _sqlite_regexp)
 
     if target_path != ":memory:" and Path(target_path).exists():
         try:

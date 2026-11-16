@@ -1,7 +1,8 @@
 """
-Ashby Public Job Postings API Adapter for AutoBot v2.3.
+Ashby Public Job Postings API Adapter for AutoBot v2.3.1.
 Endpoint: https://api.ashbyhq.com/posting-api/job-board/{organization_slug}
-Includes SSRF validation, size capping, workplace classification, and compensation extraction.
+Includes SSRF validation, size capping, workplace classification, compensation extraction,
+and granular individual item error isolation.
 """
 
 import asyncio
@@ -31,12 +32,18 @@ from src.utils.logger import logger
 
 
 class AshbyAdapter(BaseJobSourceAdapter):
-    """Adapter for fetching public postings from Ashby Job Board API."""
+    """Adapter for fetching public postings from Ashby Job Board API with error isolation."""
 
     BASE_URL = "https://api.ashbyhq.com/posting-api/job-board/{org}"
 
+    def __init__(self, config: JobSourceConfig):
+        super().__init__(config)
+        self.is_last_sync_complete: bool = False
+
     async def fetch_jobs(self, session: Optional[aiohttp.ClientSession] = None) -> List[NormalizedJob]:
         raw_org = self.config.board_token_or_slug.strip()
+        self.is_last_sync_complete = False
+
         try:
             org = validate_board_slug(raw_org)
         except SSRFValidationError as e:
@@ -58,9 +65,9 @@ class AshbyAdapter(BaseJobSourceAdapter):
         payload: Any = None
         for attempt in range(2):
             try:
-                headers = {"User-Agent": "AutoBot/2.3 (+https://github.com/autobot-platform)"}
+                headers = {"User-Agent": "AutoBot/2.3.1 (+https://github.com/autobot-platform)"}
                 timeout = aiohttp.ClientTimeout(total=20, connect=5, sock_read=15)
-                async with session.get(url, headers=headers, timeout=timeout) as resp:
+                async with session.get(url, headers=headers, timeout=timeout, allow_redirects=False) as resp:
                     if resp.status == 429:
                         logger.warning(f"Rate limited (HTTP 429) by Ashby for '{org}'. Attempt {attempt+1}/2.")
                         if attempt == 0:
@@ -99,63 +106,74 @@ class AshbyAdapter(BaseJobSourceAdapter):
         if close_session and not session.closed:
             await session.close()
 
-        raw_jobs = payload.get("jobs", []) if isinstance(payload, dict) else []
+        if not isinstance(payload, dict):
+            return []
+
+        raw_jobs = payload.get("jobs", [])
+        if not isinstance(raw_jobs, list):
+            return []
+
         normalized: List[NormalizedJob] = []
         now_iso = datetime.now().isoformat()
 
         for item in raw_jobs:
             if not isinstance(item, dict):
                 continue
-            job_id = str(item.get("id", ""))
-            title = str(item.get("title", "")).strip()
-            if not title:
+            try:
+                job_id = str(item.get("id", "")).strip()
+                title = str(item.get("title", "")).strip()
+                if not job_id or not title:
+                    continue
+
+                location_name = str(item.get("location", "") or "").strip()
+                desc_plain = item.get("descriptionPlain", "")
+                if not desc_plain:
+                    desc_plain = strip_html(item.get("descriptionHtml", ""))
+
+                raw_emp = str(item.get("employmentType", ""))
+                emp_type = classify_employment_type(f"{raw_emp} {title}")
+
+                is_remote = bool(item.get("isRemote", False)) or detect_remote(location_name, title)
+                workplace_type = detect_workplace_type(location_name, f"{title} {desc_plain[:300]}")
+                if is_remote and workplace_type == "on-site":
+                    workplace_type = "remote"
+
+                # Compensation extraction: check explicit fields or parse text
+                comp_tier = str(item.get("compensationTierSummary", ""))
+                comp_min, comp_max, currency = extract_compensation(f"{comp_tier} {desc_plain}")
+
+                stable_id = f"ashby:{org}:{job_id}"
+                app_url = item.get("jobUrl", f"https://jobs.ashbyhq.com/{org}/{job_id}")
+                pub_date = item.get("publishedAt") or now_iso
+
+                job = NormalizedJob(
+                    stable_id=stable_id,
+                    source_name=self.config.name,
+                    source_type=SourceType.ASHBY,
+                    title=title,
+                    company=self.config.name,
+                    description=desc_plain.strip(),
+                    employment_type=emp_type,
+                    location=location_name,
+                    country=resolve_job_country(location_name) or "",
+                    is_remote=is_remote,
+                    workplace_type=workplace_type,
+                    status="active",
+                    compensation_min=comp_min,
+                    compensation_max=comp_max,
+                    currency=currency,
+                    publication_date=pub_date,
+                    discovered_at=now_iso,
+                    source_updated_at=pub_date,
+                    last_verified_at=now_iso,
+                    application_url=app_url,
+                    raw_data=item,
+                )
+                job.fingerprint = job.compute_fingerprint()
+                normalized.append(job)
+            except Exception as item_err:
+                logger.warning(f"[discovery]Skipped malformed Ashby job item in '{org}': {item_err}")
                 continue
 
-            location_name = str(item.get("location", ""))
-            desc_plain = item.get("descriptionPlain", "")
-            if not desc_plain:
-                desc_plain = strip_html(item.get("descriptionHtml", ""))
-
-            raw_emp = str(item.get("employmentType", ""))
-            emp_type = classify_employment_type(f"{raw_emp} {title}")
-
-            is_remote = bool(item.get("isRemote", False)) or detect_remote(location_name, title)
-            workplace_type = detect_workplace_type(location_name, f"{title} {desc_plain[:300]}")
-            if is_remote and workplace_type == "on-site":
-                workplace_type = "remote"
-
-            # Compensation extraction: check explicit fields or parse text
-            comp_tier = str(item.get("compensationTierSummary", ""))
-            comp_min, comp_max, currency = extract_compensation(f"{comp_tier} {desc_plain}")
-
-            stable_id = f"ashby:{org}:{job_id}"
-            app_url = item.get("jobUrl", f"https://jobs.ashbyhq.com/{org}/{job_id}")
-            pub_date = item.get("publishedAt") or now_iso
-
-            job = NormalizedJob(
-                stable_id=stable_id,
-                source_name=self.config.name,
-                source_type=SourceType.ASHBY,
-                title=title,
-                company=self.config.name,
-                description=desc_plain.strip(),
-                employment_type=emp_type,
-                location=location_name,
-                country=resolve_job_country(location_name) or "",
-                is_remote=is_remote,
-                workplace_type=workplace_type,
-                status="active",
-                compensation_min=comp_min,
-                compensation_max=comp_max,
-                currency=currency,
-                publication_date=pub_date,
-                discovered_at=now_iso,
-                source_updated_at=pub_date,
-                last_verified_at=now_iso,
-                application_url=app_url,
-                raw_data=item,
-            )
-            job.fingerprint = job.compute_fingerprint()
-            normalized.append(job)
-
+        self.is_last_sync_complete = True
         return normalized

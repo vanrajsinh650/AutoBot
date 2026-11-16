@@ -116,8 +116,20 @@ class BaseJobSourceAdapter(ABC):
 
     def __init__(self, config: JobSourceConfig):
         self.config = config
+        self.is_last_sync_complete: bool = False
 
     @abstractmethod
     async def fetch_jobs(self, session: Optional[Any] = None) -> List[NormalizedJob]:
         """Fetch and normalize job postings from this source."""
         pass
+
+    async def fetch_jobs_detailed(
+        self, session: Optional[Any] = None
+    ) -> tuple[List[NormalizedJob], bool]:
+        """
+        Fetch and normalize jobs, returning (jobs, is_complete).
+        is_complete indicates whether the response represents an authoritative,
+        complete sync of the board without truncated pages or network aborts.
+        """
+        jobs = await self.fetch_jobs(session=session)
+        return jobs, getattr(self, "is_last_sync_complete", True)

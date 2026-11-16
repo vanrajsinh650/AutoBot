@@ -118,6 +118,12 @@ class BoardRegistry:
                         concurrency_limit=int(row_dict.get("concurrency_limit", 2)),
                         failure_count=int(row_dict.get("failure_count", 0)),
                         last_error=str(row_dict.get("last_error", "")),
+                        last_success_at=row_dict.get("last_success_at") or None,
+                        last_failure_at=row_dict.get("last_failure_at") or None,
+                        next_sync_at=row_dict.get("next_sync_at") or None,
+                        last_sync_complete=bool(row_dict.get("last_sync_complete", 0)),
+                        last_retrieved_count=int(row_dict.get("last_retrieved_count", 0)),
+                        last_expired_count=int(row_dict.get("last_expired_count", 0)),
                     )
                 )
             return configs
@@ -148,6 +154,12 @@ class BoardRegistry:
                 concurrency_limit=int(row_dict.get("concurrency_limit", 2)),
                 failure_count=int(row_dict.get("failure_count", 0)),
                 last_error=str(row_dict.get("last_error", "")),
+                last_success_at=row_dict.get("last_success_at") or None,
+                last_failure_at=row_dict.get("last_failure_at") or None,
+                next_sync_at=row_dict.get("next_sync_at") or None,
+                last_sync_complete=bool(row_dict.get("last_sync_complete", 0)),
+                last_retrieved_count=int(row_dict.get("last_retrieved_count", 0)),
+                last_expired_count=int(row_dict.get("last_expired_count", 0)),
             )
 
     def add_board(
@@ -213,38 +225,161 @@ class BoardRegistry:
             concurrency_limit=concurrency_limit,
         )
 
-    def record_sync_success(self, source_type: str, board_slug: str) -> None:
-        """Mark board synchronization successful."""
-        now = datetime.now().isoformat()
+    def record_sync_success(
+        self,
+        source_type: str,
+        board_slug: str,
+        retrieved_count: int = 0,
+        expired_count: int = 0,
+        is_complete: bool = True,
+    ) -> None:
+        """Mark board synchronization successful and schedule next run."""
+        now = datetime.now()
+        now_iso = now.isoformat()
         with get_db_connection(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT refresh_interval FROM job_sources WHERE source_type = ? AND board_token_or_slug = ?",
+                (source_type.lower().strip(), board_slug.strip()),
+            ).fetchone()
+            interval = int(row[0]) if row and row[0] is not None else 3600
+            next_sync = datetime.fromtimestamp(now.timestamp() + interval).isoformat()
+
             conn.execute(
                 """
                 UPDATE job_sources
-                SET last_synced_at = ?, failure_count = 0, last_error = '', status = 'active'
+                SET last_synced_at = ?,
+                    last_success_at = ?,
+                    next_sync_at = ?,
+                    failure_count = 0,
+                    last_error = '',
+                    status = 'active',
+                    last_sync_complete = ?,
+                    last_retrieved_count = ?,
+                    last_expired_count = ?
                 WHERE source_type = ? AND board_token_or_slug = ?
                 """,
-                (now, source_type.lower().strip(), board_slug.strip()),
+                (
+                    now_iso,
+                    now_iso,
+                    next_sync,
+                    1 if is_complete else 0,
+                    retrieved_count,
+                    expired_count,
+                    source_type.lower().strip(),
+                    board_slug.strip(),
+                ),
             )
             conn.commit()
 
-    def record_sync_failure(self, source_type: str, board_slug: str, error_msg: str) -> None:
-        """Record board synchronization error without false deactivation."""
+    def record_sync_failure(
+        self,
+        source_type: str,
+        board_slug: str,
+        error_msg: str,
+        is_complete: bool = False,
+    ) -> None:
+        """Record board synchronization error without false deactivation, scheduling exponential retry."""
+        now = datetime.now()
+        now_iso = now.isoformat()
         with get_db_connection(self.db_path) as conn:
             row = conn.execute(
-                "SELECT failure_count FROM job_sources WHERE source_type = ? AND board_token_or_slug = ?",
+                "SELECT failure_count, refresh_interval FROM job_sources WHERE source_type = ? AND board_token_or_slug = ?",
                 (source_type.lower().strip(), board_slug.strip()),
             ).fetchone()
-            fc = (row[0] if row else 0) + 1
+            fc = (row[0] if row and row[0] is not None else 0) + 1
+            interval = (row[1] if row and row[1] is not None else 3600)
+            # Bounded exponential backoff: 30s * 2^(fc), max interval
+            backoff_sec = min(interval, 30 * (2 ** min(fc, 6)))
+            next_sync = datetime.fromtimestamp(now.timestamp() + backoff_sec).isoformat()
             new_status = "error" if fc >= 5 else "active"
+
             conn.execute(
                 """
                 UPDATE job_sources
-                SET failure_count = ?, last_error = ?, status = ?
+                SET failure_count = ?,
+                    last_error = ?,
+                    last_failure_at = ?,
+                    next_sync_at = ?,
+                    last_sync_complete = ?,
+                    status = ?
                 WHERE source_type = ? AND board_token_or_slug = ?
                 """,
-                (fc, str(error_msg)[:500], new_status, source_type.lower().strip(), board_slug.strip()),
+                (
+                    fc,
+                    str(error_msg)[:500],
+                    now_iso,
+                    next_sync,
+                    1 if is_complete else 0,
+                    new_status,
+                    source_type.lower().strip(),
+                    board_slug.strip(),
+                ),
             )
             conn.commit()
+
+    def record_sync_run(
+        self,
+        sync_run_id: str,
+        source_name: str,
+        source_type: str,
+        board_slug: str,
+        status: str,
+        is_complete: bool,
+        total_retrieved: int,
+        new_jobs: int,
+        updated_jobs: int,
+        duplicates_removed: int,
+        expired_jobs: int,
+        error_message: str = "",
+        started_at: str = "",
+        completed_at: str = "",
+    ) -> None:
+        """Persist a completed sync run record into sync_runs."""
+        with get_db_connection(self.db_path) as conn:
+            # Find source_id if present
+            src_row = conn.execute(
+                "SELECT id FROM job_sources WHERE source_type = ? AND board_token_or_slug = ?",
+                (source_type.lower().strip(), board_slug.strip()),
+            ).fetchone()
+            source_id = src_row[0] if src_row else None
+
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO sync_runs (
+                    sync_run_id, source_id, source_name, source_type, board_slug,
+                    status, is_complete, total_retrieved, new_jobs,
+                    updated_jobs, duplicates_removed, expired_jobs,
+                    error_message, started_at, completed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sync_run_id,
+                    source_id,
+                    source_name,
+                    source_type.lower().strip(),
+                    board_slug.strip(),
+                    status,
+                    1 if is_complete else 0,
+                    total_retrieved,
+                    new_jobs,
+                    updated_jobs,
+                    duplicates_removed,
+                    expired_jobs,
+                    str(error_message)[:500],
+                    started_at,
+                    completed_at,
+                ),
+            )
+            conn.commit()
+
+    def get_sync_runs(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Fetch historical sync runs."""
+        with get_db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM sync_runs ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     def get_semaphore(self, source_type: str, limit: int = 2) -> asyncio.Semaphore:
         """Get or create concurrency semaphore for source type."""

@@ -1,7 +1,8 @@
 """
 Security & SSRF Protection for Job Discovery Adapters.
 Enforces strict HTTPS scheme, permitted domain whitelist, safe board token validation,
-and DNS resolution guards against private, loopback, link-local, and cloud metadata addresses.
+DNS resolution guards, complete RFC 6052 / RFC 8215 NAT64 prefix extraction,
+connected peer validation, streaming decompressed byte limit enforcement, and safe redirect validation.
 """
 
 import asyncio
@@ -9,8 +10,8 @@ import ipaddress
 import json
 import re
 import socket
-from typing import Any, Optional, Set
-from urllib.parse import urlparse
+from typing import Any, Dict, List, Optional, Set
+from urllib.parse import urljoin, urlparse
 
 from src.discovery.models import SourceType
 from src.utils.logger import logger
@@ -29,7 +30,7 @@ ALL_PERMITTED_DOMAINS: Set[str] = {
     for domain in domains
 }
 
-# Maximum allowable response size for an external ATS payload (10 MB)
+# Maximum allowable response size for an external ATS payload (10 MB decompressed)
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 
 # Board slug / token validation regex (alphanumeric, hyphen, underscore only)
@@ -37,7 +38,7 @@ SAFE_SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-]+$")
 
 
 class SSRFValidationError(ValueError):
-    """Raised when an ATS URL or destination fails SSRF safety validation."""
+    """Raised when an ATS URL, IP address, or payload fails SSRF safety validation."""
     pass
 
 
@@ -58,45 +59,113 @@ def validate_board_slug(slug: str) -> str:
     return clean
 
 
+def extract_rfc6052_ipv4(v6_addr: ipaddress.IPv6Address, prefix_len: int) -> Optional[ipaddress.IPv4Address]:
+    """
+    Extract embedded IPv4 address according to RFC 6052 Section 2.2.
+    Prefix Lengths:
+      PL=32: IPv4 in bytes 4..7
+      PL=40: IPv4 in bytes 5..7 + byte 9
+      PL=48: IPv4 in bytes 6..7 + bytes 9..10
+      PL=56: IPv4 in byte 7 + bytes 9..11
+      PL=64: IPv4 in bytes 9..12
+      PL=96: IPv4 in bytes 12..15
+    The 'u' octet (byte 8) MUST be 0.
+    """
+    raw = v6_addr.packed
+    # Check 'u' octet constraint (RFC 6052: bits 64..71 must be 0)
+    if prefix_len in (32, 40, 48, 56, 64) and raw[8] != 0:
+        return None
+
+    if prefix_len == 32:
+        v4_bytes = raw[4:8]
+    elif prefix_len == 40:
+        v4_bytes = raw[5:8] + raw[9:10]
+    elif prefix_len == 48:
+        v4_bytes = raw[6:8] + raw[9:11]
+    elif prefix_len == 56:
+        v4_bytes = raw[7:8] + raw[9:12]
+    elif prefix_len == 64:
+        v4_bytes = raw[9:13]
+    elif prefix_len == 96:
+        v4_bytes = raw[12:16]
+    else:
+        return None
+
+    try:
+        return ipaddress.IPv4Address(v4_bytes)
+    except Exception:
+        return None
+
+
 def is_ip_safe_for_egress(ip_str: str) -> bool:
     """
     Check if an IP address is a safe public routable destination.
-    Rejects private (RFC 1918), loopback, link-local, multicast, and cloud metadata (169.254.169.254) addresses.
-    Supports RFC 6052 NAT64 / DNS64 translated IPv6 prefixes (64:ff9b::/96) if the embedded IPv4 is public.
+    Rejects private (RFC 1918), loopback, link-local, multicast, cloud metadata (169.254.169.254),
+    and special-purpose ranges.
+    Audits RFC 6052 and RFC 8215 NAT64 / DNS64 translated IPv6 prefixes across all supported prefix lengths,
+    rejecting embedded private or special-purpose IPv4 destinations.
     """
     try:
         ip = ipaddress.ip_address(ip_str)
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_unspecified
-        ):
-            return False
 
         # Specific cloud metadata check (AWS / GCP / Azure metadata service)
         if str(ip) == "169.254.169.254":
             return False
 
-        # Handle RFC 6052 Well-Known NAT64 / DNS64 prefix (64:ff9b::/96)
+        # IPv4 Destination Validation
+        if ip.version == 4:
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_multicast
+                or ip.is_unspecified
+                or ip.is_reserved
+            ):
+                return False
+            # IPv4 Carrier-Grade NAT (RFC 6598: 100.64.0.0/10)
+            if ip in ipaddress.IPv4Network("100.64.0.0/10"):
+                return False
+            return True
+
+        # IPv6 Destination Validation
         if ip.version == 6:
-            nat64_prefix = ipaddress.IPv6Network("64:ff9b::/96")
-            if ip in nat64_prefix:
-                embedded_v4 = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
-                if (
-                    embedded_v4.is_private
-                    or embedded_v4.is_loopback
-                    or embedded_v4.is_link_local
-                    or str(embedded_v4) == "169.254.169.254"
-                ):
-                    return False
-                return True
+            # 1. RFC 6052 Well-Known Prefix (64:ff9b::/96)
+            if ip in ipaddress.IPv6Network("64:ff9b::/96"):
+                v4 = extract_rfc6052_ipv4(ip, 96)
+                return is_ip_safe_for_egress(str(v4)) if v4 else False
 
-        if ip.is_reserved:
-            return False
+            # 2. RFC 8215 Local-Use Well-Known Prefix (64:ff9b:1::/48)
+            if ip in ipaddress.IPv6Network("64:ff9b:1::/48"):
+                v4 = extract_rfc6052_ipv4(ip, 48)
+                return is_ip_safe_for_egress(str(v4)) if v4 else False
 
-        return True
+            # 3. IPv4-mapped and compatible IPv6 (::ffff:0:0/96 and ::/96)
+            if ip in ipaddress.IPv6Network("::ffff:0:0/96") or ip in ipaddress.IPv6Network("::/96"):
+                v4_part = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+                return is_ip_safe_for_egress(str(v4_part))
+
+            # Standard IPv6 private / loopback / link-local / multicast / reserved checks
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_multicast
+                or ip.is_unspecified
+                or ip.is_reserved
+            ):
+                return False
+
+            # Unique Local Address (ULA: fc00::/7)
+            if ip in ipaddress.IPv6Network("fc00::/7"):
+                return False
+
+            # IPv6 Documentation (2001:db8::/32)
+            if ip in ipaddress.IPv6Network("2001:db8::/32"):
+                return False
+
+            return True
+
     except ValueError:
         return False
 
@@ -144,7 +213,6 @@ def validate_ats_url(url: str, expected_source_type: Optional[SourceType] = None
         addr_info = socket.getaddrinfo(hostname, 443, proto=socket.IPPROTO_TCP)
         resolved_ips = {item[4][0] for item in addr_info}
     except Exception as dns_err:
-        # If DNS resolution fails, log warning but don't silently accept
         logger.warning(f"[discovery]DNS resolution failed for {hostname}: {dns_err}")
         resolved_ips = set()
 
@@ -157,27 +225,114 @@ def validate_ats_url(url: str, expected_source_type: Optional[SourceType] = None
     return clean_url
 
 
-async def safe_read_json(resp: Any, max_bytes: int = MAX_RESPONSE_BYTES) -> Any:
+def validate_redirect_target(
+    original_url: str,
+    redirect_location: str,
+    expected_source_type: Optional[SourceType] = None,
+) -> str:
     """
-    Safely reads and deserializes JSON from an aiohttp response.
-    Enforces max_bytes limit on raw response payload.
-    Handles gzip/deflate decompression and transparently supports both
-    real aiohttp ClientResponse and unit test mocks.
+    Validate an HTTP redirect destination before following it.
+    Resolves relative URLs against original_url and strictly verifies scheme, domain, and IP egress safety.
     """
+    target = urljoin(original_url, redirect_location)
+    return validate_ats_url(target, expected_source_type=expected_source_type)
+
+
+def validate_connected_peer(resp: Any) -> None:
+    """
+    Validate the actual connected socket peer IP address.
+    Guards against DNS rebinding / TOCTOU differences between URL validation
+    and actual socket connection.
+    """
+    conn = getattr(resp, "connection", None)
+    if not conn:
+        return
+    transport = getattr(conn, "transport", None)
+    if not transport:
+        return
+    get_extra_info = getattr(transport, "get_extra_info", None)
+    if not callable(get_extra_info):
+        return
     try:
-        if hasattr(resp, "read"):
-            read_res = resp.read()
-            if asyncio.iscoroutine(read_res) or hasattr(read_res, "__await__"):
-                body = await read_res
-            else:
-                body = read_res
-            if isinstance(body, (bytes, bytearray)):
-                if len(body) > max_bytes:
-                    raise SSRFValidationError(f"Response exceeded maximum allowed size of {max_bytes} bytes.")
-                return json.loads(body.decode("utf-8", errors="replace"))
-        return await resp.json()
+        peername = get_extra_info("peername")
+        if asyncio.iscoroutine(peername) or hasattr(peername, "__await__"):
+            return
+        if peername and isinstance(peername, (tuple, list)) and len(peername) > 0:
+            peer_ip = str(peername[0])
+            if not is_ip_safe_for_egress(peer_ip):
+                raise SSRFValidationError(
+                    f"SSRF Alert: Connected peer IP address '{peer_ip}' is prohibited."
+                )
     except Exception as e:
         if isinstance(e, SSRFValidationError):
             raise
-        return await resp.json()
+        return
 
+
+async def safe_read_json(resp: Any, max_bytes: int = MAX_RESPONSE_BYTES) -> Any:
+    """
+    Safely reads and deserializes JSON from an aiohttp response.
+    Enforces max_bytes limit on decompressed bytes streamed in chunks to prevent
+    decompression bombs, oversized JSON payloads, and memory exhaustion.
+    Also validates connected peer IP address against SSRF rules where supported.
+    """
+    validate_connected_peer(resp)
+
+    # 1. Content-Length header pre-check
+    headers = getattr(resp, "headers", {})
+    if hasattr(headers, "get"):
+        cl = headers.get("Content-Length")
+        if cl:
+            cl_int = None
+            try:
+                cl_int = int(cl)
+            except (ValueError, TypeError):
+                pass
+            if cl_int is not None and cl_int > max_bytes:
+                raise SSRFValidationError(
+                    f"Response Content-Length ({cl} bytes) exceeded maximum allowed size of {max_bytes} bytes."
+                )
+
+    # 2. Streaming chunk accumulation with limit enforcement on decompressed bytes
+    content = getattr(resp, "content", None)
+    if content and hasattr(content, "read"):
+        chunks = []
+        total_decompressed = 0
+        chunk_size = 64 * 1024  # 64 KB chunks
+        while True:
+            read_coro = content.read(chunk_size)
+            chunk = await read_coro if asyncio.iscoroutine(read_coro) or hasattr(read_coro, "__await__") else read_coro
+            if not chunk or not isinstance(chunk, (bytes, bytearray)):
+                break
+            total_decompressed += len(chunk)
+            if total_decompressed > max_bytes:
+                raise SSRFValidationError(
+                    f"Decompressed response stream exceeded maximum allowed size of {max_bytes} bytes."
+                )
+            chunks.append(chunk)
+        if chunks:
+            raw_bytes = b"".join(chunks)
+            try:
+                return json.loads(raw_bytes.decode("utf-8", errors="replace"))
+            except Exception as e:
+                raise SSRFValidationError(f"Invalid JSON payload: {e}")
+
+    # Fallback for mock objects in unit tests
+    if hasattr(resp, "read"):
+        read_res = resp.read()
+        if asyncio.iscoroutine(read_res) or hasattr(read_res, "__await__"):
+            body = await read_res
+        else:
+            body = read_res
+        if isinstance(body, (bytes, bytearray)):
+            if len(body) > max_bytes:
+                raise SSRFValidationError(f"Response exceeded maximum allowed size of {max_bytes} bytes.")
+            return json.loads(body.decode("utf-8", errors="replace"))
+
+    if hasattr(resp, "json"):
+        json_res = resp.json()
+        if asyncio.iscoroutine(json_res) or hasattr(json_res, "__await__"):
+            return await json_res
+        return json_res
+
+    raise SSRFValidationError("Unable to read JSON from response object.")

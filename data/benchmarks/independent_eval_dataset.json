@@ -1,0 +1,5735 @@
+[
+  {
+    "pair_id": "indep_high_01",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Elena Rostova",
+      "headline": "Senior Python & Distributed Systems Engineer",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "Redis",
+        "Docker",
+        "Kubernetes",
+        "gRPC",
+        "Kafka"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "Redis"
+      ],
+      "secondary_skills": [
+        "Docker",
+        "Kubernetes",
+        "gRPC",
+        "Kafka"
+      ],
+      "experience": [
+        {
+          "role": "Senior Backend Engineer",
+          "company": "Nexure Cloud",
+          "years": 4.5,
+          "bullets": [
+            "Architected distributed microservices in Python and FastAPI handling 45k RPM.",
+            "Optimized PostgreSQL query latency with Redis caching and partitioning.",
+            "Orchestrated container workloads using Kubernetes and Docker."
+          ]
+        },
+        {
+          "role": "Software Engineer",
+          "company": "Datamesh Inc",
+          "years": 2.5,
+          "bullets": [
+            "Developed event-driven data streaming pipelines with Kafka and Python.",
+            "Integrated RESTful APIs and gRPC endpoints."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "University of Washington"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Python Engineer",
+        "Backend Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_01",
+      "title": "Senior Backend Engineer (Python / Distributed Systems)",
+      "company": "Aurora Networks",
+      "description": "Aurora Networks is hiring a Senior Backend Engineer to scale our core event processing platform. You will build and maintain resilient microservices in Python using FastAPI, PostgreSQL, Redis, and Kubernetes. We require 4+ years of backend engineering experience with production Python services and a Bachelor's degree in Computer Science. Knowledge of Kafka and Docker is highly desirable. This is a 100% remote US position.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Candidate has direct technical, experience, and role alignment."
+    }
+  },
+  {
+    "pair_id": "indep_high_02",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Marcus Vance",
+      "headline": "Lead Frontend & Design Systems Engineer",
+      "technical_skills": [
+        "TypeScript",
+        "React",
+        "Next.js",
+        "Tailwind CSS",
+        "GraphQL",
+        "Jest",
+        "Cypress",
+        "Web Vitals"
+      ],
+      "primary_skills": [
+        "TypeScript",
+        "React",
+        "Next.js",
+        "Tailwind CSS"
+      ],
+      "secondary_skills": [
+        "GraphQL",
+        "Jest",
+        "Cypress",
+        "Web Vitals"
+      ],
+      "experience": [
+        {
+          "role": "Staff Frontend Engineer",
+          "company": "VividUI",
+          "years": 5.0,
+          "bullets": [
+            "Built enterprise design system used by 40+ engineering squads with React and Tailwind CSS.",
+            "Engineered Next.js server-rendered applications achieving 99+ Core Web Vitals.",
+            "Authored comprehensive unit and E2E test suites in Jest and Cypress."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Software Engineering",
+          "institution": "Georgia Tech"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Lead Frontend Engineer",
+        "Staff Frontend Engineer",
+        "Senior React Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_02",
+      "title": "Senior Staff Frontend Engineer (Design Systems)",
+      "company": "Loomis Tech",
+      "description": "We are seeking an experienced Frontend Engineer with deep mastery of TypeScript, React, Next.js, and design tokens. You will spearhead our component library and front-of-the-frontend architecture. Required: 5+ years building modern web applications with React and TypeScript, Bachelor's degree, and experience with automated testing (Jest/Cypress).",
+      "employment_type": "full-time",
+      "location": "San Francisco, CA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Complete stack match with proven design system leadership."
+    }
+  },
+  {
+    "pair_id": "indep_high_03",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Aarav Patel",
+      "headline": "Staff Cloud Infrastructure & SRE",
+      "technical_skills": [
+        "Kubernetes",
+        "Terraform",
+        "AWS",
+        "Docker",
+        "Linux",
+        "Prometheus",
+        "CI/CD",
+        "Golang",
+        "Helm"
+      ],
+      "primary_skills": [
+        "Kubernetes",
+        "Terraform",
+        "AWS",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "Linux",
+        "Prometheus",
+        "CI/CD",
+        "Golang",
+        "Helm"
+      ],
+      "experience": [
+        {
+          "role": "Principal SRE",
+          "company": "Fintech Global",
+          "years": 6.0,
+          "bullets": [
+            "Maintained multi-region AWS EKS clusters with Terraform and Helm.",
+            "Automated zero-downtime CI/CD pipelines with GitHub Actions.",
+            "Engineered observability stacks using Prometheus and Grafana."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech in Information Technology",
+          "institution": "IIT Bombay"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Site Reliability Engineer",
+        "Platform Engineer",
+        "DevOps Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India",
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_03",
+      "title": "Staff Site Reliability Engineer (Platform / AWS)",
+      "company": "Stripe Technologies",
+      "description": "Join our Infrastructure Platform team to manage scalable AWS infrastructure. Minimum 5+ years experience with Kubernetes, Terraform, AWS, Docker, and Linux. You will design automated CI/CD deployment pipelines, improve system reliability, and write tooling in Golang.",
+      "employment_type": "full-time",
+      "location": "Remote - Global",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Exemplary match on cloud infrastructure, Kubernetes, and SRE responsibilities."
+    }
+  },
+  {
+    "pair_id": "indep_high_04",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Sofia Gomez",
+      "headline": "Senior Applied AI & ML Engineer",
+      "technical_skills": [
+        "Python",
+        "PyTorch",
+        "LLM",
+        "LangChain",
+        "Vector DB",
+        "Transformers",
+        "FastAPI",
+        "Docker"
+      ],
+      "primary_skills": [
+        "Python",
+        "PyTorch",
+        "LLM",
+        "LangChain"
+      ],
+      "secondary_skills": [
+        "Vector DB",
+        "Transformers",
+        "FastAPI",
+        "Docker"
+      ],
+      "experience": [
+        {
+          "role": "Applied AI Engineer",
+          "company": "Cognitive Agents",
+          "years": 4.0,
+          "bullets": [
+            "Built production RAG pipelines integrating Qdrant vector databases, LangChain, and fine-tuned LLMs.",
+            "Deployed latency-optimized model inference endpoints with FastAPI and PyTorch."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master of Science in Machine Learning",
+          "institution": "Carnegie Mellon University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Applied AI Engineer",
+        "LLM Engineer",
+        "Machine Learning Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_04",
+      "title": "Senior AI Engineer - Generative AI & Retrieval",
+      "company": "Anthropic Partner Lab",
+      "description": "We are seeking a Senior AI Engineer to build generative AI workflows and retrieval-augmented generation systems. Requirements: Master's or Bachelor's in CS/AI, 3+ years experience with Python, PyTorch, LangChain, and vector embeddings. FastAPI and Docker deployment experience required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Target role and modern generative AI/RAG stack align perfectly."
+    }
+  },
+  {
+    "pair_id": "indep_high_05",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Liam O'Connor",
+      "headline": "Senior Full Stack Engineer",
+      "technical_skills": [
+        "TypeScript",
+        "React",
+        "Node.js",
+        "PostgreSQL",
+        "Express",
+        "Docker",
+        "REST",
+        "Tailwind CSS"
+      ],
+      "primary_skills": [
+        "TypeScript",
+        "React",
+        "Node.js",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "Express",
+        "Docker",
+        "REST",
+        "Tailwind CSS"
+      ],
+      "experience": [
+        {
+          "role": "Full Stack Developer",
+          "company": "Belfast Cloud",
+          "years": 4.0,
+          "bullets": [
+            "Developed full-stack web applications with React, TypeScript, and Node.js.",
+            "Designed normalized PostgreSQL schemas and managed migrations."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Sc. in Computer Science",
+          "institution": "Trinity College Dublin"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Full Stack Engineer",
+        "Senior Software Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Ireland",
+        "United Kingdom"
+      ],
+      "work_arrangement": "hybrid",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_05",
+      "title": "Senior Full Stack Developer",
+      "company": "Dublin Health Tech",
+      "description": "We need a Senior Full Stack Developer proficient in TypeScript, React, Node.js, and PostgreSQL to build healthcare portals. Candidates must possess 3+ years full-stack experience and a degree in Computer Science. Hybrid role based in Dublin.",
+      "employment_type": "full-time",
+      "location": "Dublin, Ireland",
+      "country": "Ireland",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Strong geographic, tech stack, and role fit."
+    }
+  },
+  {
+    "pair_id": "indep_high_06",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Chloe Dubois",
+      "headline": "Senior iOS Mobile Developer",
+      "technical_skills": [
+        "Swift",
+        "iOS",
+        "SwiftUI",
+        "Combine",
+        "CoreData",
+        "Git",
+        "REST",
+        "XCTest"
+      ],
+      "primary_skills": [
+        "Swift",
+        "iOS",
+        "SwiftUI",
+        "Combine"
+      ],
+      "secondary_skills": [
+        "CoreData",
+        "Git",
+        "REST",
+        "XCTest"
+      ],
+      "experience": [
+        {
+          "role": "Senior iOS Engineer",
+          "company": "Luxe Apps",
+          "years": 5.0,
+          "bullets": [
+            "Shipped top-rated iOS applications with SwiftUI and Swift.",
+            "Implemented offline synchronization using CoreData."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Applications",
+          "institution": "Sorbonne University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior iOS Engineer",
+        "iOS Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "France",
+        "European Union"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_06",
+      "title": "Senior iOS Engineer (Swift & SwiftUI)",
+      "company": "Qonto Fintech",
+      "description": "We are looking for a Senior iOS Developer to craft delightful financial mobile experiences. Requirements: 4+ years native iOS development with Swift and SwiftUI, solid grasp of Combine and REST APIs, and a degree in Computer Science or equivalent. Remote in France or EU.",
+      "employment_type": "full-time",
+      "location": "Paris, France / Remote",
+      "country": "France",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Native iOS stack and location align cleanly."
+    }
+  },
+  {
+    "pair_id": "indep_high_07",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Tariq Mansour",
+      "headline": "Senior Data Engineer (Distributed Pipelines)",
+      "technical_skills": [
+        "Python",
+        "SQL",
+        "Apache Spark",
+        "Snowflake",
+        "dbt",
+        "Airflow",
+        "Kafka",
+        "AWS"
+      ],
+      "primary_skills": [
+        "Python",
+        "SQL",
+        "Apache Spark",
+        "Snowflake"
+      ],
+      "secondary_skills": [
+        "dbt",
+        "Airflow",
+        "Kafka",
+        "AWS"
+      ],
+      "experience": [
+        {
+          "role": "Lead Data Engineer",
+          "company": "Retail Matrix",
+          "years": 5.0,
+          "bullets": [
+            "Built enterprise lakehouse processing 5TB/day using Apache Spark, Snowflake, and dbt.",
+            "Orchestrated complex DAG pipelines with Apache Airflow on AWS."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Information Systems",
+          "institution": "King Fahd University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Data Engineer",
+        "Lead Data Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States",
+        "Canada"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_07",
+      "title": "Staff Data Engineer (Snowflake & Spark)",
+      "company": "InstaData Corp",
+      "description": "Looking for a Data Engineer to own our modern data stack. Must have 4+ years of data engineering experience with Python, SQL, Apache Spark, Snowflake, and dbt. Airflow and AWS experience required. Degree in CS or related field.",
+      "employment_type": "full-time",
+      "location": "Remote - North America",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Matches core data engineering stack directly."
+    }
+  },
+  {
+    "pair_id": "indep_high_08",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Ananya Sharma",
+      "headline": "Senior Go Systems Engineer",
+      "technical_skills": [
+        "Golang",
+        "Kubernetes",
+        "gRPC",
+        "Docker",
+        "PostgreSQL",
+        "Linux",
+        "Microservices",
+        "Prometheus"
+      ],
+      "primary_skills": [
+        "Golang",
+        "Kubernetes",
+        "gRPC",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "PostgreSQL",
+        "Linux",
+        "Microservices",
+        "Prometheus"
+      ],
+      "experience": [
+        {
+          "role": "Systems Engineer",
+          "company": "Scalenet",
+          "years": 4.0,
+          "bullets": [
+            "Implemented high-throughput gRPC microservices in Golang.",
+            "Deployed services to Kubernetes with Docker containers on Linux."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Bachelor of Technology in Computer Engineering",
+          "institution": "NIT Karnataka"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Go Engineer",
+        "Backend Systems Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_08",
+      "title": "Senior Golang Backend Engineer",
+      "company": "Razorpay Labs",
+      "description": "We are hiring a Senior Backend Engineer to write high-concurrency payment services in Golang. You will build gRPC microservices on Kubernetes and Linux. 3+ years Go experience and Bachelor's degree required.",
+      "employment_type": "full-time",
+      "location": "Bangalore, India / Remote",
+      "country": "India",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Solid Golang, systems, and microservices alignment."
+    }
+  },
+  {
+    "pair_id": "indep_high_09",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Kenji Takahashi",
+      "headline": "Application Security Engineer",
+      "technical_skills": [
+        "Python",
+        "AppSec",
+        "OAuth",
+        "OWASP",
+        "IAM",
+        "Linux",
+        "Docker",
+        "Security",
+        "Git"
+      ],
+      "primary_skills": [
+        "Python",
+        "AppSec",
+        "OAuth",
+        "OWASP"
+      ],
+      "secondary_skills": [
+        "IAM",
+        "Linux",
+        "Docker",
+        "Security",
+        "Git"
+      ],
+      "experience": [
+        {
+          "role": "Security Engineer",
+          "company": "CyberShield Tokyo",
+          "years": 4.5,
+          "bullets": [
+            "Conducted OWASP vulnerability assessments and secure code reviews.",
+            "Implemented OAuth 2.0 and IAM access controls for cloud applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Cybersecurity",
+          "institution": "Waseda University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Application Security Engineer",
+        "Security Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Japan",
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_09",
+      "title": "Application Security (AppSec) Engineer",
+      "company": "Fastly Global",
+      "description": "Fastly is seeking an AppSec Engineer. Responsibilities include threat modeling, vulnerability mitigation, and reviewing code against OWASP standards. Required: 3+ years experience with application security, Python, OAuth, IAM, and Linux. Bachelor's degree required.",
+      "employment_type": "full-time",
+      "location": "Tokyo, Japan / Remote",
+      "country": "Japan",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Target security role and specialized domain match."
+    }
+  },
+  {
+    "pair_id": "indep_high_10",
+    "category": "realistic_high_fit",
+    "resume": {
+      "full_name": "Devon Miller",
+      "headline": "Senior DevOps & Platform Engineer",
+      "technical_skills": [
+        "Terraform",
+        "Kubernetes",
+        "AWS",
+        "Docker",
+        "CI/CD",
+        "Linux",
+        "Python",
+        "Bash"
+      ],
+      "primary_skills": [
+        "Terraform",
+        "Kubernetes",
+        "AWS",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "CI/CD",
+        "Linux",
+        "Python",
+        "Bash"
+      ],
+      "experience": [
+        {
+          "role": "DevOps Engineer",
+          "company": "CloudForge",
+          "years": 4.0,
+          "bullets": [
+            "Provisioned multi-account AWS infrastructure using modular Terraform.",
+            "Managed automated CI/CD pipelines and Kubernetes container fleets."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "Purdue University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "DevOps Engineer",
+        "Cloud Infrastructure Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_high_10",
+      "title": "Senior Cloud Platform Engineer (AWS & Terraform)",
+      "company": "Datadog",
+      "description": "Join our Platform Engineering group. Required: 4+ years of cloud infrastructure automation using Terraform, AWS, Docker, Kubernetes, and Linux. Strong scripting skills in Python or Bash required. Degree in CS or related field.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Flawless DevOps / Cloud platform alignment."
+    }
+  },
+  {
+    "pair_id": "indep_trans_01",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Vikram Sen",
+      "headline": "Senior Enterprise Java Developer transitioning to Go & Cloud",
+      "technical_skills": [
+        "Java",
+        "Spring Boot",
+        "PostgreSQL",
+        "Docker",
+        "REST",
+        "SQL",
+        "Git",
+        "Microservices"
+      ],
+      "primary_skills": [
+        "Java",
+        "Spring Boot",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "REST",
+        "SQL",
+        "Git",
+        "Microservices"
+      ],
+      "experience": [
+        {
+          "role": "Senior Java Developer",
+          "company": "Enterprise Banking Systems",
+          "years": 6.0,
+          "bullets": [
+            "Built mission-critical microservices in Java and Spring Boot with PostgreSQL.",
+            "Collaborated on containerized deployments using Docker."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech in Computer Science",
+          "institution": "Delhi University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Go Engineer",
+        "Backend Software Engineer",
+        "Systems Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India",
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_01",
+      "title": "Go Backend Systems Engineer (Golang & gRPC)",
+      "company": "Finscale Labs",
+      "description": "Seeking a Backend Engineer to build scalable microservices in Golang. Required: 3+ years writing high-throughput services in Go, gRPC, and Kubernetes. Strong grasp of PostgreSQL and Docker required.",
+      "employment_type": "full-time",
+      "location": "Remote - Global",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Candidate has deep backend/microservices experience in Java, but lacks Go/gRPC."
+    }
+  },
+  {
+    "pair_id": "indep_trans_02",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Hannah Ross",
+      "headline": "Data Analyst transitioning to Machine Learning Engineer",
+      "technical_skills": [
+        "SQL",
+        "Pandas",
+        "Tableau",
+        "Excel",
+        "Data Analysis",
+        "Statistics"
+      ],
+      "primary_skills": [
+        "SQL",
+        "Pandas",
+        "Tableau",
+        "Excel"
+      ],
+      "secondary_skills": [
+        "Data Analysis",
+        "Statistics"
+      ],
+      "experience": [
+        {
+          "role": "Senior Data Analyst",
+          "company": "Analytics Partners",
+          "years": 4.0,
+          "bullets": [
+            "Developed customer segmentation dashboards in Tableau.",
+            "Authored SQL queries on multi-million row datasets."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Mathematics & Statistics",
+          "institution": "University of Michigan"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Machine Learning Engineer",
+        "Junior ML Engineer",
+        "Data Scientist"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_02",
+      "title": "Machine Learning Engineer (PyTorch & Scikit-Learn)",
+      "company": "RetailPredict AI",
+      "description": "Looking for an ML Engineer. You will work on tabular prediction models and feature pipelines. Required: Python, PyTorch, Scikit-Learn, and Docker. Degree in Math, Stats, or CS required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Partial match: strong data analysis and stats background, but missing PyTorch/ML engineering stack."
+    }
+  },
+  {
+    "pair_id": "indep_trans_03",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Mateo Silva",
+      "headline": "Frontend Specialist expanding into Full Stack Node.js",
+      "technical_skills": [
+        "React",
+        "JavaScript",
+        "HTML5",
+        "CSS3",
+        "Tailwind CSS"
+      ],
+      "primary_skills": [
+        "React",
+        "JavaScript",
+        "HTML5",
+        "CSS3"
+      ],
+      "secondary_skills": [
+        "Tailwind CSS"
+      ],
+      "experience": [
+        {
+          "role": "Frontend Developer",
+          "company": "PixelCraft Studios",
+          "years": 3.5,
+          "bullets": [
+            "Developed user interfaces with React and CSS."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Interactive Media",
+          "institution": "University of Texas"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Full Stack Engineer",
+        "Frontend Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_03",
+      "title": "Full Stack Software Engineer (Node.js & PostgreSQL)",
+      "company": "Clearpath SaaS",
+      "description": "We are seeking a Full Stack Engineer. Responsibilities include building backend Node.js, Express, and PostgreSQL microservices, with React UI. 3+ years backend experience required.",
+      "employment_type": "full-time",
+      "location": "Austin, TX / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Frontend engineer lacking core backend Node/PostgreSQL required by posting."
+    }
+  },
+  {
+    "pair_id": "indep_trans_04",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Sunil Rao",
+      "headline": "QA Automation Engineer transitioning to Backend Development",
+      "technical_skills": [
+        "Python",
+        "Selenium",
+        "Pytest",
+        "Git",
+        "CI/CD"
+      ],
+      "primary_skills": [
+        "Python",
+        "Selenium",
+        "Pytest",
+        "Git"
+      ],
+      "secondary_skills": [
+        "CI/CD"
+      ],
+      "experience": [
+        {
+          "role": "Senior QA Automation Engineer",
+          "company": "TestSphere",
+          "years": 4.5,
+          "bullets": [
+            "Engineered automated test frameworks in Python and Pytest."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.E. in Electronics & Communication",
+          "institution": "Anna University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Backend Developer",
+        "Software Development Engineer in Test",
+        "Python Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_04",
+      "title": "Backend Software Engineer (FastAPI & PostgreSQL)",
+      "company": "Finflow India",
+      "description": "We are hiring a Python Software Engineer to build high-scale financial transaction APIs using FastAPI, PostgreSQL, Redis, and Docker. 3+ years backend production experience required.",
+      "employment_type": "full-time",
+      "location": "Bangalore, India",
+      "country": "India",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "QA automation background transitioning into pure backend role; lacks DB/FastAPI production experience."
+    }
+  },
+  {
+    "pair_id": "indep_trans_05",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Miriam Al-Hassan",
+      "headline": "IT Systems Administrator transitioning to DevOps Engineer",
+      "technical_skills": [
+        "Linux",
+        "Bash",
+        "Networking",
+        "Hardware",
+        "Security"
+      ],
+      "primary_skills": [
+        "Linux",
+        "Bash",
+        "Networking",
+        "Hardware"
+      ],
+      "secondary_skills": [
+        "Security"
+      ],
+      "experience": [
+        {
+          "role": "Senior Systems Administrator",
+          "company": "Oasis Enterprise IT",
+          "years": 5.0,
+          "bullets": [
+            "Administered corporate Linux server fleets and enterprise networking."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Information Systems",
+          "institution": "Ohio State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "DevOps Engineer",
+        "Cloud Operations Engineer",
+        "Systems Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_05",
+      "title": "Cloud DevOps Engineer (AWS & Terraform)",
+      "company": "Apex Media Cloud",
+      "description": "We are looking for a DevOps Engineer to automate our AWS cloud infrastructure using Terraform, Kubernetes, Docker, and CI/CD pipelines. 3+ years cloud infrastructure automation required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Sysadmin transitioning to DevOps: strong OS/networking match, but lacks AWS/Terraform/K8s."
+    }
+  },
+  {
+    "pair_id": "indep_trans_06",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Carlos Mendez",
+      "headline": "Embedded C Firmware Developer transitioning to Rust Systems",
+      "technical_skills": [
+        "C",
+        "Linux",
+        "Multithreading",
+        "ARM",
+        "Algorithms"
+      ],
+      "primary_skills": [
+        "C",
+        "Linux",
+        "Multithreading",
+        "ARM"
+      ],
+      "secondary_skills": [
+        "Algorithms"
+      ],
+      "experience": [
+        {
+          "role": "Embedded Systems Engineer",
+          "company": "MicroChip Core",
+          "years": 4.0,
+          "bullets": [
+            "Developed low-level firmware in C on Linux."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Electrical & Computer Engineering",
+          "institution": "Madrid Polytechnic"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Systems Software Engineer",
+        "Rust Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "European Union",
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_06",
+      "title": "Systems Software Engineer (Rust & Distributed Storage)",
+      "company": "Vector Core Labs",
+      "description": "Vector Core is building high-performance storage engines in Rust. Required: 3+ years writing production Rust, Tokio async, and distributed consensus. Degree in CS/ECE.",
+      "employment_type": "full-time",
+      "location": "Remote - Worldwide",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Embedded C engineer moving into Rust systems: strong fundamentals, lacks production Rust."
+    }
+  },
+  {
+    "pair_id": "indep_trans_07",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Zoe Jenkins",
+      "headline": "Full Stack PHP/Laravel developer transitioning to TypeScript & Next.js",
+      "technical_skills": [
+        "PHP",
+        "Laravel",
+        "MySQL",
+        "JavaScript",
+        "HTML5",
+        "CSS3",
+        "Git"
+      ],
+      "primary_skills": [
+        "PHP",
+        "Laravel",
+        "MySQL",
+        "JavaScript"
+      ],
+      "secondary_skills": [
+        "HTML5",
+        "CSS3",
+        "Git"
+      ],
+      "experience": [
+        {
+          "role": "Web Application Developer",
+          "company": "Agency 404",
+          "years": 4.0,
+          "bullets": [
+            "Built commercial web applications with PHP, Laravel, and MySQL."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in Computer Arts",
+          "institution": "Leeds Beckett University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Frontend Developer",
+        "Full Stack Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United Kingdom"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_07",
+      "title": "React / Next.js / TypeScript Frontend Engineer",
+      "company": "Manchester FinApp",
+      "description": "Looking for a Frontend Engineer with deep TypeScript, Next.js, React, and GraphQL skills to craft customer portals. 3+ years production TypeScript experience required.",
+      "employment_type": "full-time",
+      "location": "Remote - UK",
+      "country": "United Kingdom",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "PHP background with web fundamentals, but missing required Next.js and TypeScript."
+    }
+  },
+  {
+    "pair_id": "indep_trans_08",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Sergei Romanov",
+      "headline": "Desktop C#/.NET Developer transitioning to Cloud Backend",
+      "technical_skills": [
+        "C#",
+        "SQL",
+        "Git"
+      ],
+      "primary_skills": [
+        "C#",
+        "SQL",
+        "Git"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Senior Desktop Engineer",
+          "company": "MedEquip Systems",
+          "years": 5.0,
+          "bullets": [
+            "Built enterprise healthcare desktop applications in C# with SQL Server."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "Saint Petersburg State"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Cloud Backend Engineer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Germany",
+        "European Union"
+      ],
+      "work_arrangement": "hybrid",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_08",
+      "title": "Cloud Backend Engineer (Python, Docker & AWS)",
+      "company": "Berlin Cloud Health",
+      "description": "Join our backend engineering team building cloud services in Python, FastAPI, Docker, and AWS. 3+ years experience with cloud backend services and relational databases required.",
+      "employment_type": "full-time",
+      "location": "Berlin, Germany",
+      "country": "Germany",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "C# desktop developer applying to Python/AWS cloud backend role."
+    }
+  },
+  {
+    "pair_id": "indep_trans_09",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Nadia Kouassi",
+      "headline": "Mechanical Engineer transitioning to Software Engineering (Bootcamp)",
+      "technical_skills": [
+        "Python",
+        "Git",
+        "HTML5"
+      ],
+      "primary_skills": [
+        "Python",
+        "Git",
+        "HTML5"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "CAD Engineer",
+          "company": "AeroStruct",
+          "years": 3.0,
+          "bullets": [
+            "Developed mathematical models and simulation automation scripts in Python."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Mechanical Engineering",
+          "institution": "McGill University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Junior Software Engineer",
+        "Python Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Canada"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_09",
+      "title": "Software Engineer - Cloud Platform (Go & Kubernetes)",
+      "company": "Montreal Cloud",
+      "description": "Seeking a Software Engineer to develop Kubernetes controllers in Golang. Required: 3+ years software engineering, Go, Kubernetes, and Docker. Degree in CS preferred.",
+      "employment_type": "full-time",
+      "location": "Montreal, Canada / Remote",
+      "country": "Canada",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Non-traditional background with basic scripting, applying to core Go/K8s platform role."
+    }
+  },
+  {
+    "pair_id": "indep_trans_10",
+    "category": "career_transition",
+    "resume": {
+      "full_name": "Lucas Becker",
+      "headline": "Database Administrator (DBA) transitioning to Data Engineering",
+      "technical_skills": [
+        "PostgreSQL",
+        "MySQL",
+        "SQL",
+        "Linux",
+        "Bash"
+      ],
+      "primary_skills": [
+        "PostgreSQL",
+        "MySQL",
+        "SQL",
+        "Linux"
+      ],
+      "secondary_skills": [
+        "Bash"
+      ],
+      "experience": [
+        {
+          "role": "Senior DBA",
+          "company": "InfraCore",
+          "years": 6.0,
+          "bullets": [
+            "Administered high-availability PostgreSQL and MySQL clusters."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Database Systems",
+          "institution": "Munich Technical"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Data Engineer",
+        "Database Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Germany"
+      ],
+      "work_arrangement": "hybrid",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_trans_10",
+      "title": "Big Data Platform Engineer (Spark & Snowflake)",
+      "company": "Munich Mobility Labs",
+      "description": "We are seeking an engineer to build big data pipelines using Apache Spark, Snowflake, Kafka, and dbt. 3+ years experience with distributed data processing required.",
+      "employment_type": "full-time",
+      "location": "Munich, Germany",
+      "country": "Germany",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Senior DBA fundamentals map to data, but lacks Spark, Snowflake, and Kafka."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_01",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Arthur Dent",
+      "headline": "Python Data Specialist",
+      "technical_skills": [
+        "Python",
+        "Pandas",
+        "SQL",
+        "Tableau",
+        "Excel",
+        "Data Analysis"
+      ],
+      "primary_skills": [
+        "Python",
+        "Pandas",
+        "SQL",
+        "Tableau"
+      ],
+      "secondary_skills": [
+        "Excel",
+        "Data Analysis"
+      ],
+      "experience": [
+        {
+          "role": "Data Analyst",
+          "company": "Megadodo",
+          "years": 3.0,
+          "bullets": [
+            "Created customer dashboards and data summaries in Python and Excel."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in Economics",
+          "institution": "Oxford"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Data Analyst",
+        "Business Intelligence Analyst"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United Kingdom"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_01",
+      "title": "Growth Hacker / Technical Rock Star",
+      "company": "VaporTech UK",
+      "description": "Are you a ninja who eats data for breakfast? We need a Growth Hacker to look at customer churn, build Excel and Tableau reports, and write basic Python scripts to automate metric pulls. Degree required.",
+      "employment_type": "full-time",
+      "location": "London, UK / Remote",
+      "country": "United Kingdom",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Buzzword-heavy marketing title is actually a data analyst position."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_02",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Ravi Verma",
+      "headline": "Frontend React Developer",
+      "technical_skills": [
+        "React",
+        "TypeScript",
+        "HTML5",
+        "CSS3",
+        "JavaScript"
+      ],
+      "primary_skills": [
+        "React",
+        "TypeScript",
+        "HTML5",
+        "CSS3"
+      ],
+      "secondary_skills": [
+        "JavaScript"
+      ],
+      "experience": [
+        {
+          "role": "Frontend Engineer",
+          "company": "WebSparks",
+          "years": 3.0,
+          "bullets": [
+            "Engineered consumer-facing web apps in React and TypeScript."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Information Systems",
+          "institution": "Symbiosis Pune"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Frontend Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_02",
+      "title": "Full Stack Web Architect",
+      "company": "Legacy Digital Marketing",
+      "description": "Urgent opening for a Full Stack Web Architect. The candidate must maintain our WordPress installations, install PHP plugins, and edit CSS styles. Experience with web design required.",
+      "employment_type": "full-time",
+      "location": "Mumbai, India",
+      "country": "India",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Title says Full Stack Architect, but actual job is low-level WordPress/PHP maintenance."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_03",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Grace Hopper Jr.",
+      "headline": "Senior Distributed Systems Engineer",
+      "technical_skills": [
+        "Go",
+        "Kubernetes",
+        "gRPC",
+        "Docker",
+        "PostgreSQL",
+        "C++",
+        "Linux"
+      ],
+      "primary_skills": [
+        "Go",
+        "Kubernetes",
+        "gRPC",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "PostgreSQL",
+        "C++",
+        "Linux"
+      ],
+      "experience": [
+        {
+          "role": "Principal Systems Engineer",
+          "company": "NetCore",
+          "years": 7.0,
+          "bullets": [
+            "Engineered multi-tenant Kubernetes storage engines in Go and C++."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Ph.D. in Computer Science",
+          "institution": "MIT"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Principal Engineer",
+        "Distinguished Engineer",
+        "Systems Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_03",
+      "title": "Member of Technical Staff",
+      "company": "OpenAI Foundation",
+      "description": "OpenAI is seeking Members of Technical Staff to build high-scale distributed training infrastructure. Must possess deep experience in systems programming (Go, C++, or Rust), Kubernetes, Docker, and Linux. Advanced degree in CS required.",
+      "employment_type": "full-time",
+      "location": "San Francisco, CA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Understated title 'Member of Technical Staff' is an elite systems engineering role matching candidate."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_04",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Maya Lin",
+      "headline": "Enterprise Solution Architect",
+      "technical_skills": [
+        "Enterprise Architecture",
+        "Java",
+        "Cloud",
+        "AWS",
+        "TOGAF",
+        "Microservices",
+        "REST"
+      ],
+      "primary_skills": [
+        "Enterprise Architecture",
+        "Java",
+        "Cloud",
+        "AWS"
+      ],
+      "secondary_skills": [
+        "TOGAF",
+        "Microservices",
+        "REST"
+      ],
+      "experience": [
+        {
+          "role": "Enterprise Architect",
+          "company": "Global Financial Corp",
+          "years": 8.0,
+          "bullets": [
+            "Designed strategic multi-year cloud modernization roadmaps across 12 product lines."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "M.S. in Computer Science",
+          "institution": "University of Illinois"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Enterprise Architect",
+        "Solution Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "hybrid",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_04",
+      "title": "Software Architect",
+      "company": "HealthPlan America",
+      "description": "We are seeking a Software Architect to align enterprise systems with AWS cloud standards. Minimum 7+ years in enterprise architecture, strong background in Java or cloud systems, TOGAF or equivalent experience. Master's preferred.",
+      "employment_type": "full-time",
+      "location": "Chicago, IL",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Generic title matches deep enterprise architectural qualifications."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_05",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Jordan Bell",
+      "headline": "Senior React Native Mobile Engineer",
+      "technical_skills": [
+        "React Native",
+        "TypeScript",
+        "JavaScript",
+        "iOS",
+        "Android",
+        "Redux",
+        "REST"
+      ],
+      "primary_skills": [
+        "React Native",
+        "TypeScript",
+        "JavaScript",
+        "iOS"
+      ],
+      "secondary_skills": [
+        "Android",
+        "Redux",
+        "REST"
+      ],
+      "experience": [
+        {
+          "role": "Mobile Developer",
+          "company": "Appify",
+          "years": 4.0,
+          "bullets": [
+            "Built cross-platform mobile apps for iOS and Android in React Native and TypeScript."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "UC San Diego"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "React Native Developer",
+        "Mobile Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_05",
+      "title": "Software Engineer - Digital Experience",
+      "company": "Nordstrom",
+      "description": "Nordstrom is hiring a Software Engineer for Digital Experience to build customer mobile apps in React Native and TypeScript for iOS and Android devices. 3+ years mobile experience and CS degree required.",
+      "employment_type": "full-time",
+      "location": "Seattle, WA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Corporate 'Digital Experience' title is a 100% direct React Native mobile role."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_06",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Kavita Reddy",
+      "headline": "Data Scientist",
+      "technical_skills": [
+        "Python",
+        "Machine Learning",
+        "PyTorch",
+        "SQL",
+        "Statistics",
+        "Pandas"
+      ],
+      "primary_skills": [
+        "Python",
+        "Machine Learning",
+        "PyTorch",
+        "SQL"
+      ],
+      "secondary_skills": [
+        "Statistics",
+        "Pandas"
+      ],
+      "experience": [
+        {
+          "role": "Data Scientist",
+          "company": "InsightIQ",
+          "years": 3.0,
+          "bullets": [
+            "Trained supervised ML models for customer propensity using Python and PyTorch."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "M.S. in Data Science",
+          "institution": "Columbia University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Data Scientist",
+        "ML Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_06",
+      "title": "Product Operations Specialist",
+      "company": "SaaS Scale",
+      "description": "Product Operations Specialist needed. Must handle customer support tickets, manually verify billing discrepancies in Stripe, and respond to live chat inquiries. No coding required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Technical title disguises a customer service support job. Low fit."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_07",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Felix Baum",
+      "headline": "DevOps & Cloud Engineer",
+      "technical_skills": [
+        "Kubernetes",
+        "AWS",
+        "Terraform",
+        "Docker",
+        "CI/CD",
+        "Linux"
+      ],
+      "primary_skills": [
+        "Kubernetes",
+        "AWS",
+        "Terraform",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "CI/CD",
+        "Linux"
+      ],
+      "experience": [
+        {
+          "role": "Cloud Engineer",
+          "company": "InfraTech",
+          "years": 4.0,
+          "bullets": [
+            "Automated AWS deployments with Terraform and managed Kubernetes clusters."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in CS",
+          "institution": "RWTH Aachen"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "DevOps Engineer",
+        "Cloud Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Germany"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_07",
+      "title": "Production Engineer",
+      "company": "Meta Platforms",
+      "description": "Meta is hiring Production Engineers. You will bridge software engineering and systems engineering, managing massive Linux container infrastructure, Kubernetes workloads, and CI/CD pipelines. 3+ years experience and CS degree required.",
+      "employment_type": "full-time",
+      "location": "Frankfurt, Germany / Remote",
+      "country": "Germany",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Meta's 'Production Engineer' title corresponds to Senior SRE/DevOps."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_08",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Alicia Torres",
+      "headline": "Backend Ruby on Rails Developer",
+      "technical_skills": [
+        "Ruby",
+        "Ruby on Rails",
+        "PostgreSQL",
+        "Redis",
+        "RSpec",
+        "Sidekiq",
+        "Git"
+      ],
+      "primary_skills": [
+        "Ruby",
+        "Ruby on Rails",
+        "PostgreSQL",
+        "Redis"
+      ],
+      "secondary_skills": [
+        "RSpec",
+        "Sidekiq",
+        "Git"
+      ],
+      "experience": [
+        {
+          "role": "Senior Ruby Developer",
+          "company": "ShopStream",
+          "years": 5.0,
+          "bullets": [
+            "Built e-commerce backend APIs in Ruby on Rails and PostgreSQL."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "University of Buenos Aires"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Ruby on Rails Engineer",
+        "Backend Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Argentina",
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_08",
+      "title": "Application Engineer",
+      "company": "GitHub",
+      "description": "GitHub is looking for an Application Engineer to scale our core web application. We are a massive Ruby on Rails platform using PostgreSQL, Redis, and background jobs. 4+ years Ruby on Rails experience and CS degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - Americas",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Generic 'Application Engineer' title at GitHub is a pure Ruby on Rails role."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_09",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Daniel Craig",
+      "headline": "Cyber Threat Intelligence Analyst",
+      "technical_skills": [
+        "Threat Intelligence",
+        "Python",
+        "OSINT",
+        "Malware Analysis",
+        "SIEM",
+        "Security"
+      ],
+      "primary_skills": [
+        "Threat Intelligence",
+        "Python",
+        "OSINT",
+        "Malware Analysis"
+      ],
+      "secondary_skills": [
+        "SIEM",
+        "Security"
+      ],
+      "experience": [
+        {
+          "role": "Threat Analyst",
+          "company": "CyberWatch",
+          "years": 4.0,
+          "bullets": [
+            "Tracked state-sponsored threat actors and analyzed telemetry in SIEM."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Intelligence Studies",
+          "institution": "Georgetown"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Threat Intelligence Analyst",
+        "Security Analyst"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_09",
+      "title": "Cyber Risk Consultant",
+      "company": "Deloitte Advisory",
+      "description": "Deloitte is seeking a Cyber Risk Consultant to deliver threat intelligence, malware advisory, and SIEM monitoring for Fortune 500 clients. 3+ years threat analysis experience and security clearance eligibility required.",
+      "employment_type": "full-time",
+      "location": "Washington, DC / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 2,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Consultancy title matches hands-on threat intelligence practitioner."
+    }
+  },
+  {
+    "pair_id": "indep_ambig_10",
+    "category": "ambiguous_descriptions",
+    "resume": {
+      "full_name": "Priya Nair",
+      "headline": "Front-of-the-Frontend CSS & UI Specialist",
+      "technical_skills": [
+        "HTML5",
+        "CSS3",
+        "Sass",
+        "JavaScript",
+        "Responsive Design",
+        "Accessibility",
+        "Figma"
+      ],
+      "primary_skills": [
+        "HTML5",
+        "CSS3",
+        "Sass",
+        "JavaScript"
+      ],
+      "secondary_skills": [
+        "Responsive Design",
+        "Accessibility",
+        "Figma"
+      ],
+      "experience": [
+        {
+          "role": "UI Developer",
+          "company": "DesignFirst",
+          "years": 4.0,
+          "bullets": [
+            "Crafted accessible WCAG AA compliant UI components in HTML and Sass."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in Graphic Design",
+          "institution": "NID Ahmedabad"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "UI Developer",
+        "Design Technologist"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_ambig_10",
+      "title": "Frontend Systems Architect",
+      "company": "Quant Algorithmics",
+      "description": "Seeking a Frontend Systems Architect to design low-latency WebAssembly order execution trading terminals using C++ and WebSockets. Deep algorithmic multithreading required.",
+      "employment_type": "full-time",
+      "location": "Mumbai, India",
+      "country": "India",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Design-focused UI developer is a total mismatch for low-latency C++/Wasm trading terminal."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_01",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Alex Chen",
+      "headline": "CS Student seeking Summer Internship",
+      "technical_skills": [
+        "Python",
+        "Git",
+        "SQL"
+      ],
+      "primary_skills": [
+        "Python",
+        "Git",
+        "SQL"
+      ],
+      "secondary_skills": [],
+      "experience": [],
+      "education": [
+        {
+          "degree": "Candidate for B.S. in Computer Science (Junior)",
+          "institution": "UC Berkeley"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Software Engineer Intern",
+        "Backend Intern"
+      ],
+      "employment_types": [
+        "internship"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_01",
+      "title": "Software Engineering Summer Intern (2027)",
+      "company": "Palantir Technologies",
+      "description": "Palantir is seeking passionate students for our 2027 Summer Internship. Must be currently enrolled in an undergraduate degree in Computer Science. Basic knowledge of Python and Git required. No prior professional experience required.",
+      "employment_type": "internship",
+      "location": "Palo Alto, CA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Student with zero experience applying to appropriate college internship."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_02",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Sam Taylor",
+      "headline": "Self-Taught Junior Web Developer",
+      "technical_skills": [
+        "JavaScript",
+        "HTML5",
+        "CSS3"
+      ],
+      "primary_skills": [
+        "JavaScript",
+        "HTML5",
+        "CSS3"
+      ],
+      "secondary_skills": [],
+      "experience": [],
+      "education": []
+    },
+    "preferences": {
+      "target_roles": [
+        "Junior Web Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_02",
+      "title": "Principal Distributed Systems Architect",
+      "company": "AWS Redshift",
+      "description": "AWS Redshift is looking for a Principal Architect. Requires 10+ years experience building distributed database query planners in C++ or Rust, Master's or PhD degree, and published distributed systems research.",
+      "employment_type": "full-time",
+      "location": "Seattle, WA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Incomplete junior profile applying to Principal Architect role. Strict mismatch."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_03",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Jordan Lee",
+      "headline": "Early Career Developer",
+      "technical_skills": [
+        "Python",
+        "FastAPI"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Junior Developer",
+          "company": "Local Shop",
+          "years": 0.8,
+          "bullets": [
+            "Assisted with Python backend bugfixes."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in History",
+          "institution": "State College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Junior Developer",
+        "Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_03",
+      "title": "Staff Software Engineer (10+ YOE)",
+      "company": "Snowflake",
+      "description": "Snowflake requires a Staff Engineer with at least 8+ years experience in distributed systems, C++, and database internals. Bachelor's in CS required.",
+      "employment_type": "full-time",
+      "location": "San Mateo, CA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Severe experience and technical gap (0.8 YOE vs 8+ YOE required)."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_04",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Chloe Martin",
+      "headline": "Frontend Intern",
+      "technical_skills": [
+        "React",
+        "JavaScript",
+        "CSS3"
+      ],
+      "primary_skills": [
+        "React",
+        "JavaScript",
+        "CSS3"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Frontend Intern",
+          "company": "Campus Tech",
+          "years": 0.5,
+          "bullets": [
+            "Built responsive UI components."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science (in progress)",
+          "institution": "McGill"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Frontend Intern",
+        "Junior Frontend Developer"
+      ],
+      "employment_types": [
+        "internship",
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Canada"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_04",
+      "title": "Frontend Engineer Intern",
+      "company": "Shopify",
+      "description": "Shopify is hiring Frontend Interns. Must know React, JavaScript, and HTML/CSS. Open to current students and recent bootcamp grads. Bachelor's in progress accepted.",
+      "employment_type": "internship",
+      "location": "Ottawa, Canada / Remote",
+      "country": "Canada",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Intern with 6 months internship experience aligns with Shopify intern role."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_05",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "David Kim",
+      "headline": "Incomplete Profile (Skills Only)",
+      "technical_skills": [
+        "Python",
+        "Django",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "primary_skills": [
+        "Python",
+        "Django",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "secondary_skills": [],
+      "experience": [],
+      "education": []
+    },
+    "preferences": {
+      "target_roles": [
+        "Python Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_05",
+      "title": "Python Backend Developer",
+      "company": "Acme Health",
+      "description": "Looking for a Python Backend Developer with Django and PostgreSQL experience. Degree in Computer Science preferred but experience valued.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 1,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "Skills match but missing experience and education history."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_06",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Fatima Zahra",
+      "headline": "Recent Graduate",
+      "technical_skills": [
+        "Python",
+        "Java",
+        "SQL",
+        "Git",
+        "Algorithms"
+      ],
+      "primary_skills": [
+        "Python",
+        "Java",
+        "SQL",
+        "Git"
+      ],
+      "secondary_skills": [
+        "Algorithms"
+      ],
+      "experience": [
+        {
+          "role": "Teaching Assistant",
+          "company": "University CS Dept",
+          "years": 1.0,
+          "bullets": [
+            "Graded algorithm assignments and led Python lab sessions."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "Al Akhawayn University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Junior Software Engineer",
+        "Graduate Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Morocco",
+        "France"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_06",
+      "title": "Graduate Software Development Program (2026)",
+      "company": "Societe Generale",
+      "description": "We are welcoming new graduates into our European software engineering cohort. Requirements: Recent Bachelor's degree in Computer Science, knowledge of Python or Java, and sound grasp of algorithms and SQL.",
+      "employment_type": "full-time",
+      "location": "Paris, France / Remote",
+      "country": "France",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Recent graduate with academic/TA background matches graduate program."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_07",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Tyler Wright",
+      "headline": "Self-Taught Fullstack Builder",
+      "technical_skills": [
+        "Next.js",
+        "React",
+        "TypeScript",
+        "Tailwind CSS",
+        "Supabase",
+        "Git"
+      ],
+      "primary_skills": [
+        "Next.js",
+        "React",
+        "TypeScript",
+        "Tailwind CSS"
+      ],
+      "secondary_skills": [
+        "Supabase",
+        "Git"
+      ],
+      "experience": [
+        {
+          "role": "Freelance Web Developer",
+          "company": "Self-Employed",
+          "years": 1.0,
+          "bullets": [
+            "Shipped 3 client websites using Next.js and Supabase."
+          ]
+        }
+      ],
+      "education": []
+    },
+    "preferences": {
+      "target_roles": [
+        "Full Stack Developer",
+        "Junior Web Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_07",
+      "title": "Junior Full Stack Engineer (Next.js)",
+      "company": "LaunchPass",
+      "description": "We are seeking a junior full stack developer who loves building products in Next.js, React, TypeScript, and Tailwind CSS. No degree required — show us your projects!",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "No-degree job posting fits self-taught candidate perfectly."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_08",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Hassan Ali",
+      "headline": "Student Researcher",
+      "technical_skills": [
+        "Python",
+        "PyTorch",
+        "C++",
+        "Mathematics"
+      ],
+      "primary_skills": [
+        "Python",
+        "PyTorch",
+        "C++",
+        "Mathematics"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Undergraduate Researcher",
+          "company": "AI Lab",
+          "years": 1.0,
+          "bullets": [
+            "Researched transformer attention pruning techniques."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Mathematics & CS (Senior)",
+          "institution": "UCLA"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "AI Research Intern",
+        "Machine Learning Intern"
+      ],
+      "employment_types": [
+        "internship"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_08",
+      "title": "AI Research Scientist (PhD Required)",
+      "company": "Meta FAIR",
+      "description": "Meta Fundamental AI Research (FAIR) is hiring Research Scientists. Requirements: PhD in Computer Science or Machine Learning, first-author publications at NeurIPS/ICML/CVPR, and 5+ years research experience.",
+      "employment_type": "full-time",
+      "location": "Menlo Park, CA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Undergraduate researcher applying to senior PhD Research Scientist role."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_09",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Zack Morris",
+      "headline": "Junior Quality Assurance",
+      "technical_skills": [
+        "Manual Testing",
+        "Jira",
+        "Test Cases"
+      ],
+      "primary_skills": [
+        "Manual Testing",
+        "Jira",
+        "Test Cases"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "QA Tester",
+          "company": "GameStudio",
+          "years": 1.0,
+          "bullets": [
+            "Executed manual regression test passes for mobile games."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Associate Degree",
+          "institution": "Community College"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "QA Tester"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_09",
+      "title": "Senior SDET (Software Development Engineer in Test)",
+      "company": "Netflix",
+      "description": "Netflix is looking for a Senior SDET. Must write production test automation in Java/Go, configure distributed testing on AWS, and architect chaos engineering suites. 6+ years experience required.",
+      "employment_type": "full-time",
+      "location": "Los Gatos, CA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Manual tester applying to top-tier Senior SDET role."
+    }
+  },
+  {
+    "pair_id": "indep_incomp_10",
+    "category": "incomplete_profiles",
+    "resume": {
+      "full_name": "Isabella Rossi",
+      "headline": "Junior Backend Developer",
+      "technical_skills": [
+        "Go",
+        "Docker",
+        "PostgreSQL",
+        "Git"
+      ],
+      "primary_skills": [
+        "Go",
+        "Docker",
+        "PostgreSQL",
+        "Git"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Junior Backend Developer",
+          "company": "Milan SaaS",
+          "years": 1.2,
+          "bullets": [
+            "Maintained REST API endpoints in Go with PostgreSQL."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Engineering",
+          "institution": "Politecnico di Milano"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Junior Go Developer",
+        "Backend Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Italy",
+        "European Union"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_incomp_10",
+      "title": "Junior Backend Developer (Go)",
+      "company": "Satispay",
+      "description": "We are looking for a Junior Backend Developer to join our core payments squad. You will write clean, well-tested Go code and collaborate on PostgreSQL databases. 1+ year Go experience and degree required.",
+      "employment_type": "full-time",
+      "location": "Milan, Italy / Remote",
+      "country": "Italy",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Direct junior alignment on Go, PostgreSQL, and experience level."
+    }
+  },
+  {
+    "pair_id": "indep_neg_01",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Brendan Eich-Fan",
+      "headline": "Pure JavaScript & TypeScript Architect",
+      "technical_skills": [
+        "JavaScript",
+        "TypeScript",
+        "Node.js",
+        "React",
+        "PostgreSQL"
+      ],
+      "primary_skills": [
+        "JavaScript",
+        "TypeScript",
+        "Node.js",
+        "React"
+      ],
+      "secondary_skills": [
+        "PostgreSQL"
+      ],
+      "experience": [
+        {
+          "role": "Staff JS Engineer",
+          "company": "WebTech",
+          "years": 6.0,
+          "bullets": [
+            "Engineered high-scale browser and server runtimes in TypeScript."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "Stanford"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Staff Software Engineer",
+        "Full Stack Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_01",
+      "title": "Backend Systems Engineer (Rust Only - No JavaScript / Node)",
+      "company": "Oxide Computer",
+      "description": "We build bare-metal hardware virtualization. Our software is written strictly in Rust and C. We have no JavaScript, and no Node.js is required or used in our stack. Candidates without Rust or C systems background will not be considered.",
+      "employment_type": "full-time",
+      "location": "Emeryville, CA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Job explicitly negates candidate's core technologies ('no JavaScript, no Node.js')."
+    }
+  },
+  {
+    "pair_id": "indep_neg_02",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Pavel Durov-Fan",
+      "headline": "Python Backend Specialist",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "Docker",
+        "Linux"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "Linux"
+      ],
+      "experience": [
+        {
+          "role": "Senior Python Developer",
+          "company": "PyStream",
+          "years": 5.0,
+          "bullets": [
+            "Built Python microservices."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in CS",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Python Backend Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_02",
+      "title": "Python Microservices Engineer (No Java / Strictly Python)",
+      "company": "Cisco Cloud",
+      "description": "We are a pure Python organization. We strictly avoid Java — no Java required or used. Must have 4+ years of Python, FastAPI, and PostgreSQL with Docker. Bachelor's degree required.",
+      "employment_type": "full-time",
+      "location": "San Jose, CA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Candidate has Python. The negated skill ('no Java') should not trigger a false positive match on Java."
+    }
+  },
+  {
+    "pair_id": "indep_neg_03",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Arun Joshi",
+      "headline": "On-Premises Linux Sysadmin",
+      "technical_skills": [
+        "Linux",
+        "Bash",
+        "Networking",
+        "PostgreSQL",
+        "Hardware"
+      ],
+      "primary_skills": [
+        "Linux",
+        "Bash",
+        "Networking",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "Hardware"
+      ],
+      "experience": [
+        {
+          "role": "Systems Administrator",
+          "company": "DataBunker",
+          "years": 5.0,
+          "bullets": [
+            "Maintained air-gapped on-premise Linux mainframes."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Sc. in IT",
+          "institution": "Pune University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Linux Systems Administrator"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_03",
+      "title": "Air-Gapped Systems Engineer (No Cloud / No AWS)",
+      "company": "National Defense Lab",
+      "description": "Must maintain secure on-premise Linux clusters. Strictly no cloud or AWS used due to national air-gap regulations. 4+ years Linux systems administration, networking, and hardware maintenance required.",
+      "employment_type": "full-time",
+      "location": "Pune, India",
+      "country": "India",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Candidate is an on-premise specialist. Negation 'no cloud / no AWS' must be respected."
+    }
+  },
+  {
+    "pair_id": "indep_neg_04",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Rebecca Stone",
+      "headline": "Senior Java Engineer",
+      "technical_skills": [
+        "Java",
+        "Spring Boot",
+        "Kafka",
+        "PostgreSQL"
+      ],
+      "primary_skills": [
+        "Java",
+        "Spring Boot",
+        "Kafka",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Senior Java Developer",
+          "company": "FinanceFirst",
+          "years": 6.0,
+          "bullets": [
+            "Built enterprise services in Java."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "Rutgers"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Java Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_04",
+      "title": "Go Microservices Architect (Without Java)",
+      "company": "FinTech Modern",
+      "description": "We are decommissioning our legacy stack. This role is 100% Go. We operate strictly without Java, and Java is not required or permitted in new services. 4+ years Go experience required.",
+      "employment_type": "full-time",
+      "location": "New York, NY / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Posting states 'without Java' — candidate only knows Java."
+    }
+  },
+  {
+    "pair_id": "indep_neg_05",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Ken Thompson-Fan",
+      "headline": "C Systems Developer",
+      "technical_skills": [
+        "C",
+        "Linux",
+        "Algorithms",
+        "Git"
+      ],
+      "primary_skills": [
+        "C",
+        "Linux",
+        "Algorithms",
+        "Git"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "C Developer",
+          "company": "KernelWorks",
+          "years": 4.0,
+          "bullets": [
+            "Wrote kernel drivers in C on Linux."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Engineering",
+          "institution": "Texas A&M"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Systems Software Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_05",
+      "title": "Modern C Systems Engineer (No C++ / Pure C Only)",
+      "company": "Embedded Realtime",
+      "description": "We develop safety-critical aerospace microcontrollers in pure ANSI C. Absolutely no C++ is allowed in our flight systems. 3+ years pure C programming on Linux required.",
+      "employment_type": "full-time",
+      "location": "Houston, TX / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Candidate has pure C. Negation 'no C++' correctly keeps score high without triggering C++ requirement."
+    }
+  },
+  {
+    "pair_id": "indep_neg_06",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Simon Pegg",
+      "headline": "PHP Fullstack Developer",
+      "technical_skills": [
+        "PHP",
+        "Laravel",
+        "MySQL",
+        "JavaScript"
+      ],
+      "primary_skills": [
+        "PHP",
+        "Laravel",
+        "MySQL",
+        "JavaScript"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "PHP Developer",
+          "company": "WebShop",
+          "years": 4.0,
+          "bullets": [
+            "Built PHP sites."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computing",
+          "institution": "Bristol"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "PHP Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United Kingdom"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_06",
+      "title": "Enterprise Java Engineer (PHP Skills Not Accepted)",
+      "company": "London Clearing House",
+      "description": "We require a Java and Spring Boot engineer for high-frequency trading. Web scripting languages like PHP or Ruby are strictly not accepted. Minimum 4 years core Java required.",
+      "employment_type": "full-time",
+      "location": "London, UK",
+      "country": "United Kingdom",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Posting strictly rejects candidate's skill set ('PHP skills not accepted')."
+    }
+  },
+  {
+    "pair_id": "indep_neg_07",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Linus Torvalds-Fan",
+      "headline": "Open Source Linux Kernel Hacker",
+      "technical_skills": [
+        "C",
+        "Linux",
+        "Git",
+        "Bash"
+      ],
+      "primary_skills": [
+        "C",
+        "Linux",
+        "Git",
+        "Bash"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Kernel Contributor",
+          "company": "OS Foundation",
+          "years": 5.0,
+          "bullets": [
+            "Maintained Linux kernel subsystems."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in CS",
+          "institution": "Helsinki"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Linux Systems Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "European Union"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_07",
+      "title": "Linux Systems Architect (No Windows / Strictly Non-Microsoft)",
+      "company": "Suse Linux",
+      "description": "Join our core OS team. Strictly no Windows experience required or wanted. 4+ years Linux internals, C programming, and Git required. Degree in CS required.",
+      "employment_type": "full-time",
+      "location": "Nuremberg, Germany / Remote",
+      "country": "Germany",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Negation 'no Windows' accurately ignored."
+    }
+  },
+  {
+    "pair_id": "indep_neg_08",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Tara MacLeod",
+      "headline": "NoSQL Specialist (MongoDB)",
+      "technical_skills": [
+        "MongoDB",
+        "Express",
+        "Node.js",
+        "JavaScript"
+      ],
+      "primary_skills": [
+        "MongoDB",
+        "Express",
+        "Node.js",
+        "JavaScript"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "NoSQL Developer",
+          "company": "DocumentCloud",
+          "years": 4.0,
+          "bullets": [
+            "Managed MongoDB replica sets."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in IT",
+          "institution": "Glasgow"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Database Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United Kingdom"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_08",
+      "title": "Relational Database Architect (No Document Stores / No MongoDB)",
+      "company": "Edinburgh Banking",
+      "description": "Our audit compliance mandates strict ACID relational guarantees. We operate strictly with PostgreSQL; document databases such as MongoDB are prohibited. 4+ years relational SQL experience required.",
+      "employment_type": "full-time",
+      "location": "Edinburgh, UK",
+      "country": "United Kingdom",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Candidate's core database is expressly prohibited by the job."
+    }
+  },
+  {
+    "pair_id": "indep_neg_09",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Wei Zhang",
+      "headline": "Front-end Mobile Developer",
+      "technical_skills": [
+        "Flutter",
+        "Dart",
+        "iOS",
+        "Android"
+      ],
+      "primary_skills": [
+        "Flutter",
+        "Dart",
+        "iOS",
+        "Android"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Flutter Developer",
+          "company": "AppFlow",
+          "years": 3.0,
+          "bullets": [
+            "Built cross-platform apps in Flutter."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Eng in Software",
+          "institution": "Tsinghua"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Flutter Developer",
+        "Mobile Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Singapore"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_09",
+      "title": "Flutter Mobile Engineer (No React Native Needed)",
+      "company": "Grab Singapore",
+      "description": "Grab is hiring a Flutter Mobile Developer. No React Native knowledge is needed or expected. Required: 3+ years Flutter/Dart development, published apps on iOS and Android. Degree required.",
+      "employment_type": "full-time",
+      "location": "Singapore / Remote",
+      "country": "Singapore",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Negation 'no React Native needed' does not penalize Flutter candidate."
+    }
+  },
+  {
+    "pair_id": "indep_neg_10",
+    "category": "negation_guards",
+    "resume": {
+      "full_name": "Rachel Green",
+      "headline": "Corporate Recruiter",
+      "technical_skills": [
+        "Talent Acquisition",
+        "Sourcing",
+        "HR",
+        "Interviews"
+      ],
+      "primary_skills": [
+        "Talent Acquisition",
+        "Sourcing",
+        "HR",
+        "Interviews"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Senior Recruiter",
+          "company": "PeopleCorp",
+          "years": 5.0,
+          "bullets": [
+            "Hired 150+ engineers annually."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in Psychology",
+          "institution": "NYU"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Technical Recruiter",
+        "Talent Acquisition Partner"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_neg_10",
+      "title": "Lead Software Engineer (No Recruiters Please)",
+      "company": "Stripe",
+      "description": "We are looking for a Lead Backend Engineer to build payment infrastructure in Ruby and Go. Direct applicants only — no agencies or recruiters will be accepted.",
+      "employment_type": "full-time",
+      "location": "San Francisco, CA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Candidate matches the negated keyword 'recruiters', but the job is an engineering role."
+    }
+  },
+  {
+    "pair_id": "indep_mand_01",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Bob Smith",
+      "headline": "Mid-level Full Stack Developer",
+      "technical_skills": [
+        "Python",
+        "FastAPI",
+        "React",
+        "PostgreSQL"
+      ],
+      "primary_skills": [
+        "Python",
+        "FastAPI",
+        "React",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Software Developer",
+          "company": "WebTech",
+          "years": 3.0,
+          "bullets": [
+            "Built web features."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "State University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Full Stack Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_01",
+      "title": "Principal Cryptography Researcher (Ph.D. Required)",
+      "company": "National Cyber Research",
+      "description": "Mandatory requirement: Ph.D. in Mathematics or Cryptography required. Candidates with only a Bachelor's degree will be disqualified. Must have published post-quantum cryptography research.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Disqualified by hard degree requirement (Ph.D. required vs B.S.)."
+    }
+  },
+  {
+    "pair_id": "indep_mand_02",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Alice Johnson",
+      "headline": "Senior Security Engineer",
+      "technical_skills": [
+        "Python",
+        "Security",
+        "AppSec",
+        "Linux",
+        "Docker"
+      ],
+      "primary_skills": [
+        "Python",
+        "Security",
+        "AppSec",
+        "Linux"
+      ],
+      "secondary_skills": [
+        "Docker"
+      ],
+      "experience": [
+        {
+          "role": "Senior AppSec Engineer",
+          "company": "CyberSecure",
+          "years": 5.0,
+          "bullets": [
+            "Secured cloud applications."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Cybersecurity",
+          "institution": "George Mason"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Security Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_02",
+      "title": "Lead Defense Systems Engineer (Active TS/SCI Clearance Mandatory)",
+      "company": "Lockheed Martin",
+      "description": "Mandatory requirement: Active Top Secret / SCI security clearance is strictly required on day one. Candidates without an active US clearance cannot be processed.",
+      "employment_type": "full-time",
+      "location": "Reston, VA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 1,
+      "expected_fit_tier": "MID",
+      "is_location_conflict": false,
+      "human_notes": "High technical alignment but missing mandatory security clearance."
+    }
+  },
+  {
+    "pair_id": "indep_mand_03",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Chris Evans",
+      "headline": "Junior Cloud Associate",
+      "technical_skills": [
+        "AWS",
+        "Linux",
+        "Docker"
+      ],
+      "primary_skills": [
+        "AWS",
+        "Linux",
+        "Docker"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Cloud Support Tech",
+          "company": "ManagedServices",
+          "years": 1.5,
+          "bullets": [
+            "Provided ticket resolution for AWS instances."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in IT",
+          "institution": "Florida State"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Cloud Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_03",
+      "title": "Staff Cloud Architect (10+ Years Experience Strictly Required)",
+      "company": "Databricks",
+      "description": "Mandatory requirement: Minimum of 10+ years of production cloud architecture experience is non-negotiable. Please do not apply if you have under 10 years experience.",
+      "employment_type": "full-time",
+      "location": "San Francisco, CA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Candidate has 1.5 YOE against mandatory 10+ YOE."
+    }
+  },
+  {
+    "pair_id": "indep_mand_04",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Dr. Emily Watson",
+      "headline": "Senior Data Scientist & Bioinformatician",
+      "technical_skills": [
+        "Python",
+        "R",
+        "Machine Learning",
+        "Bioinformatics",
+        "Statistics",
+        "SQL"
+      ],
+      "primary_skills": [
+        "Python",
+        "R",
+        "Machine Learning",
+        "Bioinformatics"
+      ],
+      "secondary_skills": [
+        "Statistics",
+        "SQL"
+      ],
+      "experience": [
+        {
+          "role": "Senior Bioinformatician",
+          "company": "Genomics Lab",
+          "years": 6.0,
+          "bullets": [
+            "Analyzed genomic sequencings using Python, R, and statistical models."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Ph.D. in Computational Biology",
+          "institution": "Johns Hopkins"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Data Scientist",
+        "Bioinformatics Scientist"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_04",
+      "title": "Lead Computational Biologist (Ph.D. Required)",
+      "company": "Illumina Genomics",
+      "description": "Illumina is seeking a Lead Computational Biologist. Requirements: Ph.D. in Computational Biology or Bioinformatics is required. 5+ years experience in genomic modeling, Python, and R required.",
+      "employment_type": "full-time",
+      "location": "San Diego, CA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Candidate strictly satisfies the hard Ph.D. and specialized domain requirement."
+    }
+  },
+  {
+    "pair_id": "indep_mand_05",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Jake Sully",
+      "headline": "Junior Python Developer",
+      "technical_skills": [
+        "Python",
+        "Flask",
+        "SQL"
+      ],
+      "primary_skills": [
+        "Python",
+        "Flask",
+        "SQL"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Junior Developer",
+          "company": "StartApp",
+          "years": 1.0,
+          "bullets": [
+            "Wrote Flask endpoints."
+          ]
+        }
+      ],
+      "education": []
+    },
+    "preferences": {
+      "target_roles": [
+        "Python Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_05",
+      "title": "Senior Regulatory Compliance Software Engineer (Degree Mandatory)",
+      "company": "FINRA",
+      "description": "Mandatory requirement: Accredited Bachelor's degree in Computer Science is strictly required by regulatory bylaws. 5+ years financial compliance engineering experience required.",
+      "employment_type": "full-time",
+      "location": "Washington, DC / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Candidate lacks mandatory degree and experience."
+    }
+  },
+  {
+    "pair_id": "indep_mand_06",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Sunita Rao",
+      "headline": "Certified Kubernetes Administrator (CKA)",
+      "technical_skills": [
+        "Kubernetes",
+        "Docker",
+        "Linux",
+        "Terraform",
+        "CI/CD"
+      ],
+      "primary_skills": [
+        "Kubernetes",
+        "Docker",
+        "Linux",
+        "Terraform"
+      ],
+      "secondary_skills": [
+        "CI/CD"
+      ],
+      "experience": [
+        {
+          "role": "Kubernetes Administrator",
+          "company": "CloudPulse",
+          "years": 4.0,
+          "bullets": [
+            "Administered bare-metal Kubernetes fleets holding official CKA certification."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech in CS",
+          "institution": "VTU Belgaum"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Kubernetes Engineer",
+        "Platform SRE"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India",
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_06",
+      "title": "Kubernetes Infrastructure Engineer (CKA Certification Required)",
+      "company": "Red Hat",
+      "description": "Mandatory requirement: Active Certified Kubernetes Administrator (CKA) credential required. 3+ years managing production Kubernetes, Docker, and Linux. Bachelor's in CS required.",
+      "employment_type": "full-time",
+      "location": "Remote - Worldwide",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Candidate holds mandatory CKA certification and meets all criteria."
+    }
+  },
+  {
+    "pair_id": "indep_mand_07",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "George Lucas",
+      "headline": "Frontend Developer",
+      "technical_skills": [
+        "React",
+        "JavaScript",
+        "HTML5",
+        "CSS3"
+      ],
+      "primary_skills": [
+        "React",
+        "JavaScript",
+        "HTML5",
+        "CSS3"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Frontend Developer",
+          "company": "WebShop",
+          "years": 2.0,
+          "bullets": [
+            "Built React sites."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in English",
+          "institution": "USC"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Frontend Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_07",
+      "title": "Senior Embedded Flight Software Engineer (FAA Safety Clearance)",
+      "company": "Boeing Aerospace",
+      "description": "Mandatory: FAA DO-178C avionics certification experience and C/Ada programming mandatory. Active DOD Secret clearance required.",
+      "employment_type": "full-time",
+      "location": "Seattle, WA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Complete domain and mandatory credential mismatch."
+    }
+  },
+  {
+    "pair_id": "indep_mand_08",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Diana Prince",
+      "headline": "Security Analyst",
+      "technical_skills": [
+        "Security",
+        "CISSP",
+        "Audit",
+        "OWASP",
+        "Linux"
+      ],
+      "primary_skills": [
+        "Security",
+        "CISSP",
+        "Audit",
+        "OWASP"
+      ],
+      "secondary_skills": [
+        "Linux"
+      ],
+      "experience": [
+        {
+          "role": "Lead Security Auditor",
+          "company": "ShieldCorp",
+          "years": 5.0,
+          "bullets": [
+            "Conducted ISO 27001 and SOC 2 audits with active CISSP certification."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Information Security",
+          "institution": "Penn State"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Security Auditor",
+        "Information Security Officer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_08",
+      "title": "Senior Information Security Auditor (CISSP Required)",
+      "company": "PwC Advisory",
+      "description": "PwC is seeking a Senior Security Auditor. Mandatory requirement: Current CISSP certification is required. 4+ years security audit experience and Bachelor's degree required.",
+      "employment_type": "full-time",
+      "location": "New York, NY / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": false,
+      "human_notes": "Meets mandatory certification and professional domain criteria."
+    }
+  },
+  {
+    "pair_id": "indep_mand_09",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Ethan Hunt",
+      "headline": "Network Technician",
+      "technical_skills": [
+        "Cisco",
+        "Routing",
+        "Hardware",
+        "Linux"
+      ],
+      "primary_skills": [
+        "Cisco",
+        "Routing",
+        "Hardware",
+        "Linux"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Network Tech",
+          "company": "NetWire",
+          "years": 2.0,
+          "bullets": [
+            "Ran network cables and configured switches."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Associate Degree",
+          "institution": "Northern Virginia CC"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Network Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_09",
+      "title": "Senior Director of Engineering (15+ Years YOE Mandatory)",
+      "company": "Google Cloud",
+      "description": "Mandatory requirement: Minimum 15+ years engineering leadership experience managing organizations of 100+ engineers. Advanced CS degree required.",
+      "employment_type": "full-time",
+      "location": "Sunnyvale, CA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Junior technician applying to Executive Director role."
+    }
+  },
+  {
+    "pair_id": "indep_mand_10",
+    "category": "mandatory_hard_requirements",
+    "resume": {
+      "full_name": "Maya Angelou-Fan",
+      "headline": "Copywriter",
+      "technical_skills": [
+        "Content Writing",
+        "Copywriting",
+        "SEO",
+        "Editing"
+      ],
+      "primary_skills": [
+        "Content Writing",
+        "Copywriting",
+        "SEO",
+        "Editing"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Senior Copywriter",
+          "company": "AdAgency",
+          "years": 5.0,
+          "bullets": [
+            "Wrote marketing copy."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in Journalism",
+          "institution": "Northwestern"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Copywriter"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_mand_10",
+      "title": "Senior Quant Developer (PhD in Financial Mathematics Mandatory)",
+      "company": "Two Sigma",
+      "description": "Mandatory requirement: Ph.D. in Financial Mathematics, Physics, or Computer Science strictly required. Mastery of C++ and stochastic calculus required.",
+      "employment_type": "full-time",
+      "location": "New York, NY",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Copywriter applying to Quant PhD position."
+    }
+  },
+  {
+    "pair_id": "indep_loc_01",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Rohit Deshmukh",
+      "headline": "Senior Python & Machine Learning Engineer",
+      "technical_skills": [
+        "Python",
+        "PyTorch",
+        "FastAPI",
+        "Docker",
+        "PostgreSQL",
+        "Kubernetes",
+        "LangChain"
+      ],
+      "primary_skills": [
+        "Python",
+        "PyTorch",
+        "FastAPI",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "PostgreSQL",
+        "Kubernetes",
+        "LangChain"
+      ],
+      "experience": [
+        {
+          "role": "Senior AI Developer",
+          "company": "ScaleAI India",
+          "years": 5.0,
+          "bullets": [
+            "Built Python microservices and PyTorch RAG pipelines."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech in Computer Science",
+          "institution": "IIT Madras"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Python Engineer",
+        "Applied AI Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_01",
+      "title": "Senior AI Engineer (US Citizens Only - Onsite Pentagon)",
+      "company": "US Defense Digital Service",
+      "description": "Mandatory requirement: Due to federal defense regulations, this role is open strictly to United States Citizens residing in the US. No international applicants or visa sponsorship allowed. Technical stack: Python, PyTorch, FastAPI, and Kubernetes. 4+ years experience required.",
+      "employment_type": "full-time",
+      "location": "Washington, DC",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "High technical fit (85+), but candidate country is India and job strictly requires US citizenship. Must be INELIGIBLE."
+    }
+  },
+  {
+    "pair_id": "indep_loc_02",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "John Doe",
+      "headline": "Senior Go Backend Architect",
+      "technical_skills": [
+        "Golang",
+        "Kubernetes",
+        "Docker",
+        "gRPC",
+        "PostgreSQL",
+        "Microservices"
+      ],
+      "primary_skills": [
+        "Golang",
+        "Kubernetes",
+        "Docker",
+        "gRPC"
+      ],
+      "secondary_skills": [
+        "PostgreSQL",
+        "Microservices"
+      ],
+      "experience": [
+        {
+          "role": "Staff Go Engineer",
+          "company": "CloudFin",
+          "years": 6.0,
+          "bullets": [
+            "Architected distributed Go microservices with gRPC."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "Austin University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Go Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_02",
+      "title": "Lead Go Engineer (Australia PR / Citizen Only - No Sponsorship)",
+      "company": "Canva Sydney",
+      "description": "Candidates must have existing right to work in Australia (Australian Citizen or Permanent Resident). We cannot provide visa sponsorship or hire remotely outside Australia. Required: 5+ years Go, Kubernetes, and gRPC.",
+      "employment_type": "full-time",
+      "location": "Sydney, Australia",
+      "country": "Australia",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "Technically a 90%+ match on Go/K8s, but located in US applying to Australia PR-only position."
+    }
+  },
+  {
+    "pair_id": "indep_loc_03",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Pierre Martin",
+      "headline": "Senior React & TypeScript Developer",
+      "technical_skills": [
+        "React",
+        "TypeScript",
+        "Next.js",
+        "Tailwind CSS",
+        "GraphQL"
+      ],
+      "primary_skills": [
+        "React",
+        "TypeScript",
+        "Next.js",
+        "Tailwind CSS"
+      ],
+      "secondary_skills": [
+        "GraphQL"
+      ],
+      "experience": [
+        {
+          "role": "Senior Frontend Engineer",
+          "company": "ParisApp",
+          "years": 5.0,
+          "bullets": [
+            "Engineered responsive React web apps in TypeScript."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Master in Software",
+          "institution": "Telecom Paris"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Frontend Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "France"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_03",
+      "title": "Senior React Engineer (UK Right to Work Required - No Visa)",
+      "company": "Monzo Bank London",
+      "description": "Must possess unrestricted right to work in the United Kingdom. We are unable to sponsor visas or hire contractors outside the UK. 4+ years React, TypeScript, and Next.js required.",
+      "employment_type": "full-time",
+      "location": "London, UK",
+      "country": "United Kingdom",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "Candidate is in France with no UK right to work."
+    }
+  },
+  {
+    "pair_id": "indep_loc_04",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Fatima Al-Nuaimi",
+      "headline": "Senior Cloud Infrastructure Engineer",
+      "technical_skills": [
+        "AWS",
+        "Terraform",
+        "Kubernetes",
+        "Docker",
+        "Linux",
+        "CI/CD"
+      ],
+      "primary_skills": [
+        "AWS",
+        "Terraform",
+        "Kubernetes",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "Linux",
+        "CI/CD"
+      ],
+      "experience": [
+        {
+          "role": "Lead Cloud Architect",
+          "company": "Gulf Cloud",
+          "years": 6.0,
+          "bullets": [
+            "Automated multi-region AWS cloud with Terraform."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Engineering",
+          "institution": "UAE University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Cloud Architect"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United Arab Emirates"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_04",
+      "title": "Senior Cloud Engineer (EU Citizens Only - Strict GDPR Data Sovereignty)",
+      "company": "SAP Germany",
+      "description": "Due to EU data residency mandates, this position requires an EU passport holder residing in Germany or France. Remote work outside the European Economic Area is strictly prohibited. Required: 5+ years AWS, Terraform, and Kubernetes.",
+      "employment_type": "full-time",
+      "location": "Walldorf, Germany",
+      "country": "Germany",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "High technical skills, but barred by EU data residency and residency constraints."
+    }
+  },
+  {
+    "pair_id": "indep_loc_05",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Kenji Sato",
+      "headline": "Senior iOS Developer",
+      "technical_skills": [
+        "Swift",
+        "iOS",
+        "SwiftUI",
+        "Combine",
+        "CoreData"
+      ],
+      "primary_skills": [
+        "Swift",
+        "iOS",
+        "SwiftUI",
+        "Combine"
+      ],
+      "secondary_skills": [
+        "CoreData"
+      ],
+      "experience": [
+        {
+          "role": "Lead iOS Developer",
+          "company": "Tokyo Mobile",
+          "years": 5.0,
+          "bullets": [
+            "Built consumer iOS applications with Swift."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Eng in Computer Science",
+          "institution": "Tokyo Tech"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior iOS Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Japan"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_05",
+      "title": "Senior iOS Engineer (Must reside in Canada - Canadian PR/Citizen)",
+      "company": "Wealthsimple",
+      "description": "This role is strictly open to Canadian Citizens and Permanent Residents currently residing in Canada. No offshore or overseas hiring permitted. 4+ years native iOS development with Swift and SwiftUI required.",
+      "employment_type": "full-time",
+      "location": "Toronto, Canada",
+      "country": "Canada",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "Candidate is in Japan applying to Canada-only position."
+    }
+  },
+  {
+    "pair_id": "indep_loc_06",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Maria Santos",
+      "headline": "Senior Java & Spring Boot Engineer",
+      "technical_skills": [
+        "Java",
+        "Spring Boot",
+        "PostgreSQL",
+        "Kafka",
+        "Docker",
+        "Microservices"
+      ],
+      "primary_skills": [
+        "Java",
+        "Spring Boot",
+        "PostgreSQL",
+        "Kafka"
+      ],
+      "secondary_skills": [
+        "Docker",
+        "Microservices"
+      ],
+      "experience": [
+        {
+          "role": "Senior Java Developer",
+          "company": "Manila FinTech",
+          "years": 5.0,
+          "bullets": [
+            "Built enterprise banking services in Java."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in CS",
+          "institution": "University of Philippines"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Java Developer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Philippines"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_06",
+      "title": "Senior Java Microservices Engineer (US Security Clearance Required)",
+      "company": "Northrop Grumman",
+      "description": "Position requires US Citizenship and eligibility for DoD Secret Clearance. Overseas applicants not eligible. 4+ years Java and Spring Boot experience required.",
+      "employment_type": "full-time",
+      "location": "McLean, VA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "Clearance and citizenship blocker despite strong Java experience."
+    }
+  },
+  {
+    "pair_id": "indep_loc_07",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Oliver Brown",
+      "headline": "Senior DevOps Engineer",
+      "technical_skills": [
+        "Terraform",
+        "Kubernetes",
+        "AWS",
+        "Docker",
+        "Linux"
+      ],
+      "primary_skills": [
+        "Terraform",
+        "Kubernetes",
+        "AWS",
+        "Docker"
+      ],
+      "secondary_skills": [
+        "Linux"
+      ],
+      "experience": [
+        {
+          "role": "Senior SRE",
+          "company": "Sydney Cloud",
+          "years": 5.0,
+          "bullets": [
+            "Managed Kubernetes on AWS."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computing",
+          "institution": "UNSW Sydney"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "DevOps Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Australia"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_07",
+      "title": "Senior Platform Engineer (Must reside in Switzerland / Swiss Citizen)",
+      "company": "CERN Switzerland",
+      "description": "Candidates must be Swiss nationals or EU citizens residing in Switzerland. Remote work from outside Switzerland is not supported. Required: 4+ years Kubernetes, Terraform, and Linux.",
+      "employment_type": "full-time",
+      "location": "Geneva, Switzerland",
+      "country": "Switzerland",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "Australia resident applying to Switzerland-only position."
+    }
+  },
+  {
+    "pair_id": "indep_loc_08",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Deepak Chopra",
+      "headline": "Senior Data Engineer",
+      "technical_skills": [
+        "Python",
+        "SQL",
+        "Apache Spark",
+        "Snowflake",
+        "dbt"
+      ],
+      "primary_skills": [
+        "Python",
+        "SQL",
+        "Apache Spark",
+        "Snowflake"
+      ],
+      "secondary_skills": [
+        "dbt"
+      ],
+      "experience": [
+        {
+          "role": "Lead Data Engineer",
+          "company": "Delhi BigData",
+          "years": 5.0,
+          "bullets": [
+            "Managed Snowflake and Spark pipelines."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Tech in Information Technology",
+          "institution": "Delhi Tech"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Data Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "India"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_08",
+      "title": "Senior Data Platform Engineer (Strictly On-Site Singapore - Employment Pass Unavailable)",
+      "company": "DBS Bank",
+      "description": "This position requires physical daily on-site presence in Singapore. We are currently unable to sponsor new Employment Passes; local Singapore citizens or PR holders only. Required: 4+ years Python, SQL, Spark, and Snowflake.",
+      "employment_type": "full-time",
+      "location": "Singapore",
+      "country": "Singapore",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "High data engineering fit, but physically restricted to local Singapore residents."
+    }
+  },
+  {
+    "pair_id": "indep_loc_09",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Beatriz Lima",
+      "headline": "Senior Full Stack Engineer",
+      "technical_skills": [
+        "TypeScript",
+        "React",
+        "Node.js",
+        "PostgreSQL",
+        "Docker"
+      ],
+      "primary_skills": [
+        "TypeScript",
+        "React",
+        "Node.js",
+        "PostgreSQL"
+      ],
+      "secondary_skills": [
+        "Docker"
+      ],
+      "experience": [
+        {
+          "role": "Full Stack Lead",
+          "company": "Rio Tech",
+          "years": 5.0,
+          "bullets": [
+            "Built web applications in TypeScript and Node.js."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Computer Science",
+          "institution": "UFRJ Brazil"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior Full Stack Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Brazil"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_09",
+      "title": "Staff Full Stack Developer (Irish Stamp 4 / EU Passport Required)",
+      "company": "AIB Bank Dublin",
+      "description": "Applicants must have existing legal right to work in Ireland without sponsorship (Stamp 4 or EU Passport). Required: 5+ years TypeScript, React, and Node.js.",
+      "employment_type": "full-time",
+      "location": "Dublin, Ireland",
+      "country": "Ireland",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "Candidate in Brazil without EU/Irish right to work."
+    }
+  },
+  {
+    "pair_id": "indep_loc_10",
+    "category": "location_visa_conflict",
+    "resume": {
+      "full_name": "Dmitry Ivanov",
+      "headline": "Senior C++ Systems Engineer",
+      "technical_skills": [
+        "C++",
+        "Linux",
+        "Multithreading",
+        "Algorithms",
+        "Git"
+      ],
+      "primary_skills": [
+        "C++",
+        "Linux",
+        "Multithreading",
+        "Algorithms"
+      ],
+      "secondary_skills": [
+        "Git"
+      ],
+      "experience": [
+        {
+          "role": "Staff C++ Developer",
+          "company": "CoreSys",
+          "years": 6.0,
+          "bullets": [
+            "Engineered low-latency C++ engines."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "M.S. in Applied Mathematics",
+          "institution": "Moscow State"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Senior C++ Engineer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "Kazakhstan"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_loc_10",
+      "title": "C++ Autonomous Driving Systems Engineer (US Citizen / Green Card Required)",
+      "company": "Waymo",
+      "description": "Due to ITAR and US autonomous vehicle export regulations, applicants must be US Persons (US Citizen or Permanent Resident). 5+ years C++ multithreading on Linux required.",
+      "employment_type": "full-time",
+      "location": "Mountain View, CA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "INELIGIBLE",
+      "expected_relevance_grade": 3,
+      "expected_fit_tier": "HIGH",
+      "is_location_conflict": true,
+      "human_notes": "ITAR export controls block non-US person despite 90%+ C++ technical fit."
+    }
+  },
+  {
+    "pair_id": "indep_low_01",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Sarah Jenkins",
+      "headline": "Graphic Designer & Illustrator",
+      "technical_skills": [
+        "Photoshop",
+        "Illustrator",
+        "Figma",
+        "Typography",
+        "Branding"
+      ],
+      "primary_skills": [
+        "Photoshop",
+        "Illustrator",
+        "Figma",
+        "Typography"
+      ],
+      "secondary_skills": [
+        "Branding"
+      ],
+      "experience": [
+        {
+          "role": "Lead Graphic Designer",
+          "company": "CreativeAgency",
+          "years": 5.0,
+          "bullets": [
+            "Designed brand books and marketing assets in Photoshop and Illustrator."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.F.A. in Graphic Design",
+          "institution": "RISD"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Graphic Designer",
+        "Visual Designer"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_01",
+      "title": "Senior Rust Database Kernel Engineer",
+      "company": "ScatteredDB",
+      "description": "We are seeking a Senior Systems Engineer to implement distributed consensus and LSM-tree storage engines in Rust and C. 5+ years systems programming, deep Linux kernel knowledge, and CS degree required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Complete cross-domain mismatch (Graphic Designer vs Rust DB Kernel Engineer)."
+    }
+  },
+  {
+    "pair_id": "indep_low_02",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Tom Bradley",
+      "headline": "Senior Corporate Accountant",
+      "technical_skills": [
+        "Accounting",
+        "QuickBooks",
+        "Tax",
+        "Excel",
+        "GAAP",
+        "Auditing"
+      ],
+      "primary_skills": [
+        "Accounting",
+        "QuickBooks",
+        "Tax",
+        "Excel"
+      ],
+      "secondary_skills": [
+        "GAAP",
+        "Auditing"
+      ],
+      "experience": [
+        {
+          "role": "Senior Accountant",
+          "company": "AuditFirm",
+          "years": 6.0,
+          "bullets": [
+            "Prepared corporate tax returns and GAAP financial statements."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.S. in Accounting",
+          "institution": "Penn State"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Corporate Accountant"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_02",
+      "title": "Senior Cloud Security Architect",
+      "company": "CrowdStrike",
+      "description": "Seeking a Senior Cloud Security Architect to design zero-trust networks on AWS and GCP. Deep knowledge of IAM, OAuth, SIEM, penetration testing, and Linux required. 5+ years security experience.",
+      "employment_type": "full-time",
+      "location": "Austin, TX / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Accountant applying to Cloud Security Architect role."
+    }
+  },
+  {
+    "pair_id": "indep_low_03",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Emily Blunt-Fan",
+      "headline": "Executive Assistant",
+      "technical_skills": [
+        "Calendar Management",
+        "Travel Coordination",
+        "Microsoft Office",
+        "Event Planning"
+      ],
+      "primary_skills": [
+        "Calendar Management",
+        "Travel Coordination",
+        "Microsoft Office",
+        "Event Planning"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Executive Assistant",
+          "company": "C-Suite Office",
+          "years": 4.0,
+          "bullets": [
+            "Managed calendars and travel for 4 vice presidents."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in Communications",
+          "institution": "Boston University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Executive Assistant"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_03",
+      "title": "Staff Machine Learning Engineer (Large Language Models)",
+      "company": "DeepMind",
+      "description": "DeepMind is hiring a Staff ML Engineer. Requirements: PhD or MS in CS, 5+ years developing transformer architectures, PyTorch, CUDA kernel optimization, and distributed training.",
+      "employment_type": "full-time",
+      "location": "New York, NY / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Executive Assistant applying to Staff Deep Learning / LLM Engineer role."
+    }
+  },
+  {
+    "pair_id": "indep_low_04",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Jack Ryan",
+      "headline": "Warehouse Operations Supervisor",
+      "technical_skills": [
+        "Logistics",
+        "Inventory Management",
+        "Supply Chain",
+        "Forklift",
+        "Safety"
+      ],
+      "primary_skills": [
+        "Logistics",
+        "Inventory Management",
+        "Supply Chain",
+        "Forklift"
+      ],
+      "secondary_skills": [
+        "Safety"
+      ],
+      "experience": [
+        {
+          "role": "Warehouse Supervisor",
+          "company": "FreightLine",
+          "years": 4.0,
+          "bullets": [
+            "Managed inventory distribution across 200k sq ft facility."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "High School Diploma",
+          "institution": "Lincoln High"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Logistics Supervisor"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_04",
+      "title": "Lead Frontend Web Engineer (React & TypeScript)",
+      "company": "Stripe",
+      "description": "Stripe is hiring a Lead Frontend Engineer. Must possess 5+ years experience building complex web apps in React, TypeScript, Next.js, and modern CSS. Degree in CS required.",
+      "employment_type": "full-time",
+      "location": "Seattle, WA / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Warehouse supervisor applying to Lead Frontend Engineer."
+    }
+  },
+  {
+    "pair_id": "indep_low_05",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Chloe Bennett",
+      "headline": "Licensed Real Estate Agent",
+      "technical_skills": [
+        "Real Estate",
+        "Sales",
+        "Contract Negotiation",
+        "Client Relations"
+      ],
+      "primary_skills": [
+        "Real Estate",
+        "Sales",
+        "Contract Negotiation",
+        "Client Relations"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Realtor",
+          "company": "Keller Realty",
+          "years": 5.0,
+          "bullets": [
+            "Brokered residential sales totaling $20M."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in Business",
+          "institution": "ASU"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Real Estate Broker"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_05",
+      "title": "DevOps / SRE Platform Engineer",
+      "company": "HashiCorp",
+      "description": "Seeking an experienced DevOps Engineer to maintain Terraform and Kubernetes infrastructure on AWS. 4+ years Linux systems and Docker experience required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Real estate agent applying to DevOps engineer."
+    }
+  },
+  {
+    "pair_id": "indep_low_06",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Marcus Brody",
+      "headline": "Elementary School Teacher",
+      "technical_skills": [
+        "Curriculum Planning",
+        "Classroom Management",
+        "Child Education",
+        "Parent Communication"
+      ],
+      "primary_skills": [
+        "Curriculum Planning",
+        "Classroom Management",
+        "Child Education",
+        "Parent Communication"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "5th Grade Teacher",
+          "company": "Oak Valley School",
+          "years": 5.0,
+          "bullets": [
+            "Taught mathematics and reading to elementary cohorts."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.Ed. in Elementary Education",
+          "institution": "Indiana University"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Elementary Teacher"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_06",
+      "title": "Senior Blockchain Protocol Engineer (Solidity & Rust)",
+      "company": "Uniswap Labs",
+      "description": "Uniswap Labs is hiring a Protocol Engineer to write smart contracts in Solidity and Rust. Deep knowledge of EVM internals, cryptography, and DeFi liquidity pools required.",
+      "employment_type": "full-time",
+      "location": "New York, NY / Remote",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "School teacher applying to Blockchain Protocol Engineer."
+    }
+  },
+  {
+    "pair_id": "indep_low_07",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Chef Gordon",
+      "headline": "Executive Chef",
+      "technical_skills": [
+        "Culinary Arts",
+        "Menu Design",
+        "Kitchen Management",
+        "Food Safety"
+      ],
+      "primary_skills": [
+        "Culinary Arts",
+        "Menu Design",
+        "Kitchen Management",
+        "Food Safety"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Executive Chef",
+          "company": "Bistro Deluxe",
+          "years": 7.0,
+          "bullets": [
+            "Managed fine dining kitchen brigade and menu curation."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Associate in Culinary Arts",
+          "institution": "CIA Hyde Park"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Executive Chef"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_07",
+      "title": "Senior Bioinformatician / Genomic Data Analyst",
+      "company": "Broad Institute",
+      "description": "We are seeking a Bioinformatician with 4+ years experience analyzing genomic sequencing pipelines using Python, R, and statistical genomics. Advanced degree required.",
+      "employment_type": "full-time",
+      "location": "Cambridge, MA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Chef applying to Bioinformatician."
+    }
+  },
+  {
+    "pair_id": "indep_low_08",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Tony Stark-Fan",
+      "headline": "Welder & Metal Fabricator",
+      "technical_skills": [
+        "MIG Welding",
+        "TIG Welding",
+        "Blueprint Reading",
+        "Metal Fabrication"
+      ],
+      "primary_skills": [
+        "MIG Welding",
+        "TIG Welding",
+        "Blueprint Reading",
+        "Metal Fabrication"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Senior Welder",
+          "company": "HeavyForge",
+          "years": 6.0,
+          "bullets": [
+            "Fabricated structural steel components to precision blueprints."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "Vocational Certificate",
+          "institution": "Welding Academy"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Welder"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_08",
+      "title": "Senior iOS Mobile Engineer (Swift & SwiftUI)",
+      "company": "Apple",
+      "description": "Apple is seeking an iOS Engineer to work on core iOS frameworks using Swift, SwiftUI, and Objective-C. 4+ years native iOS development required.",
+      "employment_type": "full-time",
+      "location": "Cupertino, CA",
+      "country": "United States",
+      "is_remote": false
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Welder applying to iOS engineer."
+    }
+  },
+  {
+    "pair_id": "indep_low_09",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Olivia Pope-Fan",
+      "headline": "Public Relations Specialist",
+      "technical_skills": [
+        "Crisis Communication",
+        "Press Releases",
+        "Media Relations",
+        "Public Speaking"
+      ],
+      "primary_skills": [
+        "Crisis Communication",
+        "Press Releases",
+        "Media Relations",
+        "Public Speaking"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "PR Director",
+          "company": "Apex Communications",
+          "years": 5.0,
+          "bullets": [
+            "Directed crisis media responses and national press releases."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "B.A. in Public Relations",
+          "institution": "George Washington"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "PR Specialist",
+        "Media Strategist"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "remote",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_09",
+      "title": "Lead Database Kernel Engineer (C & PostgreSQL Internals)",
+      "company": "Supabase",
+      "description": "Supabase is hiring a C engineer to extend PostgreSQL query planners, foreign data wrappers, and write C extensions. Deep C programming and relational engine internals required.",
+      "employment_type": "full-time",
+      "location": "Remote - Global",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "PR Director applying to PostgreSQL C Kernel Engineer."
+    }
+  },
+  {
+    "pair_id": "indep_low_10",
+    "category": "cross_domain_mismatch",
+    "resume": {
+      "full_name": "Dr. Gregory House-Fan",
+      "headline": "Clinical Physician",
+      "technical_skills": [
+        "Diagnostic Medicine",
+        "Patient Care",
+        "Pharmacology",
+        "Internal Medicine"
+      ],
+      "primary_skills": [
+        "Diagnostic Medicine",
+        "Patient Care",
+        "Pharmacology",
+        "Internal Medicine"
+      ],
+      "secondary_skills": [],
+      "experience": [
+        {
+          "role": "Attending Physician",
+          "company": "Metro Health Hospital",
+          "years": 8.0,
+          "bullets": [
+            "Diagnosed complex clinical cases in internal medicine."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "degree": "M.D. in Medicine",
+          "institution": "Johns Hopkins Medical School"
+        }
+      ]
+    },
+    "preferences": {
+      "target_roles": [
+        "Physician"
+      ],
+      "employment_types": [
+        "full-time"
+      ],
+      "eligible_countries": [
+        "United States"
+      ],
+      "work_arrangement": "on-site",
+      "min_salary": 0.0,
+      "min_fit_threshold": 60.0
+    },
+    "job": {
+      "stable_id": "independent:indep_low_10",
+      "title": "Senior Site Reliability Engineer (Kubernetes & AWS)",
+      "company": "Datadog",
+      "description": "Join our SRE team managing thousands of Kubernetes nodes on AWS using Terraform, Prometheus, and Golang. 4+ years cloud infrastructure SRE required.",
+      "employment_type": "full-time",
+      "location": "Remote - US",
+      "country": "United States",
+      "is_remote": true
+    },
+    "ground_truth": {
+      "expected_eligibility": "ELIGIBLE",
+      "expected_relevance_grade": 0,
+      "expected_fit_tier": "LOW",
+      "is_location_conflict": false,
+      "human_notes": "Medical doctor applying to SRE / Kubernetes engineer."
+    }
+  }
+]

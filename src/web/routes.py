@@ -1015,6 +1015,12 @@ async def get_sources_health_handler(request: web.Request) -> web.Response:
                 "refresh_interval": b.refresh_interval,
                 "concurrency_limit": b.concurrency_limit,
                 "last_synced_at": b.last_synced_at or latest_ver or "Never",
+                "last_success_at": getattr(b, "last_success_at", None) or b.last_synced_at or latest_ver or "Never",
+                "last_failure_at": getattr(b, "last_failure_at", None),
+                "next_sync_at": getattr(b, "next_sync_at", None),
+                "last_sync_complete": getattr(b, "last_sync_complete", False),
+                "last_retrieved_count": getattr(b, "last_retrieved_count", 0),
+                "last_expired_count": getattr(b, "last_expired_count", 0),
                 "failure_count": b.failure_count,
                 "last_error": b.last_error,
                 "active_jobs_count": active_count,
@@ -1022,6 +1028,46 @@ async def get_sources_health_handler(request: web.Request) -> web.Response:
             })
 
     return web.json_response({"sources": health_list})
+
+
+async def get_sync_runs_handler(request: web.Request) -> web.Response:
+    """Return historical board discovery sync runs and completeness logs."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    from src.discovery.board_registry import BoardRegistry
+    registry = BoardRegistry()
+    limit = int(request.query.get("limit", "50"))
+    runs = registry.get_sync_runs(limit=limit)
+    return web.json_response({"sync_runs": runs})
+
+
+async def get_matching_benchmark_handler(request: web.Request) -> web.Response:
+    """Return independent matching evaluation benchmark metrics without private candidate PII."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    from src.matching.independent_benchmark import IndependentBenchmarkSuite
+    suite = IndependentBenchmarkSuite()
+    report = suite.run_benchmark()
+    return web.json_response(report.to_dict())
+
+
+async def get_candidate_search_history_handler(request: web.Request) -> web.Response:
+    """Return tenant-isolated personalized search history for the authenticated candidate."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    from src.matching.keyword_expansion import search_personalized_jobs
+    res = search_personalized_jobs(user_id=user_id, status_filter="all", limit=25)
+    return web.json_response({
+        "user_id": user_id,
+        "search_history": res.get("jobs", []),
+        "expansion": res.get("expansion", {}),
+    })
 
 
 async def get_keyword_expansion_handler(request: web.Request) -> web.Response:

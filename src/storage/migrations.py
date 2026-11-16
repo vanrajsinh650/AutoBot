@@ -274,6 +274,18 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE job_sources ADD COLUMN failure_count INTEGER DEFAULT 0")
     if "last_error" not in source_cols:
         conn.execute("ALTER TABLE job_sources ADD COLUMN last_error TEXT DEFAULT ''")
+    if "last_success_at" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN last_success_at TEXT DEFAULT ''")
+    if "last_failure_at" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN last_failure_at TEXT DEFAULT ''")
+    if "next_sync_at" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN next_sync_at TEXT DEFAULT ''")
+    if "last_sync_complete" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN last_sync_complete INTEGER DEFAULT 0")
+    if "last_retrieved_count" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN last_retrieved_count INTEGER DEFAULT 0")
+    if "last_expired_count" not in source_cols:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN last_expired_count INTEGER DEFAULT 0")
 
     # 9b. v2.3 Columns on jobs
     job_cols = {r[1] if isinstance(r, (tuple, list)) else r["name"] for r in conn.execute("PRAGMA table_info(jobs)").fetchall()}
@@ -400,6 +412,31 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE audit_logs ADD COLUMN prev_hash TEXT DEFAULT ''")
     if "entry_hash" not in audit_cols:
         conn.execute("ALTER TABLE audit_logs ADD COLUMN entry_hash TEXT DEFAULT ''")
+
+    # 15. sync_runs (Discovery run tracking & completeness)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sync_runs (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            sync_run_id          TEXT UNIQUE NOT NULL,
+            source_id            INTEGER REFERENCES job_sources(id),
+            source_name          TEXT NOT NULL,
+            source_type          TEXT NOT NULL,
+            board_slug           TEXT NOT NULL,
+            status               TEXT NOT NULL,
+            is_complete          INTEGER DEFAULT 0,
+            total_retrieved      INTEGER DEFAULT 0,
+            new_jobs             INTEGER DEFAULT 0,
+            updated_jobs         INTEGER DEFAULT 0,
+            duplicates_removed   INTEGER DEFAULT 0,
+            expired_jobs         INTEGER DEFAULT 0,
+            error_message        TEXT DEFAULT '',
+            started_at           TEXT NOT NULL,
+            completed_at         TEXT DEFAULT ''
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_runs_slug ON sync_runs(source_type, board_slug)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_runs_status ON sync_runs(status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_sync_runs_started ON sync_runs(started_at)")
 
     # Legacy indexes
     conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id)")

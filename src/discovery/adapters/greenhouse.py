@@ -1,7 +1,8 @@
 """
-Greenhouse Public Job Board API Adapter for AutoBot v2.3.
+Greenhouse Public Job Board API Adapter for AutoBot v2.3.1.
 Endpoint: https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs?content=true
-Includes SSRF validation, size capping, workplace classification, and compensation extraction.
+Includes SSRF validation, size capping, workplace classification, compensation extraction,
+and granular individual item error isolation.
 """
 
 import asyncio
@@ -31,12 +32,18 @@ from src.utils.logger import logger
 
 
 class GreenhouseAdapter(BaseJobSourceAdapter):
-    """Adapter for fetching public jobs from Greenhouse Job Boards."""
+    """Adapter for fetching public jobs from Greenhouse Job Boards with error isolation."""
 
     BASE_URL = "https://boards-api.greenhouse.io/v1/boards/{board}/jobs?content=true"
 
+    def __init__(self, config: JobSourceConfig):
+        super().__init__(config)
+        self.is_last_sync_complete: bool = False
+
     async def fetch_jobs(self, session: Optional[aiohttp.ClientSession] = None) -> List[NormalizedJob]:
         raw_board = self.config.board_token_or_slug.strip()
+        self.is_last_sync_complete = False
+
         try:
             board = validate_board_slug(raw_board)
         except SSRFValidationError as e:
@@ -58,9 +65,9 @@ class GreenhouseAdapter(BaseJobSourceAdapter):
         payload: Any = None
         for attempt in range(2):
             try:
-                headers = {"User-Agent": "AutoBot/2.3 (+https://github.com/autobot-platform)"}
+                headers = {"User-Agent": "AutoBot/2.3.1 (+https://github.com/autobot-platform)"}
                 timeout = aiohttp.ClientTimeout(total=20, connect=5, sock_read=15)
-                async with session.get(url, headers=headers, timeout=timeout) as resp:
+                async with session.get(url, headers=headers, timeout=timeout, allow_redirects=False) as resp:
                     if resp.status == 429:
                         logger.warning(f"Rate limited (HTTP 429) by Greenhouse for '{board}'. Attempt {attempt+1}/2.")
                         if attempt == 0:
@@ -99,57 +106,69 @@ class GreenhouseAdapter(BaseJobSourceAdapter):
         if close_session and not session.closed:
             await session.close()
 
-        raw_jobs = payload.get("jobs", []) if isinstance(payload, dict) else []
+        if not isinstance(payload, dict):
+            return []
+
+        raw_jobs = payload.get("jobs", [])
+        if not isinstance(raw_jobs, list):
+            return []
+
         normalized: List[NormalizedJob] = []
         now_iso = datetime.now().isoformat()
 
         for item in raw_jobs:
             if not isinstance(item, dict):
                 continue
-            job_id = str(item.get("id", ""))
-            title = str(item.get("title", "")).strip()
-            if not title:
+            try:
+                job_id = str(item.get("id", "")).strip()
+                title = str(item.get("title", "")).strip()
+                if not job_id or not title:
+                    continue
+
+                loc_data = item.get("location") or {}
+                location_name = loc_data.get("name", "") if isinstance(loc_data, dict) else str(loc_data or "")
+                location_name = location_name.strip()
+
+                raw_content = item.get("content") or ""
+                description = strip_html(raw_content)
+
+                is_remote = detect_remote(location_name, title) or detect_remote("", description[:300])
+                workplace_type = detect_workplace_type(location_name, f"{title} {description[:300]}")
+                emp_type = classify_employment_type(f"{title} {description[:400]}")
+                comp_min, comp_max, currency = extract_compensation(description)
+
+                stable_id = f"greenhouse:{board}:{job_id}"
+                app_url = item.get("absolute_url", f"https://boards.greenhouse.io/{board}/jobs/{job_id}")
+                source_updated = item.get("updated_at") or now_iso
+
+                job = NormalizedJob(
+                    stable_id=stable_id,
+                    source_name=self.config.name,
+                    source_type=SourceType.GREENHOUSE,
+                    title=title,
+                    company=self.config.name,
+                    description=description,
+                    employment_type=emp_type,
+                    location=location_name,
+                    country=resolve_job_country(location_name) or "",
+                    is_remote=is_remote,
+                    workplace_type=workplace_type,
+                    status="active",
+                    compensation_min=comp_min,
+                    compensation_max=comp_max,
+                    currency=currency,
+                    publication_date=item.get("updated_at", now_iso),
+                    discovered_at=now_iso,
+                    source_updated_at=source_updated,
+                    last_verified_at=now_iso,
+                    application_url=app_url,
+                    raw_data=item,
+                )
+                job.fingerprint = job.compute_fingerprint()
+                normalized.append(job)
+            except Exception as item_err:
+                logger.warning(f"[discovery]Skipped malformed Greenhouse job item in '{board}': {item_err}")
                 continue
 
-            loc_data = item.get("location") or {}
-            location_name = loc_data.get("name", "") if isinstance(loc_data, dict) else str(loc_data or "")
-
-            raw_content = item.get("content") or ""
-            description = strip_html(raw_content)
-
-            is_remote = detect_remote(location_name, title) or detect_remote("", description[:300])
-            workplace_type = detect_workplace_type(location_name, f"{title} {description[:300]}")
-            emp_type = classify_employment_type(f"{title} {description[:400]}")
-            comp_min, comp_max, currency = extract_compensation(description)
-
-            stable_id = f"greenhouse:{board}:{job_id}"
-            app_url = item.get("absolute_url", f"https://boards.greenhouse.io/{board}/jobs/{job_id}")
-            source_updated = item.get("updated_at") or now_iso
-
-            job = NormalizedJob(
-                stable_id=stable_id,
-                source_name=self.config.name,
-                source_type=SourceType.GREENHOUSE,
-                title=title,
-                company=self.config.name,
-                description=description,
-                employment_type=emp_type,
-                location=location_name,
-                country=resolve_job_country(location_name) or "",
-                is_remote=is_remote,
-                workplace_type=workplace_type,
-                status="active",
-                compensation_min=comp_min,
-                compensation_max=comp_max,
-                currency=currency,
-                publication_date=item.get("updated_at", now_iso),
-                discovered_at=now_iso,
-                source_updated_at=source_updated,
-                last_verified_at=now_iso,
-                application_url=app_url,
-                raw_data=item,
-            )
-            job.fingerprint = job.compute_fingerprint()
-            normalized.append(job)
-
+        self.is_last_sync_complete = True
         return normalized
