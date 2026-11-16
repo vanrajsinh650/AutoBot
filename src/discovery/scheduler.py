@@ -137,8 +137,8 @@ class DiscoveryScheduler:
                     is_complete = res.is_complete
 
                     if err is None and isinstance(jobs, list):
-                        # Persist jobs with explicit completeness state
-                        self.engine.persist_and_update_freshness(src, jobs, is_complete=is_complete)
+                        # Persist jobs with explicit completeness state and lease fencing protection
+                        self.engine.persist_and_update_freshness(src, jobs, is_complete=is_complete, lease_token=lease_token)
                         logger.info(
                             f"[scheduler]Sync completed for '{source.name}': {len(jobs)} jobs (is_complete={is_complete})"
                         )

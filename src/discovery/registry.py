@@ -208,15 +208,18 @@ class JobDiscoveryEngine:
         active_jobs: List[NormalizedJob],
         is_complete: bool = True,
         sync_run_id: Optional[str] = None,
+        lease_token: Optional[str] = None,
     ) -> List[NormalizedJob]:
         """
         Persist newly discovered jobs, update last_verified_at on existing jobs,
         and mark vanished jobs from this source as expired ONLY IF is_complete is True.
 
-        CRITICAL INVARIANT:
-        Never expire previously discovered jobs after a partial fetch, truncated response,
-        parse failure, or incomplete pagination. Expire jobs only after a fully successful
-        authoritative sync of the relevant board.
+        CRITICAL INVARIANTS:
+        1. Never expire previously discovered jobs after a partial fetch, truncated response,
+           parse failure, or incomplete pagination. Expire jobs only after a fully successful
+           authoritative sync of the relevant board.
+        2. Lease Fencing: If lease_token is provided, verify active lease ownership within
+           the commit transaction; abort immediately if the lease was lost or expired.
         """
         init_db(self.db_path)
         now = datetime.now()
@@ -227,8 +230,17 @@ class JobDiscoveryEngine:
         duplicates_removed = 0
         expired_count = 0
         source_prefix = f"{source.source_type.value}:{source.board_token_or_slug}:"
+        resource_key = f"{source.source_type.value}:{source.board_token_or_slug}"
 
         with get_db_connection(self.db_path) as conn:
+            # Lease fencing check: verify worker still owns the unexpired lease before committing
+            if lease_token:
+                from src.storage.db import StaleWorkerLeaseError, validate_lease_fencing
+                if not validate_lease_fencing(conn, resource_key, lease_token):
+                    raise StaleWorkerLeaseError(
+                        f"Fencing violation: Worker token '{lease_token}' lost lease ownership for '{resource_key}'. "
+                        "Synchronization commit and job expiration aborted to prevent stale overwrites."
+                    )
             # 1. Fetch currently active jobs for this source from database
             active_db_rows = conn.execute(
                 "SELECT id, stable_id, status FROM jobs WHERE stable_id LIKE ?",

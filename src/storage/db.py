@@ -883,3 +883,37 @@ def get_scheduler_lease(
             "last_heartbeat_at": row[4],
             "metadata": row[5],
         }
+
+
+class StaleWorkerLeaseError(RuntimeError):
+    """
+    Raised when a worker attempts to commit sync results or job mutations after
+    losing ownership of its database lease (lease fencing protection).
+    """
+    pass
+
+
+def validate_lease_fencing(
+    conn: sqlite3.Connection,
+    resource_key: str,
+    owner_token: str,
+) -> bool:
+    """
+    Validate that owner_token currently holds an unexpired lease for resource_key within an active SQLite transaction.
+    Guarantees that stale, delayed, or paused workers cannot commit mutations after lease loss.
+    """
+    row = conn.execute(
+        "SELECT owner_token, expires_at FROM scheduler_leases WHERE resource_key = ?",
+        (resource_key,),
+    ).fetchone()
+    if not row:
+        return False
+    current_token, expires_at_str = row[0], row[1]
+    if current_token != owner_token:
+        return False
+    try:
+        if datetime.now() >= datetime.fromisoformat(expires_at_str):
+            return False
+    except Exception:
+        return False
+    return True
