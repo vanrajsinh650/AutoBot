@@ -1,0 +1,63 @@
+{
+  "release_candidate": "v2.3.2-rc1",
+  "project": "AutoBot",
+  "created_at": "2026-11-16T12:45:00+05:30",
+  "git": {
+    "target_branch": "integration/v2.3.2",
+    "target_commit": "1db28ed",
+    "base_commit": "aee1497d8156b2ded484451607972d1c03ca095e",
+    "ancestry_linear": true,
+    "branches": {
+      "main": "aee1497d8156b2ded484451607972d1c03ca095e",
+      "feat/v231-discovery-integrity": "27f0c4c9b0e8abd3c52bcbbbb23e6f7dc74f8460",
+      "feat/v232-operational-hardening": "1db28ed",
+      "integration/v2.3.2": "1db28ed"
+    }
+  },
+  "verification": {
+    "total_tests_collected": 226,
+    "passed": 223,
+    "deselected": 3,
+    "failed": 0,
+    "warnings": 0,
+    "live_integration_deselected": [
+      "tests/test_discovery_live.py::test_live_greenhouse_fetch",
+      "tests/test_discovery_live.py::test_live_lever_fetch",
+      "tests/test_v23_discovery_and_security.py::test_live_ats_discovery_multiboard"
+    ]
+  },
+  "database_provenance": {
+    "baseline_backup_path": "data/backups/20261116_v231_baseline/autobot.db.bak",
+    "baseline_backup_sha256": "77e5676e95e37bcb0131ed432eb8c6e69dd13b3304d006fcb8ca20aed9a7bc57",
+    "production_db_path": "logs/autobot.db",
+    "production_db_sha256": "d1e5b6048b575b4be8c6e56d91ff1b91d4e25ae4550c0929efa58f52b226bce5",
+    "difference_justification": "Legitimate v2.3.1 schema migrations (sync_runs table, job_sources columns) and legitimate background discovery worker health records. Candidate and user rows are 100% identical.",
+    "sqlite_integrity_check": "ok",
+    "hard_guard_verified": "Pytest hard guard in get_db_connection prevents tests from reading/writing live production database."
+  },
+  "benchmark_freeze": {
+    "dataset_path": "data/benchmarks/independent_eval_dataset.json",
+    "dataset_sha256": "df30da05653a4b654bd44fda1a5fa67ee4fc4974437190ce40ac9b96a70b8683",
+    "total_pairs": 80,
+    "tamper_detection_active": true
+  },
+  "lease_concurrency": {
+    "mechanism": "SQLite atomic BEGIN IMMEDIATE transaction leasing",
+    "fencing_protection": "StaleWorkerLeaseError raised if lease lost before mutation commit",
+    "generational_safety": "Verified across multiple worker generations (Gen 1 & Gen 2 locked out by Gen 3)",
+    "supported_topology": "Single-node multi-process (local NVMe/SSD with WAL mode)",
+    "unsupported_topology": "Network filesystems (NFS/EFS/CIFS) - Requires PostgreSQL advisory locks"
+  },
+  "warning_filters": [
+    {
+      "pattern": "ignore:.*'asyncio.iscoroutinefunction' is deprecated.*:DeprecationWarning:langsmith.*",
+      "origin": "langsmith._internal._beta_decorator:92",
+      "reason": "Upstream third-party package deprecation in Python 3.14"
+    },
+    {
+      "pattern": "ignore:.*[Pp]ayload indexes have no effect in the local Qdrant.*:UserWarning",
+      "origin": "qdrant_client",
+      "reason": "Upstream in-memory Qdrant informational notice during local vector tests"
+    }
+  ]
+}
