@@ -27,13 +27,14 @@
     ]
   },
   "database_provenance": {
-    "baseline_backup_path": "data/backups/20261116_v231_baseline/autobot.db.bak",
-    "baseline_backup_sha256": "77e5676e95e37bcb0131ed432eb8c6e69dd13b3304d006fcb8ca20aed9a7bc57",
-    "production_db_path": "logs/autobot.db",
-    "production_db_sha256": "d1e5b6048b575b4be8c6e56d91ff1b91d4e25ae4550c0929efa58f52b226bce5",
-    "difference_justification": "Legitimate v2.3.1 schema migrations (sync_runs table, job_sources columns) and legitimate background discovery worker health records. Candidate and user rows are 100% identical.",
+    "schema_version": "v2.3.2",
+    "migrations_applied": [
+      "001_initial_schema",
+      "015_sync_runs",
+      "016_scheduler_leases"
+    ],
     "sqlite_integrity_check": "ok",
-    "hard_guard_verified": "Pytest hard guard in get_db_connection prevents tests from reading/writing live production database."
+    "production_guard_verified": "Pytest hard guard in get_db_connection prevents test suites from accessing production database."
   },
   "benchmark_freeze": {
     "dataset_path": "data/benchmarks/independent_eval_dataset.json",
