@@ -690,6 +690,15 @@ async def search_live_handler(request: web.Request) -> web.Response:
     keyword = str(body.get("keyword", "")).strip() or (keywords[0] if keywords else "")
     location = body.get("location")
     target = str(body.get("target", "google")).lower().strip()
+    
+    # Background execution support: run silently without stealing desktop window focus
+    background_param = body.get("background")
+    if background_param is None:
+        background_param = body.get("headless")
+    if background_param is None:
+        from src.utils.config import get_config
+        background_param = getattr(getattr(get_config(), "browser", None), "headless", False)
+    headless = bool(background_param)
 
     execution_manager.user_id = user_id
 
@@ -712,19 +721,19 @@ async def search_live_handler(request: web.Request) -> web.Response:
                 await run_direct_chrome_search(
                     keywords=keywords,
                     location=location,
-                    headless=False,
+                    headless=headless,
                     progress_callback=cb,
                     user_id=user_id,
-                    keep_open=True,
+                    keep_open=not headless,
                 )
             elif target == "google_only":
                 await run_direct_google_keyword_search(
                     keyword=keyword,
                     location=location,
-                    headless=False,
+                    headless=headless,
                     progress_callback=cb,
                     user_id=user_id,
-                    keep_open=True,
+                    keep_open=not headless,
                 )
             else:
                 # Default: Google search -> Navigate to LinkedIn job roles -> Open role
@@ -732,10 +741,10 @@ async def search_live_handler(request: web.Request) -> web.Response:
                     keyword=keyword,
                     location=location,
                     open_first_role=True,
-                    headless=False,
+                    headless=headless,
                     progress_callback=cb,
                     user_id=user_id,
-                    keep_open=True,
+                    keep_open=not headless,
                 )
             execution_manager.broadcast("log", {"level": "success", "message": "Direct Chrome search and role navigation completed successfully.", "user_id": user_id})
         except Exception as e:

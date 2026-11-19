@@ -17,10 +17,11 @@ Deterministic filtering is the first line of defense in agentic execution:
    Pops the next candidate vacancy from `unprocessed_jobs` into `current_job`.
 """
 
+import re
 from typing import Any, Dict, List, Optional
 
 from src.agent.state import AgentState, JobPosting
-from src.storage.db import get_db_path, is_already_applied
+from src.storage.db import get_db_path, is_already_applied, is_job_processed
 from src.utils.config import get_config
 from src.utils.logger import logger
 
@@ -74,9 +75,15 @@ class FilterNode:
         title_lower = current_job.title.lower()
         company_lower = current_job.company.lower()
 
-        # ── Check 1: Already Applied ──────────────────────────────────
-        if is_already_applied(job_id, db_path=self.db_path):
-            skip_msg = f"Already applied to job_id '{job_id}'"
+        # ── Check 1: Already Applied or Processed ─────────────────────
+        if is_already_applied(job_id, db_path=self.db_path) or is_job_processed(
+            job_id=job_id,
+            url=getattr(current_job, "url", ""),
+            title=current_job.title,
+            company=current_job.company,
+            db_path=self.db_path,
+        ):
+            skip_msg = f"Already applied or processed job_id '{job_id}' ({current_job.title} @ {current_job.company})"
             logger.info(f"[agent]⏭ Skip: {current_job.title} @ {current_job.company} ({skip_msg})[/agent]")
             return {
                 "unprocessed_jobs": unprocessed,
@@ -99,7 +106,14 @@ class FilterNode:
 
         # ── Check 3: Blacklisted Title Keywords ───────────────────────
         for blk in self.blacklist_keywords:
-            if blk in title_lower:
+            clean_blk = blk.strip().lower()
+            if not clean_blk:
+                continue
+            if clean_blk.isalnum():
+                matched = bool(re.search(rf"\b{re.escape(clean_blk)}\b", title_lower))
+            else:
+                matched = clean_blk in title_lower
+            if matched:
                 skip_msg = f"Title '{current_job.title}' contains blacklisted keyword '{blk}'"
                 logger.info(f"[agent]⏭ Skip: {current_job.title} @ {current_job.company} ({skip_msg})[/agent]")
                 return {

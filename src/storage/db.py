@@ -122,6 +122,102 @@ def is_already_applied(
         return cursor.fetchone() is not None
 
 
+def extract_canonical_job_id(url_or_id: str) -> str:
+    """Extract canonical numeric or stable ID from a job URL or identifier."""
+    if not url_or_id:
+        return ""
+    val = str(url_or_id).strip()
+    match = re.search(r"/jobs/view/(?:[a-zA-Z0-9\-]+-)?(\d+)", val)
+    if match:
+        return match.group(1)
+    digits = re.search(r"\b(\d{7,})\b", val)
+    if digits:
+        return digits.group(1)
+    return val.split("?")[0].strip()
+
+
+def is_job_processed(
+    job_id: Optional[str] = None,
+    url: Optional[str] = None,
+    title: Optional[str] = None,
+    company: Optional[str] = None,
+    db_path: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> bool:
+    """
+    Comprehensive check to determine if a job has already been fetched, evaluated,
+    skipped, or applied to. Checks across:
+    1. Direct job_id match in applications table.
+    2. Extracted numeric LinkedIn job ID match (e.g. 4476162243).
+    3. Direct or normalized URL match in applications table or jobs table.
+    4. Exact normalized (title, company) match in applications table.
+    """
+    if not job_id and not url and not (title and company):
+        return False
+
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        # 1. Check job_id directly
+        if job_id:
+            cleaned_jid = str(job_id).strip()
+            canonical_id = extract_canonical_job_id(cleaned_jid)
+
+            conditions = ["job_id = ?"]
+            params: list[Any] = [cleaned_jid]
+            if canonical_id and canonical_id != cleaned_jid:
+                conditions.append("job_id = ?")
+                params.append(canonical_id)
+
+            where_clause = " OR ".join(conditions)
+            if user_id is not None:
+                query = f"SELECT id FROM applications WHERE ({where_clause}) AND user_id = ? LIMIT 1"
+                params.append(user_id)
+            else:
+                query = f"SELECT id FROM applications WHERE ({where_clause}) LIMIT 1"
+
+            if conn.execute(query, tuple(params)).fetchone():
+                return True
+
+        # 2. Check by URL
+        if url:
+            cleaned_url = url.split("?")[0].rstrip("/")
+            canonical_id = extract_canonical_job_id(url)
+
+            conditions = ["url LIKE ?", "url LIKE ?"]
+            params = [f"{cleaned_url}%", f"%{cleaned_url}%"]
+            if canonical_id:
+                conditions.append("job_id = ?")
+                params.append(canonical_id)
+
+            where_clause = " OR ".join(conditions)
+            if user_id is not None:
+                query = f"SELECT id FROM applications WHERE ({where_clause}) AND user_id = ? LIMIT 1"
+                params.append(user_id)
+            else:
+                query = f"SELECT id FROM applications WHERE ({where_clause}) LIMIT 1"
+
+            if conn.execute(query, tuple(params)).fetchone():
+                return True
+
+        # 3. Check by normalized title + company
+        if title and company:
+            clean_t = title.strip().lower()
+            clean_c = company.strip().lower()
+            if clean_t and clean_c and clean_t != "unknown title":
+                if user_id is not None:
+                    query = "SELECT id FROM applications WHERE LOWER(TRIM(job_title)) = ? AND LOWER(TRIM(company)) = ? AND user_id = ? LIMIT 1"
+                    params = [clean_t, clean_c, user_id]
+                else:
+                    query = "SELECT id FROM applications WHERE LOWER(TRIM(job_title)) = ? AND LOWER(TRIM(company)) = ? LIMIT 1"
+                    params = [clean_t, clean_c]
+
+                if conn.execute(query, tuple(params)).fetchone():
+                    return True
+
+    return False
+
+
+
 def save_application(
     job_id: str,
     job_title: str,

@@ -13,7 +13,6 @@ search:
   experience_level:
   - entry
   - associate
-  - mid-senior
   job_type:
   - full-time
 apply:
@@ -41,11 +40,23 @@ blacklist:
   title_keywords:
   - 10+ years
   - 15+ years
+  - senior
+  - sr.
+  - sr
+  - lead
+  - principal
+  - staff
+  - director
+  - vp
+  - head of
+  - architect
+  - manager
 agent:
   max_retries: 3
   max_pages: 5
   delay_between_jobs: 5
 browser:
+  headless: false
   slow_mo: 50
   viewport_width: 1280
   viewport_height: 800

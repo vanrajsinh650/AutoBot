@@ -89,6 +89,7 @@
 
     // Controls
     dryRunCheckbox: document.getElementById("dry-run-checkbox"),
+    bgModeCheckbox: document.getElementById("bg-mode-checkbox"),
     btnStart: document.getElementById("btn-start-run"),
     btnSearchChrome: document.getElementById("btn-search-chrome"),
     btnStop: document.getElementById("btn-stop-run"),
@@ -477,19 +478,25 @@
   // ── Agent Run Actions ─────────────────────────────────────────────
   async function startAgentRun(forceIngest = false) {
     const dryRun = els.dryRunCheckbox.checked;
+    const isBackground = els.bgModeCheckbox ? els.bgModeCheckbox.checked : true;
     sfx.launch();
     try {
       setRunningState(true);
       const res = await authedFetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dry_run: dryRun, force_ingest: forceIngest }),
+        body: JSON.stringify({
+          dry_run: dryRun,
+          force_ingest: forceIngest,
+          background: isBackground,
+          headless: isBackground,
+        }),
       });
       const data = await res.json();
 
       if (res.ok) {
         showToast(forceIngest ? "Profile sync & agent commenced" : "Sovereign run initiated");
-        appendLog("info", `Initiated run (dry_run=${dryRun}, force_ingest=${forceIngest})`);
+        appendLog("info", `Initiated run (dry_run=${dryRun}, force_ingest=${forceIngest}, background=${isBackground})`);
       } else {
         showToast(data.error || "Failed to start run", "error");
         setRunningState(false);
@@ -518,17 +525,26 @@
 
   async function startChromeSearch() {
     sfx.launch();
+    const isBackground = els.bgModeCheckbox ? els.bgModeCheckbox.checked : true;
     try {
       setRunningState(true);
-      appendLog("info", "Opening real Google Chrome to search keywords directly on LinkedIn...");
+      appendLog(
+        "info",
+        isBackground
+          ? "Searching LinkedIn keywords silently in background (no screen disturbance)..."
+          : "Opening real Google Chrome to search keywords directly on LinkedIn..."
+      );
       const res = await authedFetch("/api/search/live", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          background: isBackground,
+          headless: isBackground,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
-        showToast("Direct Google Chrome search started!");
+        showToast(isBackground ? "Background search running silently!" : "Direct Google Chrome search started!");
       } else {
         showToast(data.error || "Failed to start Chrome search", "error");
         setRunningState(false);

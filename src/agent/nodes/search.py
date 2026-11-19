@@ -78,14 +78,30 @@ class SearchNode:
                 init_db()
                 with get_db_connection() as conn:
                     pattern = f"%{keyword}%"
-                    rows = conn.execute(
-                        "SELECT * FROM jobs WHERE status != 'expired' AND (title LIKE ? OR description LIKE ?) ORDER BY id DESC LIMIT 20",
-                        (pattern, pattern),
-                    ).fetchall()
+                    sql = """
+                        SELECT j.* FROM jobs j
+                        WHERE j.status != 'expired' AND (j.title LIKE ? OR j.description LIKE ?)
+                        AND NOT EXISTS (
+                            SELECT 1 FROM applications a
+                            WHERE a.job_id = j.stable_id
+                               OR a.job_id = CAST(j.id AS TEXT)
+                               OR (LOWER(TRIM(a.job_title)) = LOWER(TRIM(j.title)) AND LOWER(TRIM(a.company)) = LOWER(TRIM(j.company)))
+                        )
+                        ORDER BY j.id DESC LIMIT 20
+                    """
+                    rows = conn.execute(sql, (pattern, pattern)).fetchall()
                     if not rows:
-                        rows = conn.execute(
-                            "SELECT * FROM jobs WHERE status != 'expired' ORDER BY id DESC LIMIT 20"
-                        ).fetchall()
+                        rows = conn.execute("""
+                            SELECT j.* FROM jobs j
+                            WHERE j.status != 'expired'
+                            AND NOT EXISTS (
+                                SELECT 1 FROM applications a
+                                WHERE a.job_id = j.stable_id
+                                   OR a.job_id = CAST(j.id AS TEXT)
+                                   OR (LOWER(TRIM(a.job_title)) = LOWER(TRIM(j.title)) AND LOWER(TRIM(a.company)) = LOWER(TRIM(j.company)))
+                            )
+                            ORDER BY j.id DESC LIMIT 20
+                        """).fetchall()
                     for r in rows:
                         discovered_jobs.append(JobPosting(
                             job_id=str(r["id"]),
@@ -104,9 +120,18 @@ class SearchNode:
             f"[agent]📋 Found {len(discovered_jobs)} job postings on page {page}.[/agent]"
         )
 
-        # Merge newly discovered jobs with any existing unprocessed jobs
+        # Merge newly discovered jobs with any existing unprocessed jobs, deduplicating
         existing_jobs = list(state.get("unprocessed_jobs", []))
-        updated_queue = existing_jobs + discovered_jobs
+        seen_keys = {
+            (j.job_id, (j.title or "").strip().lower(), (j.company or "").strip().lower())
+            for j in existing_jobs
+        }
+        for dj in discovered_jobs:
+            key = (dj.job_id, (dj.title or "").strip().lower(), (dj.company or "").strip().lower())
+            if key not in seen_keys:
+                seen_keys.add(key)
+                existing_jobs.append(dj)
+        updated_queue = existing_jobs
 
         return {
             "unprocessed_jobs": updated_queue,
@@ -141,14 +166,30 @@ class SearchNode:
                 init_db()
                 with get_db_connection() as conn:
                     pattern = f"%{keyword}%"
-                    rows = conn.execute(
-                        "SELECT * FROM jobs WHERE status != 'expired' AND (title LIKE ? OR description LIKE ?) ORDER BY id DESC LIMIT 20",
-                        (pattern, pattern),
-                    ).fetchall()
+                    sql = """
+                        SELECT j.* FROM jobs j
+                        WHERE j.status != 'expired' AND (j.title LIKE ? OR j.description LIKE ?)
+                        AND NOT EXISTS (
+                            SELECT 1 FROM applications a
+                            WHERE a.job_id = j.stable_id
+                               OR a.job_id = CAST(j.id AS TEXT)
+                               OR (LOWER(TRIM(a.job_title)) = LOWER(TRIM(j.title)) AND LOWER(TRIM(a.company)) = LOWER(TRIM(j.company)))
+                        )
+                        ORDER BY j.id DESC LIMIT 20
+                    """
+                    rows = conn.execute(sql, (pattern, pattern)).fetchall()
                     if not rows:
-                        rows = conn.execute(
-                            "SELECT * FROM jobs WHERE status != 'expired' ORDER BY id DESC LIMIT 20"
-                        ).fetchall()
+                        rows = conn.execute("""
+                            SELECT j.* FROM jobs j
+                            WHERE j.status != 'expired'
+                            AND NOT EXISTS (
+                                SELECT 1 FROM applications a
+                                WHERE a.job_id = j.stable_id
+                                   OR a.job_id = CAST(j.id AS TEXT)
+                                   OR (LOWER(TRIM(a.job_title)) = LOWER(TRIM(j.title)) AND LOWER(TRIM(a.company)) = LOWER(TRIM(j.company)))
+                            )
+                            ORDER BY j.id DESC LIMIT 20
+                        """).fetchall()
                     for r in rows:
                         discovered_jobs.append(JobPosting(
                             job_id=str(r["id"]),
@@ -167,9 +208,18 @@ class SearchNode:
             f"[agent]📋 Found {len(discovered_jobs)} job postings on page {page}.[/agent]"
         )
 
-        # Merge newly discovered jobs with any existing unprocessed jobs
+        # Merge newly discovered jobs with any existing unprocessed jobs, deduplicating
         existing_jobs = list(state.get("unprocessed_jobs", []))
-        updated_queue = existing_jobs + discovered_jobs
+        seen_keys = {
+            (j.job_id, (j.title or "").strip().lower(), (j.company or "").strip().lower())
+            for j in existing_jobs
+        }
+        for dj in discovered_jobs:
+            key = (dj.job_id, (dj.title or "").strip().lower(), (dj.company or "").strip().lower())
+            if key not in seen_keys:
+                seen_keys.add(key)
+                existing_jobs.append(dj)
+        updated_queue = existing_jobs
 
         return {
             "unprocessed_jobs": updated_queue,

@@ -247,6 +247,9 @@ class ChromiumBackend(BrowserBackend):
             "--disable-blink-features=AutomationControlled",
             "--disable-dev-shm-usage",
             "--disable-infobars",
+            "--test-type",
+            "--no-first-run",
+            "--no-default-browser-check",
             "--disable-background-networking",
             "--disable-background-timer-throttling",
             "--disable-backgrounding-occluded-windows",
@@ -277,7 +280,7 @@ class ChromiumBackend(BrowserBackend):
             "headless": self.headless,
             "slow_mo": slow_mo,
             "args": launch_args,
-            "ignore_default_args": ["--enable-automation"],
+            "ignore_default_args": ["--enable-automation", "--no-sandbox"],
             "viewport": {"width": viewport_w, "height": viewport_h},
             "locale": "en-US",
         }
@@ -295,7 +298,7 @@ class ChromiumBackend(BrowserBackend):
                 "headless": self.headless,
                 "slow_mo": slow_mo,
                 "args": launch_args,
-                "ignore_default_args": ["--enable-automation"],
+                "ignore_default_args": ["--enable-automation", "--no-sandbox"],
             }
             if exec_path:
                 launch_kwargs["executable_path"] = exec_path

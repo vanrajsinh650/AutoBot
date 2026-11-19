@@ -403,20 +403,21 @@ class LinkedInNavigator:
         if getattr(self.cfg.search, "remote", True):
             params["f_WT"] = "2"
 
-        # Experience level filter
-        exp_levels = getattr(self.cfg.search, "experience_level", [])
-        if exp_levels:
-            exp_map = {
-                "internship": "1",
-                "entry": "2",
-                "associate": "3",
-                "mid-senior": "4",
-                "director": "5",
-                "executive": "6",
-            }
-            codes = [exp_map[e.lower()] for e in exp_levels if e.lower() in exp_map]
-            if codes:
-                params["f_E"] = "%2C".join(codes)
+        # Experience level filter: defaults to non-senior (internship, entry, associate)
+        exp_levels = getattr(self.cfg.search, "experience_level", ["entry", "associate"])
+        exp_map = {
+            "internship": "1",
+            "entry": "2",
+            "associate": "3",
+            "mid-senior": "4",
+            "director": "5",
+            "executive": "6",
+        }
+        codes = [exp_map[e.lower()] for e in exp_levels if e.lower() in exp_map]
+        if codes:
+            params["f_E"] = "%2C".join(codes)
+        else:
+            params["f_E"] = "1%2C2%2C3"
 
         query_string = "&".join(f"{k}={v}" for k, v in params.items())
         return f"{self.JOBS_URL}?{query_string}"

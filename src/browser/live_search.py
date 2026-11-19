@@ -6,6 +6,7 @@ and extracts discovered job postings into the local database and dashboard.
 """
 
 import asyncio
+import re
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import quote_plus
@@ -14,7 +15,7 @@ from src.agent.state import JobPosting
 from src.browser.manager import BrowserManager
 from src.browser.navigator import LinkedInNavigator
 from src.browser.popup_handler import dismiss_sign_in_popup, install_popup_observer, recover_from_authwall
-from src.storage.db import get_db_connection, init_db, save_application, save_scraped_job
+from src.storage.db import get_db_connection, init_db, is_job_processed, save_application, save_scraped_job
 from src.utils.config import AppConfig, EnvSettings, get_config, get_env
 from src.utils.logger import logger
 
@@ -89,6 +90,17 @@ async def run_direct_chrome_search(
 
         # 4. Execute search for each keyword
         init_db()
+        exp_levels = getattr(cfg.search, "experience_level", ["entry", "associate"])
+        blacklist_keywords = [
+            k.lower() for k in getattr(cfg.blacklist, "title_keywords", []) if k
+        ]
+        is_senior_target = any(e.lower() in ("mid-senior", "director", "executive") for e in exp_levels)
+        if not is_senior_target:
+            senior_defaults = ["senior", "sr.", "sr", "lead", "principal", "staff", "director", "vp", "architect", "head of", "manager"]
+            for sp in senior_defaults:
+                if sp not in blacklist_keywords:
+                    blacklist_keywords.append(sp)
+
         for kw in search_keywords:
             kw = kw.strip()
             if not kw:
@@ -101,6 +113,28 @@ async def run_direct_chrome_search(
                 _notify("info", f"Found {len(jobs)} jobs for '{kw}' (page {page_num}).")
 
                 for job in jobs:
+                    # Check seniority
+                    is_senior = False
+                    for blk in blacklist_keywords:
+                        clean_blk = blk.strip().lower()
+                        if not clean_blk:
+                            continue
+                        if clean_blk.isalnum():
+                            if re.search(rf"\b{re.escape(clean_blk)}\b", job.title.lower()):
+                                is_senior = True
+                                break
+                        elif clean_blk in job.title.lower():
+                            is_senior = True
+                            break
+                    if is_senior:
+                        logger.info(f"[live-search]⏭ Skipping senior role: '{job.title}' @ '{job.company}'")
+                        continue
+
+                    # Check already processed
+                    if is_job_processed(job_id=job.job_id, url=job.url, title=job.title, company=job.company, user_id=user_id):
+                        logger.info(f"[live-search]⏭ Skipping duplicate already processed job: '{job.title}' @ '{job.company}'")
+                        continue
+
                     all_discovered_jobs.append(job)
 
                     # Persist to database so it appears in Mission Control & Apply Portals section
@@ -349,11 +383,24 @@ async def run_google_to_linkedin_job_search(
         _notify("success", "Google keyword search completed.")
 
         # ── Step 2: Navigate directly to LinkedIn job roles page ─────────
+        # Translate experience levels to LinkedIn f_E parameter
+        exp_levels = getattr(cfg.search, "experience_level", ["entry", "associate"])
+        exp_map = {
+            "internship": "1",
+            "entry": "2",
+            "associate": "3",
+            "mid-senior": "4",
+            "director": "5",
+            "executive": "6",
+        }
+        exp_codes = [exp_map[e.lower()] for e in exp_levels if e.lower() in exp_map]
+        exp_filter = f"&f_E={'%2C'.join(exp_codes)}" if exp_codes else "&f_E=1%2C2%2C3"
+
         linkedin_url = (
             f"https://www.linkedin.com/jobs/search/?keywords={quote_plus(search_kw)}"
-            f"&location={quote_plus(search_loc)}&f_TPR=r86400"
+            f"&location={quote_plus(search_loc)}&f_TPR=r86400{exp_filter}"
         )
-        _notify("info", f"Step 2: Navigating to LinkedIn page showing job roles for '{search_kw}'...")
+        _notify("info", f"Step 2: Navigating to LinkedIn page showing non-senior job roles for '{search_kw}'...")
         await page.goto(linkedin_url, wait_until="domcontentloaded", timeout=25000)
         await asyncio.sleep(2.5)
 
@@ -397,101 +444,160 @@ async def run_google_to_linkedin_job_search(
 
         _notify("success", f"Discovered {len(roles_data)} job roles for '{search_kw}' on LinkedIn!")
 
+        # Title blacklist and seniority exclusion
+        blacklist_keywords = [
+            k.lower() for k in getattr(cfg.blacklist, "title_keywords", []) if k
+        ]
+        is_senior_target = any(e.lower() in ("mid-senior", "director", "executive") for e in exp_levels)
+        if not is_senior_target:
+            senior_defaults = ["senior", "sr.", "sr", "lead", "principal", "staff", "director", "vp", "architect", "head of", "manager"]
+            for sp in senior_defaults:
+                if sp not in blacklist_keywords:
+                    blacklist_keywords.append(sp)
+
+        eligible_roles = []
         for r in roles_data:
+            title = r.get("title", "")
+            title_lower = title.lower()
+            company = r.get("company", "")
+            url = r.get("url", "")
+            apply_url = r.get("apply_url") or url
+
+            # Check seniority / title blacklist
+            is_blacklisted = False
+            for blk in blacklist_keywords:
+                clean_blk = blk.strip().lower()
+                if not clean_blk:
+                    continue
+                if clean_blk.isalnum():
+                    if re.search(rf"\b{re.escape(clean_blk)}\b", title_lower):
+                        is_blacklisted = True
+                        break
+                elif clean_blk in title_lower:
+                    is_blacklisted = True
+                    break
+
+            # Check if this job has already been fetched, evaluated, skipped, or applied to
+            already_processed = is_job_processed(
+                url=url,
+                title=title,
+                company=company,
+                user_id=user_id,
+            )
+
             discovered_roles.append(r)
+
+            # Persist to local database
             try:
                 save_scraped_job(
-                    title=r["title"],
-                    company=r["company"],
+                    title=title,
+                    company=company,
                     location=r.get("location") or search_loc,
-                    description=r.get("description") or f"Position: {r['title']} at {r['company']}. Location: {r.get('location') or search_loc}.",
-                    apply_url=r.get("apply_url") or r["url"],
+                    description=r.get("description") or f"Position: {title} at {company}. Location: {r.get('location') or search_loc}.",
+                    apply_url=apply_url,
                     source_name="LinkedIn",
                     is_easy_apply=r.get("is_easy_apply", False),
                     user_id=user_id,
                     raw_data={
-                        "source_url": r["url"],
+                        "source_url": url,
                         "search_keyword": search_kw,
                         "is_easy_apply": r.get("is_easy_apply", False),
+                        "is_blacklisted": is_blacklisted,
+                        "already_processed": already_processed,
                     },
                 )
             except Exception:
                 pass
 
-        # ── Step 4: Open the top job role directly in Google Chrome ─────
-        if open_first_role and discovered_roles:
-            top_role = discovered_roles[0]
-            _notify("info", f"Step 3: Opening job role: '{top_role['title']}' at '{top_role['company']}' in Chrome...")
-            
-            opened = False
-            # 1. Natural in-page click on the first job card to preserve human referer & session
-            try:
-                first_card = await page.query_selector(".base-card, .job-search-card, .job-card-container")
-                if first_card:
-                    link = await first_card.query_selector("a.base-card__full-link, a[href*='/jobs/view/'], a")
-                    if link and await link.is_visible():
-                        await link.click()
-                        await asyncio.sleep(2.0)
-                        if "authwall" not in page.url.lower():
-                            opened = True
-            except Exception as e:
-                logger.debug(f"In-page card click warning: {e}")
+            if not is_blacklisted and not already_processed:
+                eligible_roles.append(r)
+            elif is_blacklisted:
+                logger.info(f"[live-search]⏭ Filtered out senior role: '{title}' @ '{company}'")
+            elif already_processed:
+                logger.info(f"[live-search]⏭ Filtered out duplicate job already in database: '{title}' @ '{company}'")
 
-            # 2. Direct navigation with Google Referer header if in-page click didn't trigger
-            if not opened or "authwall" in page.url.lower():
+        _notify("info", f"{len(eligible_roles)} fresh, eligible non-senior roles available to process.")
+
+        # ── Step 4: Open top eligible job role directly in Google Chrome ───
+        if open_first_role:
+            if not eligible_roles:
+                _notify("info", "All discovered jobs on this page are either senior roles or already in your database. No duplicate reopened.")
+            else:
+                top_role = eligible_roles[0]
+                _notify("info", f"Step 3: Opening fresh eligible role: '{top_role['title']}' at '{top_role['company']}' in Chrome...")
+                
+                opened = False
+                # 1. Natural in-page click if visible
                 try:
-                    await page.goto(
-                        top_role["url"],
-                        referer="https://www.google.com/",
-                        wait_until="domcontentloaded",
-                        timeout=20000,
+                    cards = await page.query_selector_all(".base-card, .job-search-card, .job-card-container")
+                    for card in cards:
+                        text = await card.inner_text()
+                        if top_role["company"].lower() in text.lower() or top_role["title"].lower() in text.lower():
+                            link = await card.query_selector("a.base-card__full-link, a[href*='/jobs/view/'], a")
+                            if link and await link.is_visible():
+                                await link.click()
+                                await asyncio.sleep(2.0)
+                                if "authwall" not in page.url.lower():
+                                    opened = True
+                                    break
+                except Exception as e:
+                    logger.debug(f"In-page card click warning: {e}")
+
+                # 2. Direct navigation with Google Referer header if in-page click didn't trigger
+                if not opened or "authwall" in page.url.lower():
+                    try:
+                        await page.goto(
+                            top_role["url"],
+                            referer="https://www.google.com/",
+                            wait_until="domcontentloaded",
+                            timeout=20000,
+                        )
+                        await asyncio.sleep(1.5)
+                    except Exception as ex:
+                        _notify("warning", f"Could not navigate with referer ({ex})")
+
+                # 3. If redirected to authwall, automatically recover via public search view
+                if "authwall" in page.url.lower():
+                    await recover_from_authwall(
+                        page,
+                        fallback_url=top_role.get("url") or linkedin_url,
+                        keyword=search_kw,
+                        location=search_loc,
                     )
-                    await asyncio.sleep(1.5)
-                except Exception as ex:
-                    _notify("warning", f"Could not navigate with referer ({ex})")
 
-            # 3. If redirected to authwall, automatically recover via public search view
-            if "authwall" in page.url.lower():
-                await recover_from_authwall(
-                    page,
-                    fallback_url=top_role.get("url") or linkedin_url,
-                    keyword=search_kw,
-                    location=search_loc,
-                )
+                # Automatically detect and click close icon on contextual sign-in modal
+                await dismiss_sign_in_popup(page)
+                final_title = await page.title()
 
-            # Automatically detect and click close icon on contextual sign-in modal
-            await dismiss_sign_in_popup(page)
-            final_title = await page.title()
+                # Scrape full job description and direct application form link from open page
+                try:
+                    full_details = await page.evaluate("""() => {
+                        const descEl = document.querySelector('.show-more-less-html__markup, .jobs-description__content, .jobs-box__html-content, #job-details, .jobs-description-content__text');
+                        const applyEl = document.querySelector('.apply-button, [data-tracking-control-name*="apply"], a.top-card-layout__cta--primary');
+                        return {
+                            description: descEl ? descEl.innerText.trim() : '',
+                            apply_url: applyEl && applyEl.href ? applyEl.href : ''
+                        };
+                    }""")
+                    if full_details and full_details.get("description"):
+                        top_role["description"] = full_details["description"]
+                        if full_details.get("apply_url"):
+                            top_role["apply_url"] = full_details["apply_url"]
+                        save_scraped_job(
+                            title=top_role["title"],
+                            company=top_role["company"],
+                            location=top_role.get("location") or search_loc,
+                            description=top_role["description"],
+                            apply_url=top_role.get("apply_url") or top_role["url"],
+                            source_name="LinkedIn",
+                            is_easy_apply=top_role.get("is_easy_apply", False),
+                            user_id=user_id,
+                            raw_data={"source_url": top_role["url"], "search_keyword": search_kw},
+                        )
+                except Exception as dx:
+                    logger.debug(f"Full details extraction: {dx}")
 
-            # Scrape full job description and direct application form link from open page
-            try:
-                full_details = await page.evaluate("""() => {
-                    const descEl = document.querySelector('.show-more-less-html__markup, .jobs-description__content, .jobs-box__html-content, #job-details, .jobs-description-content__text');
-                    const applyEl = document.querySelector('.apply-button, [data-tracking-control-name*="apply"], a.top-card-layout__cta--primary');
-                    return {
-                        description: descEl ? descEl.innerText.trim() : '',
-                        apply_url: applyEl && applyEl.href ? applyEl.href : ''
-                    };
-                }""")
-                if full_details and full_details.get("description"):
-                    top_role["description"] = full_details["description"]
-                    if full_details.get("apply_url"):
-                        top_role["apply_url"] = full_details["apply_url"]
-                    save_scraped_job(
-                        title=top_role["title"],
-                        company=top_role["company"],
-                        location=top_role.get("location") or search_loc,
-                        description=top_role["description"],
-                        apply_url=top_role.get("apply_url") or top_role["url"],
-                        source_name="LinkedIn",
-                        is_easy_apply=top_role.get("is_easy_apply", False),
-                        user_id=user_id,
-                        raw_data={"source_url": top_role["url"], "search_keyword": search_kw},
-                    )
-            except Exception as dx:
-                logger.debug(f"Full details extraction: {dx}")
-
-            _notify("success", f"Job role page active in Google Chrome: '{final_title}'")
+                _notify("success", f"Job role page active in Google Chrome: '{final_title}'")
 
         if keep_open:
             _notify("success", "Google Chrome window is active with the selected job role. You can explore and apply!")
