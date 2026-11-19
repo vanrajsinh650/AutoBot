@@ -30,6 +30,9 @@ from src.utils.llm_factory import get_llm
 from src.utils.logger import logger
 
 
+_UNSET = object()
+
+
 class CoverLetterGenerator:
     """
     Synthesizes tailored, truthful cover letters grounded in Qdrant profile evidence.
@@ -38,11 +41,12 @@ class CoverLetterGenerator:
     def __init__(
         self,
         retriever: ProfileRetriever,
-        llm: Optional[BaseChatModel] = None,
+        llm: Optional[BaseChatModel] = _UNSET,
         default_template: Optional[str] = None,
     ):
         self.retriever = retriever
-        self.llm = llm
+        self._llm = None if llm is _UNSET else llm
+        self._lazy_load = (llm is _UNSET)
         if default_template is not None:
             self.default_template = default_template
         else:
@@ -51,13 +55,24 @@ class CoverLetterGenerator:
             except Exception:
                 self.default_template = ""
 
+    @property
+    def llm(self) -> Optional[BaseChatModel]:
+        return self._llm
+
+    @llm.setter
+    def llm(self, value: Optional[BaseChatModel]) -> None:
+        self._llm = value
+        self._lazy_load = False
+
     def _get_llm(self) -> Optional[BaseChatModel]:
         """Lazy loader for LLM model."""
-        if self.llm is not None:
-            return self.llm
+        if not self._lazy_load:
+            return self._llm
+        if self._llm is not None:
+            return self._llm
         try:
-            self.llm = get_llm(temperature=0.2)
-            return self.llm
+            self._llm = get_llm(temperature=0.2)
+            return self._llm
         except Exception as e:
             logger.debug(f"LLM not initialized in CoverLetterGenerator: {e}")
             return None

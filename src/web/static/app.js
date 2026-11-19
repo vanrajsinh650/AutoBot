@@ -1,6 +1,6 @@
 /**
  * AutoBot Sovereign v3 — Next-Gen 3D Cyber-Industrial Controller
- * Architecture: 3D Particle Mesh · Web Audio Synthesizer · 3D Tilt Physics · Reactive SSE
+ * Architecture: Clean Reactive Web UI · Web Audio Synthesizer · Real-time SSE
  */
 
 (function () {
@@ -90,13 +90,12 @@
     // Controls
     dryRunCheckbox: document.getElementById("dry-run-checkbox"),
     btnStart: document.getElementById("btn-start-run"),
+    btnSearchChrome: document.getElementById("btn-search-chrome"),
     btnStop: document.getElementById("btn-stop-run"),
     btnForceIngest: document.getElementById("btn-force-ingest"),
     btnQuickUpload: document.getElementById("btn-quick-upload"),
-    btnSwitchAccount: document.getElementById("btn-switch-account"),
     btnHeroLaunch: document.getElementById("btn-hero-launch"),
     btnHeroUpload: document.getElementById("btn-hero-upload"),
-    heroHandCard: document.getElementById("hero-hand-card"),
 
     // Mission Control metrics
     metricTotal: document.getElementById("metric-total"),
@@ -207,13 +206,13 @@
 
     const titles = {
       mission: "Mission Control",
-      applications: "Applications Hologrid",
+      applications: "Applications Tracker",
       profile: "Candidate Profile & Vector Memory",
       settings: "Agent Parameters",
       discovery: "Multi-Source Job Discovery",
       matching: "Deterministic Fit & Eligibility",
       packs: "Application Materials & Workflows",
-      privacy: "Privacy, Security & Erasure",
+      "apply-portals": "Application Portals & Direct Form Links",
     };
     els.topbarTitle.innerHTML = `
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" color="var(--primary)">
@@ -225,6 +224,7 @@
     `;
 
     if (viewName === "applications") loadJobs();
+    if (viewName === "apply-portals") loadApplyPortals();
     if (viewName === "profile") loadProfile();
     if (viewName === "settings") loadConfig();
     if (viewName === "discovery") {
@@ -232,7 +232,6 @@
       loadSourceHealth();
       loadKeywordExpansion();
     }
-    if (viewName === "privacy") loadAuditLogs();
   }
 
   // ── LangGraph Active Node Visualizer ──────────────────────────────
@@ -514,6 +513,29 @@
       }
     } catch (err) {
       showToast(`Network error: ${err.message}`, "error");
+    }
+  }
+
+  async function startChromeSearch() {
+    sfx.launch();
+    try {
+      setRunningState(true);
+      appendLog("info", "Opening real Google Chrome to search keywords directly on LinkedIn...");
+      const res = await authedFetch("/api/search/live", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Direct Google Chrome search started!");
+      } else {
+        showToast(data.error || "Failed to start Chrome search", "error");
+        setRunningState(false);
+      }
+    } catch (err) {
+      showToast(`Network error: ${err.message}`, "error");
+      setRunningState(false);
     }
   }
 
@@ -911,121 +933,7 @@
     }
   }
 
-  // ── 3D Card Tilt Physics ──────────────────────────────────────────
-  function init3DTiltPhysics() {
-    const tiltElements = document.querySelectorAll(".tilt-card, #hero-hand-card");
 
-    tiltElements.forEach((el) => {
-      el.addEventListener("mousemove", (e) => {
-        const rect = el.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-
-        const rotateX = ((y - centerY) / centerY) * -12;
-        const rotateY = ((x - centerX) / centerX) * 12;
-
-        el.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
-      });
-
-      el.addEventListener("mouseleave", () => {
-        el.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)";
-      });
-    });
-  }
-
-  // ── 3D Background Neural Particle Mesh Canvas ─────────────────────
-  function init3DParticleCanvas() {
-    const canvas = document.getElementById("canvas-3d-bg");
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-
-    window.addEventListener("resize", () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
-
-    const numParticles = Math.min(85, Math.floor((width * height) / 18000));
-    const particles = [];
-    const fov = 350;
-
-    for (let i = 0; i < numParticles; i++) {
-      particles.push({
-        x: (Math.random() - 0.5) * width * 1.5,
-        y: (Math.random() - 0.5) * height * 1.5,
-        z: Math.random() * 800 + 50,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        vz: (Math.random() - 0.5) * 0.8,
-        radius: Math.random() * 1.8 + 1,
-      });
-    }
-
-    let mouseX = 0;
-    let mouseY = 0;
-    window.addEventListener("mousemove", (e) => {
-      mouseX = (e.clientX - width / 2) * 0.05;
-      mouseY = (e.clientY - height / 2) * 0.05;
-    });
-
-    function animate() {
-      ctx.clearRect(0, 0, width, height);
-
-      // Render 3D particles
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x += p.vx + mouseX * 0.01;
-        p.y += p.vy + mouseY * 0.01;
-        p.z += p.vz;
-
-        if (p.z <= 0) p.z = 850;
-        if (p.z > 850) p.z = 10;
-
-        const scale = fov / (fov + p.z);
-        const screenX = p.x * scale + width / 2;
-        const screenY = p.y * scale + height / 2;
-
-        if (screenX >= 0 && screenX <= width && screenY >= 0 && screenY <= height) {
-          ctx.beginPath();
-          ctx.arc(screenX, screenY, p.radius * scale, 0, Math.PI * 2);
-          const alpha = (1 - p.z / 850) * 0.5;
-          ctx.fillStyle = i % 2 === 0 ? `rgba(16, 185, 129, ${alpha})` : `rgba(6, 182, 212, ${alpha})`;
-          ctx.fill();
-
-          // Connect nearby particles in 3D
-          for (let j = i + 1; j < particles.length; j++) {
-            const p2 = particles[j];
-            const dx = p.x - p2.x;
-            const dy = p.y - p2.y;
-            const dz = p.z - p2.z;
-            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-            if (dist < 150) {
-              const scale2 = fov / (fov + p2.z);
-              const screenX2 = p2.x * scale2 + width / 2;
-              const screenY2 = p2.y * scale2 + height / 2;
-
-              ctx.beginPath();
-              ctx.moveTo(screenX, screenY);
-              ctx.lineTo(screenX2, screenY2);
-              const lineAlpha = (1 - dist / 150) * 0.15 * (1 - p.z / 850);
-              ctx.strokeStyle = `rgba(52, 211, 153, ${lineAlpha})`;
-              ctx.lineWidth = 0.8;
-              ctx.stroke();
-            }
-          }
-        }
-      }
-
-      requestAnimationFrame(animate);
-    }
-
-    animate();
-  }
 
   // ── Helper Utilities ──────────────────────────────────────────────
   function escapeHtml(str) {
@@ -1061,6 +969,9 @@
 
     // Run actions
     els.btnStart.addEventListener("click", () => startAgentRun(false));
+    if (els.btnSearchChrome) {
+      els.btnSearchChrome.addEventListener("click", () => startChromeSearch());
+    }
     els.btnForceIngest.addEventListener("click", () => startAgentRun(true));
     els.btnStop.addEventListener("click", () => stopAgentRun());
 
@@ -1122,6 +1033,59 @@
       saveConfig();
     });
 
+    // Apply Portals category tabs
+    document.querySelectorAll(".platform-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".platform-tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        portalsState.category = tab.getAttribute("data-category") || "all";
+        loadApplyPortals();
+      });
+    });
+
+    // Apply Portals search input
+    const portalSearch = document.getElementById("portals-search-input");
+    if (portalSearch) {
+      let pDebounce;
+      portalSearch.addEventListener("input", () => {
+        clearTimeout(pDebounce);
+        pDebounce = setTimeout(() => {
+          portalsState.search = portalSearch.value.trim();
+          loadApplyPortals();
+        }, 300);
+      });
+    }
+
+    // Refresh portals button
+    const btnRefPortals = document.getElementById("btn-refresh-portals");
+    if (btnRefPortals) {
+      btnRefPortals.addEventListener("click", () => {
+        if (state.audioEnabled && sfx) sfx.click();
+        loadApplyPortals();
+      });
+    }
+
+    // Quick Chrome Search button in portals view
+    const btnQuickChrome = document.getElementById("btn-quick-chrome-search");
+    if (btnQuickChrome) {
+      btnQuickChrome.addEventListener("click", () => {
+        if (state.audioEnabled && sfx) sfx.click();
+        startChromeSearch();
+      });
+    }
+
+    // Job Description Modal Controls
+    const modalCloseBtn = document.getElementById("modal-close-btn");
+    const modalCancelBtn = document.getElementById("modal-cancel-btn");
+    const modalOverlay = document.getElementById("job-modal-overlay");
+    if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeJobModal);
+    if (modalCancelBtn) modalCancelBtn.addEventListener("click", closeJobModal);
+    if (modalOverlay) {
+      modalOverlay.addEventListener("click", (e) => {
+        if (e.target === modalOverlay) closeJobModal();
+      });
+    }
+
     if (els.btnSaveBrowserConfig) {
       els.btnSaveBrowserConfig.addEventListener("click", (e) => {
         e.preventDefault();
@@ -1143,52 +1107,6 @@
         if (els.resumeFileInput) els.resumeFileInput.click();
       });
     }
-
-    if (els.btnSwitchAccount) {
-      els.btnSwitchAccount.addEventListener("click", async () => {
-        if (!confirm("Are you sure you want to log out and switch your LinkedIn account? This will clear the saved browser session so you can log into your alternative account.")) {
-          return;
-        }
-        sfx.click();
-        try {
-          const res = await fetch("/api/logout", { method: "POST" });
-          const data = await res.json();
-          if (res.ok) {
-            sfx.success();
-            showToast("Session cleared! Next run will open a fresh login page for your alternative account.");
-            appendLog("warning", "LinkedIn session cleared. Enter alternative account credentials on next run.");
-            loadStatus();
-          } else {
-            showToast(data.error || "Logout failed", "error");
-          }
-        } catch (err) {
-          showToast(`Error: ${err.message}`, "error");
-        }
-      });
-    }
-
-    const btnRefreshSources = document.getElementById("btn-refresh-sources");
-    if (btnRefreshSources) {
-      btnRefreshSources.addEventListener("click", () => {
-        loadSourceHealth();
-      });
-    }
-
-    const btnLoadPersonalized = document.getElementById("btn-load-personalized");
-    if (btnLoadPersonalized) {
-      btnLoadPersonalized.addEventListener("click", () => {
-        loadPersonalizedMatches();
-      });
-    }
-
-    ["discovery-filter-search", "discovery-filter-status", "discovery-filter-score", "discovery-filter-type", "discovery-filter-workplace"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () => {
-          loadDiscoveryJobs();
-        });
-      }
-    });
 
     if (els.resumeDropzone) {
       els.resumeDropzone.addEventListener("click", (e) => {
@@ -1362,104 +1280,6 @@
             loadDiscoveryJobs();
           } else {
             showToast(data.error || "Import failed", "error");
-          }
-        } catch (err) {
-          showToast(`Error: ${err.message}`, "error");
-        }
-      });
-    }
-
-    const btnRefreshSources = document.getElementById("btn-refresh-sources");
-    if (btnRefreshSources) {
-      btnRefreshSources.addEventListener("click", () => {
-        loadSourceHealth();
-      });
-    }
-
-    const btnLoadPersonalized = document.getElementById("btn-load-personalized");
-    if (btnLoadPersonalized) {
-      btnLoadPersonalized.addEventListener("click", () => {
-        loadPersonalizedMatches();
-      });
-    }
-
-    ["discovery-filter-search", "discovery-filter-status", "discovery-filter-score", "discovery-filter-type", "discovery-filter-workplace"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.addEventListener(el.tagName === "INPUT" ? "input" : "change", () => {
-          loadDiscoveryJobs();
-        });
-      }
-    });
-
-    const btnAuthLogin = document.getElementById("btn-auth-login");
-    if (btnAuthLogin) {
-      btnAuthLogin.addEventListener("click", async () => {
-        const email = document.getElementById("auth-email").value.trim();
-        const password = document.getElementById("auth-password").value.trim();
-        try {
-          const res = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            localStorage.setItem("auth_token", data.token);
-            document.cookie = `autobot_session=${data.token}; path=/; max-age=604800; SameSite=Lax`;
-            showToast(`Logged in as ${email}`);
-            loadStatus();
-          } else {
-            showToast(data.error || "Login failed", "error");
-          }
-        } catch (err) {
-          showToast(`Login error: ${err.message}`, "error");
-        }
-      });
-    }
-
-    const btnAuthRegister = document.getElementById("btn-auth-register");
-    if (btnAuthRegister) {
-      btnAuthRegister.addEventListener("click", async () => {
-        const email = document.getElementById("auth-email").value.trim();
-        const password = document.getElementById("auth-password").value.trim();
-        try {
-          const res = await fetch("/api/auth/register", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            localStorage.setItem("auth_token", data.token);
-            document.cookie = `autobot_session=${data.token}; path=/; max-age=604800; SameSite=Lax`;
-            showToast(`Registered successfully as ${email}`);
-            loadStatus();
-          } else {
-            showToast(data.error || "Registration failed", "error");
-          }
-        } catch (err) {
-          showToast(`Register error: ${err.message}`, "error");
-        }
-      });
-    }
-
-    const btnDeleteAccount = document.getElementById("btn-delete-account");
-    if (btnDeleteAccount) {
-      btnDeleteAccount.addEventListener("click", async () => {
-        if (!confirm("Are you sure? This will permanently erase your profile, resume files, evaluations, and history.")) {
-          return;
-        }
-        try {
-          const res = await authedFetch("/api/privacy/delete-account", { method: "POST" });
-          const data = await res.json();
-          if (data.success) {
-            localStorage.removeItem("auth_token");
-            document.cookie = "autobot_session=; path=/; max-age=0";
-            showToast("All personal candidate data erased permanently.");
-            setTimeout(() => window.location.reload(), 1500);
-          } else {
-            showToast(data.error || "Erasure failed", "error");
           }
         } catch (err) {
           showToast(`Error: ${err.message}`, "error");
@@ -1881,23 +1701,6 @@
     }
   };
 
-  async function loadAuditLogs() {
-    const container = document.getElementById("audit-log-container");
-    if (!container) return;
-    try {
-      const res = await authedFetch("/api/privacy/audit-logs");
-      const data = await res.json();
-      const logs = data.audit_logs || [];
-      if (!logs.length) {
-        container.innerHTML = "No audit log entries found.";
-        return;
-      }
-      container.innerHTML = logs.map(l => `[${l.created_at}] ${l.action} (${l.resource_type}:${l.resource_id}) - ${l.details}`).join("<br>");
-    } catch (e) {
-      container.innerHTML = `Error loading audit logs: ${e.message}`;
-    }
-  }
-
   function escapeHtml(str) {
     if (!str) return "";
     return String(str)
@@ -1908,16 +1711,201 @@
       .replace(/'/g, "&#039;");
   }
 
+  // ── Apply Portals & Direct Form Links ─────────────────────────────
+  const portalsState = {
+    category: "all",
+    search: "",
+    jobs: [],
+    loading: false,
+  };
+
+  async function loadApplyPortals() {
+    const grid = document.getElementById("portals-cards-grid");
+    if (!grid) return;
+
+    portalsState.loading = true;
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 48px; color: var(--text-muted);">
+        <div class="loading-spinner" style="margin: 0 auto 12px auto;"></div>
+        Fetching direct application form links...
+      </div>
+    `;
+
+    try {
+      let url = `/api/apply-portals?limit=100`;
+      if (portalsState.category && portalsState.category !== "all") {
+        url += `&platform=${encodeURIComponent(portalsState.category)}`;
+      }
+      if (portalsState.search) {
+        url += `&q=${encodeURIComponent(portalsState.search)}`;
+      }
+
+      const res = await authedFetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // Update summary metric cards
+      const elTotal = document.getElementById("stat-apply-total");
+      const elLi = document.getElementById("stat-apply-linkedin");
+      const elExt = document.getElementById("stat-apply-external");
+      const cntAll = document.getElementById("cnt-tab-all");
+      const cntLi = document.getElementById("cnt-tab-linkedin");
+      const cntExt = document.getElementById("cnt-tab-external");
+
+      if (elTotal) elTotal.textContent = data.total || 0;
+      if (elLi) elLi.textContent = data.linkedin_count || 0;
+      if (elExt) elExt.textContent = data.external_count || 0;
+      if (cntAll) cntAll.textContent = data.total || 0;
+      if (cntLi) cntLi.textContent = data.linkedin_count || 0;
+      if (cntExt) cntExt.textContent = data.external_count || 0;
+
+      portalsState.jobs = data.jobs || [];
+      renderApplyPortals(portalsState.jobs);
+    } catch (err) {
+      console.error("Failed to load apply portals:", err);
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 32px; color: #EF4444;">
+          Error loading application portals: ${escapeHtml(err.message)}
+        </div>
+      `;
+    } finally {
+      portalsState.loading = false;
+    }
+  }
+
+  function getPlatformBadgeHtml(platform, category) {
+    const p = (platform || "").toLowerCase();
+    let badgeClass = "platform-badge-external";
+    let iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+
+    if (category === "linkedin" || p.includes("linkedin")) {
+      badgeClass = "platform-badge-linkedin";
+      iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>`;
+    } else if (p.includes("greenhouse")) {
+      badgeClass = "platform-badge-greenhouse";
+    } else if (p.includes("lever")) {
+      badgeClass = "platform-badge-lever";
+    } else if (p.includes("ashby")) {
+      badgeClass = "platform-badge-ashby";
+    } else if (p.includes("workday")) {
+      badgeClass = "platform-badge-workday";
+    }
+
+    return `<span class="platform-badge ${badgeClass}">${iconSvg} ${escapeHtml(platform || "Direct")}</span>`;
+  }
+
+  function renderApplyPortals(jobs) {
+    const grid = document.getElementById("portals-cards-grid");
+    if (!grid) return;
+
+    if (!jobs || jobs.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 48px; color: var(--text-muted); background: rgba(15, 23, 42, 0.4); border-radius: 12px; border: 1px dashed var(--border);">
+          <div style="font-size: 16px; font-weight: 600; color: #FFFFFF; margin-bottom: 6px;">No application portals found</div>
+          <div style="font-size: 13px;">Try searching for a different keyword or click 'Scrape with Chrome' to discover live listings.</div>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = jobs
+      .map((job, idx) => {
+        const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category);
+        const applyUrl = job.apply_url || job.source_url || "#";
+        const descText = (job.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        const snippet = descText.length > 200 ? descText.slice(0, 200) + "..." : descText || "No description preview available.";
+
+        return `
+          <div class="portal-card" data-idx="${idx}">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px;">
+                ${badgeHtml}
+                <span class="badge ${job.status === 'applied' ? 'badge-applied' : 'badge-dry-run'}" style="font-size: 10.5px;">
+                  ${escapeHtml(job.status || 'discovered')}
+                </span>
+              </div>
+
+              <h3 style="font-size: 15.5px; font-weight: 700; color: #FFFFFF; margin: 0 0 5px 0; line-height: 1.35;">
+                ${escapeHtml(job.title)}
+              </h3>
+
+              <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
+                <span style="font-weight: 600; color: #E2E8F0;">${escapeHtml(job.company)}</span>
+                <span>•</span>
+                <span>${escapeHtml(job.location || 'Remote')}</span>
+              </div>
+
+              <div class="portal-desc-snippet">
+                ${escapeHtml(snippet)}
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+              <button class="btn btn-secondary btn-sm btn-view-desc" data-idx="${idx}" style="flex: 1; padding: 7px 10px; font-size: 12px;">
+                View Details
+              </button>
+              <a href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="flex: 1.3; padding: 7px 12px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 5px; text-decoration: none;">
+                Open Form ↗
+              </a>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    // Attach click listeners to "View Details" buttons
+    grid.querySelectorAll(".btn-view-desc").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.getAttribute("data-idx"), 10);
+        const job = jobs[idx];
+        if (job) openJobModal(job);
+      });
+    });
+  }
+
+  function openJobModal(job) {
+    const modal = document.getElementById("job-modal-overlay");
+    if (!modal) return;
+
+    const modalBadge = document.getElementById("modal-platform-badge");
+    const modalTitle = document.getElementById("modal-job-title");
+    const modalSubtitle = document.getElementById("modal-job-subtitle");
+    const modalDesc = document.getElementById("modal-job-desc");
+    const modalApply = document.getElementById("modal-apply-link");
+
+    if (modalBadge) {
+      modalBadge.innerHTML = getPlatformBadgeHtml(job.platform, job.platform_category);
+    }
+    if (modalTitle) modalTitle.textContent = job.title;
+    if (modalSubtitle) modalSubtitle.textContent = `${job.company} • ${job.location || "Remote"}`;
+    if (modalDesc) {
+      const cleanDesc = (job.description || "").replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+      modalDesc.textContent = cleanDesc || "No detailed job description captured.";
+    }
+    if (modalApply) {
+      modalApply.href = job.apply_url || job.source_url || "#";
+    }
+
+    modal.style.display = "flex";
+  }
+
+  function closeJobModal() {
+    const modal = document.getElementById("job-modal-overlay");
+    if (modal) modal.style.display = "none";
+  }
+
   // ── Lifecycle Boot ────────────────────────────────────────────────
   function init() {
     initListeners();
-    init3DParticleCanvas();
-    init3DTiltPhysics();
     initSSE();
     loadStatus();
 
     setInterval(loadStatus, 10000);
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();

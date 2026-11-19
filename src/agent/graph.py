@@ -16,6 +16,8 @@ LangGraph choreographs multiple specialized nodes into a cohesive, deterministic
    in-memory test execution as well as live production runs.
 """
 
+import os
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from langgraph.graph import END, START, StateGraph
@@ -86,6 +88,7 @@ def build_job_agent_graph(
     blacklist_companies: Optional[list] = None,
     blacklist_keywords: Optional[list] = None,
     db_path: Optional[str] = None,
+    delay_between_jobs: float = 2.0,
 ) -> CompiledStateGraph:
     """
     Assemble and compile the AutoBot LangGraph state machine.
@@ -115,6 +118,7 @@ def build_job_agent_graph(
     apply_node = ApplyNode(
         executor=application_executor,
         cover_letter_gen=cover_letter_gen,
+        delay_between_jobs=delay_between_jobs,
     )
     record_node = RecordNode(db_path=db_path)
     advance_node = AdvanceNode()
@@ -228,7 +232,45 @@ async def run_agent(
             llm=llm,
         )
 
+    # 2.5 Auto-launch BrowserBridge if no custom provider supplied and browser automation enabled
+    use_browser = (
+        search_provider is None
+        and os.environ.get("AUTOBOT_STRICT_POLICY") != "1"
+        and os.environ.get("AUTOBOT_OFFLINE") != "1"
+        and getattr(getattr(app_cfg, "browser", None), "enabled", True)
+    )
+    if use_browser:
+        try:
+            from src.browser.bridge import BrowserBridge
+            from src.memory.form_rag import FormRAG
+
+            resume_file = Path(app_cfg.profile.resume_path)
+            form_rag = FormRAG(retriever=retriever, llm=llm)
+            logger.info("[agent]🌐 Auto-launching BrowserBridge for live LinkedIn search & applications...[/agent]")
+            async with BrowserBridge(
+                form_rag=form_rag,
+                cfg=app_cfg,
+                env=app_env,
+                resume_path=resume_file if resume_file.exists() else None,
+            ) as bridge:
+                return await run_agent(
+                    cfg=app_cfg,
+                    env=app_env,
+                    dry_run=dry_run,
+                    search_provider=bridge.search_provider,
+                    application_executor=bridge.application_executor,
+                    matcher=matcher,
+                    retriever=retriever,
+                    cover_letter_gen=cover_letter_gen,
+                    db_path=db_path,
+                )
+        except Exception as e:
+            logger.warning(
+                f"[agent]Could not auto-start BrowserBridge ({e}). Falling back to local database ATS jobs.[/agent]"
+            )
+
     # 3. Build & Compile StateGraph
+    delay_between_jobs = getattr(getattr(app_cfg, "agent", None), "delay_between_jobs", 2.0)
     graph = build_job_agent_graph(
         matcher=matcher,
         search_provider=search_provider,
@@ -237,6 +279,7 @@ async def run_agent(
         blacklist_companies=app_cfg.blacklist.companies,
         blacklist_keywords=app_cfg.blacklist.title_keywords,
         db_path=db_path,
+        delay_between_jobs=delay_between_jobs,
     )
 
     # 4. Initialize State & Execute Graph
@@ -245,14 +288,24 @@ async def run_agent(
 
     final_state: Dict[str, Any] = {}
     try:
-        final_state = await graph.ainvoke(initial_state)
+        from src.web.routes import execution_manager
+        async for chunk in graph.astream(initial_state):
+            for node_name in chunk.keys():
+                execution_manager.current_node = node_name
+                execution_manager.broadcast("status", {"state": "running", "node": node_name})
+                msg = chunk[node_name].get("status_message") or f"Node {node_name} completed."
+                execution_manager.broadcast("log", {"level": "info", "message": msg})
+                final_state.update(chunk[node_name])
     except Exception as e:
-        logger.error(f"Error during agent graph execution: {e}")
-        # Synchronous fallback in case async invoke has loop conflicts
+        logger.debug(f"Streaming execution fallback to invoke: {e}")
         try:
-            final_state = graph.invoke(initial_state)
+            final_state = await graph.ainvoke(initial_state)
         except Exception as e2:
-            logger.error(f"Synchronous graph execution failed as well: {e2}")
+            logger.error(f"Error during agent graph execution: {e2}")
+            try:
+                final_state = graph.invoke(initial_state)
+            except Exception as e3:
+                logger.error(f"Synchronous graph execution failed as well: {e3}")
 
     # 5. Session Wrap-up & Telemetry
     applied = final_state.get("applied_count", 0)

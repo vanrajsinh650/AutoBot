@@ -173,6 +173,285 @@ def save_application(
         conn.commit()
 
 
+def detect_apply_platform(
+    url: Optional[str] = "",
+    source_name: Optional[str] = "",
+    is_easy_apply: bool = False,
+) -> Tuple[str, str]:
+    """
+    Detect the specific ATS or job platform and its high-level platform category.
+
+    Returns:
+        (platform_name, platform_category)
+        where platform_category is either 'linkedin' or 'external'.
+    """
+    u = (url or "").lower().strip()
+    s = (source_name or "").lower().strip()
+
+    if is_easy_apply or "easy_apply" in u or "easy_apply" in s or "easy apply" in s:
+        return ("LinkedIn (Easy Apply)", "linkedin")
+
+    if "linkedin.com" in u or "lnkd.in" in u:
+        if is_easy_apply:
+            return ("LinkedIn (Easy Apply)", "linkedin")
+        return ("LinkedIn", "linkedin")
+
+    if "greenhouse.io" in u or "greenhouse" in s:
+        return ("Greenhouse", "external")
+    if "lever.co" in u or "lever" in s:
+        return ("Lever", "external")
+    if "ashbyhq.com" in u or "ashby" in s:
+        return ("Ashby", "external")
+    if "myworkdayjobs.com" in u or "workday" in u or "workday" in s:
+        return ("Workday", "external")
+    if "smartrecruiters.com" in u or "smartrecruiters" in s:
+        return ("SmartRecruiters", "external")
+    if "taleo.net" in u or "taleo" in s:
+        return ("Taleo", "external")
+    if "icims.com" in u or "icims" in s:
+        return ("iCIMS", "external")
+    if "jobvite.com" in u or "jobvite" in s:
+        return ("Jobvite", "external")
+    if "bamboohr.com" in u or "bamboohr" in s:
+        return ("BambooHR", "external")
+    if "workable.com" in u or "workable" in s:
+        return ("Workable", "external")
+    if "rippling.com" in u or "rippling" in s:
+        return ("Rippling", "external")
+
+    if s and s != "linkedin":
+        return (source_name.title(), "external")
+    if u and not ("linkedin.com" in u):
+        return ("Company Career Portal", "external")
+
+    return ("LinkedIn", "linkedin")
+
+
+def save_scraped_job(
+    title: str,
+    company: str,
+    location: str,
+    description: str,
+    apply_url: str,
+    source_name: str = "LinkedIn",
+    is_easy_apply: bool = False,
+    job_id: Optional[str] = None,
+    user_id: int = 1,
+    db_path: Optional[str] = None,
+    raw_data: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Save a scraped job posting with full description, apply form link, and platform metadata
+    into both the 'jobs' repository table and the 'applications' tracking table.
+    """
+    init_db(db_path)
+    platform_name, platform_category = detect_apply_platform(
+        url=apply_url,
+        source_name=source_name,
+        is_easy_apply=is_easy_apply,
+    )
+    apply_type = "easy_apply" if (is_easy_apply or platform_category == "linkedin") else "external"
+
+    clean_title = (title or "Untitled Role").strip()
+    clean_company = (company or "Unknown Company").strip()
+    clean_location = (location or "Remote").strip()
+    clean_desc = (description or f"Role: {clean_title} at {clean_company}. Location: {clean_location}.").strip()
+    clean_url = (apply_url or "").strip()
+
+    fingerprint = hashlib.sha256(f"{clean_company.lower()}:{clean_title.lower()}:{clean_location.lower()}".encode()).hexdigest()
+    stable_id = str(job_id).strip() if job_id else f"{source_name.lower().replace(' ', '_')}_{fingerprint[:12]}"
+    now = datetime.now().isoformat()
+
+    merged_raw = raw_data.copy() if isinstance(raw_data, dict) else {}
+    merged_raw.update({
+        "platform": platform_name,
+        "platform_category": platform_category,
+        "apply_type": apply_type,
+        "apply_url": clean_url,
+        "scraped_at": now,
+        "is_easy_apply": is_easy_apply,
+    })
+
+    with get_db_connection(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO jobs (
+                stable_id, source_name, title, company, description,
+                employment_type, location, application_url, raw_data, fingerprint, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(stable_id) DO UPDATE SET
+                title = excluded.title,
+                company = excluded.company,
+                description = CASE WHEN length(excluded.description) > length(jobs.description) THEN excluded.description ELSE jobs.description END,
+                location = excluded.location,
+                application_url = CASE WHEN excluded.application_url != '' THEN excluded.application_url ELSE jobs.application_url END,
+                raw_data = excluded.raw_data
+            """,
+            (
+                stable_id,
+                source_name,
+                clean_title,
+                clean_company,
+                clean_desc,
+                "full-time",
+                clean_location,
+                clean_url,
+                json.dumps(merged_raw),
+                fingerprint,
+                now,
+            ),
+        )
+
+        conn.execute(
+            """
+            INSERT INTO applications (
+                job_id, job_title, company, location,
+                apply_type, match_score, status, url, applied_at, notes, user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, job_id) DO UPDATE SET
+                job_title = excluded.job_title,
+                company = excluded.company,
+                location = excluded.location,
+                apply_type = excluded.apply_type,
+                match_score = excluded.match_score,
+                status = excluded.status,
+                url = excluded.url,
+                applied_at = excluded.applied_at,
+                notes = excluded.notes
+            """,
+            (
+                stable_id,
+                clean_title,
+                clean_company,
+                clean_location,
+                apply_type,
+                0.85,
+                "discovered",
+                clean_url,
+                now,
+                f"Platform: {platform_name} ({platform_category}) | Apply Form: {clean_url}",
+                user_id,
+            ),
+        )
+        conn.commit()
+
+    return stable_id
+
+
+def get_apply_portals(
+    user_id: int,
+    platform_category: Optional[str] = None,
+    search_query: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    db_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Retrieve all scraped job postings with their direct apply form links,
+    categorized by platform (LinkedIn vs External platforms like Greenhouse, Lever, etc.).
+    """
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        sql = """
+            SELECT 
+                j.id as job_table_id,
+                j.stable_id,
+                j.source_name,
+                j.title,
+                j.company,
+                j.location,
+                j.description,
+                j.application_url,
+                j.raw_data,
+                j.created_at,
+                a.id as app_id,
+                a.status as application_status,
+                a.apply_type as app_apply_type,
+                a.url as app_url,
+                a.match_score
+            FROM jobs j
+            LEFT JOIN applications a ON j.stable_id = a.job_id AND a.user_id = ?
+            WHERE 1=1
+        """
+        params: List[Any] = [user_id]
+
+        if search_query:
+            sql += " AND (LOWER(j.title) LIKE ? OR LOWER(j.company) LIKE ? OR LOWER(j.description) LIKE ?)"
+            q = f"%{search_query.strip().lower()}%"
+            params.extend([q, q, q])
+
+        sql += " ORDER BY j.id DESC"
+        rows = conn.execute(sql, params).fetchall()
+
+    linkedin_count = 0
+    external_count = 0
+    platform_breakdown: Dict[str, int] = {}
+    items: List[Dict[str, Any]] = []
+
+    for r in rows:
+        row_dict = dict(r)
+        raw = {}
+        try:
+            if row_dict.get("raw_data"):
+                raw = json.loads(row_dict["raw_data"])
+        except Exception:
+            raw = {}
+
+        app_url = row_dict.get("application_url") or row_dict.get("app_url") or ""
+        src_name = row_dict.get("source_name") or ""
+        is_easy = bool(
+            raw.get("is_easy_apply") 
+            or row_dict.get("app_apply_type") == "easy_apply" 
+            or "easy apply" in src_name.lower()
+        )
+
+        plat_name, plat_cat = detect_apply_platform(url=app_url, source_name=src_name, is_easy_apply=is_easy)
+
+        if plat_cat == "linkedin":
+            linkedin_count += 1
+        else:
+            external_count += 1
+
+        platform_breakdown[plat_name] = platform_breakdown.get(plat_name, 0) + 1
+
+        # Platform filter
+        if platform_category and platform_category.lower() != "all":
+            req_cat = platform_category.lower()
+            if req_cat in ("linkedin", "linkedin_only") and plat_cat != "linkedin":
+                continue
+            if req_cat in ("external", "other", "other_platforms") and plat_cat != "external":
+                continue
+            if req_cat not in ("linkedin", "external") and plat_name.lower() != req_cat:
+                continue
+
+        items.append({
+            "id": row_dict.get("job_table_id") or row_dict.get("app_id"),
+            "stable_id": row_dict.get("stable_id"),
+            "title": row_dict.get("title") or "Untitled Role",
+            "company": row_dict.get("company") or "Unknown Company",
+            "location": row_dict.get("location") or "Remote",
+            "description": row_dict.get("description") or "",
+            "apply_url": app_url,
+            "source_name": src_name,
+            "platform": plat_name,
+            "platform_category": plat_cat,
+            "apply_type": "Easy Apply" if is_easy else "External Apply",
+            "match_score": row_dict.get("match_score") or 0.85,
+            "status": row_dict.get("application_status") or "discovered",
+            "created_at": row_dict.get("created_at") or "",
+        })
+
+    paginated_items = items[offset : offset + limit]
+
+    return {
+        "total": len(items),
+        "linkedin_count": linkedin_count,
+        "external_count": external_count,
+        "platforms": platform_breakdown,
+        "jobs": paginated_items,
+    }
+
+
 def update_application_status(
     user_id: int,
     job_id_or_stable_id: str,

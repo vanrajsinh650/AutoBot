@@ -26,6 +26,12 @@ from src.memory.form_rag import FormRAG
 from src.utils.config import AppConfig, EnvSettings, PROJECT_ROOT
 
 
+@pytest.fixture(autouse=True)
+def enable_strict_policy(monkeypatch):
+    """Enable strict compliance policy for Obscura backend unit tests."""
+    monkeypatch.setenv("AUTOBOT_STRICT_POLICY", "1")
+
+
 # ── 1. Provider Abstraction & Configuration Tests ───────────────────────
 
 def test_browser_manager_defaults_to_chromium():

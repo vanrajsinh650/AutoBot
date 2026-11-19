@@ -46,6 +46,36 @@ def parse_args():
         default="127.0.0.1",
         help="Host for the Mission Control dashboard (default: 127.0.0.1)",
     )
+    parser.add_argument(
+        "--search",
+        type=str,
+        default="",
+        help="Search a single keyword directly inside Google Chrome on Google (e.g. 'Python Developer')",
+    )
+    parser.add_argument(
+        "--search-live",
+        action="store_true",
+        help="Open real Google Chrome directly and search for jobs with keywords and filters",
+    )
+    parser.add_argument(
+        "--keyword",
+        type=str,
+        default="",
+        help="Specific keyword to search in Chrome (e.g. 'Python Developer')",
+    )
+    parser.add_argument(
+        "--location",
+        type=str,
+        default="",
+        help="Target location for the search (e.g. 'India', 'Remote')",
+    )
+    parser.add_argument(
+        "--target",
+        type=str,
+        default="google",
+        choices=["google", "linkedin"],
+        help="Where to search: 'google' (default, direct inside Chrome) or 'linkedin'",
+    )
     return parser.parse_args()
 
 
@@ -61,6 +91,37 @@ async def main(args=None):
         "[dim]LangGraph · LangChain · Qdrant · Playwright[/dim]",
         border_style="cyan",
     ))
+
+    # ── Live Search Shortcut: Direct Google Chrome Keyword Search ──
+    search_keyword = getattr(args, "search", "").strip() or getattr(args, "keyword", "").strip()
+    if getattr(args, "search_live", False) or search_keyword:
+        target = getattr(args, "target", "roles").lower()
+        loc = getattr(args, "location", "").strip() or None
+        kw = search_keyword or (cfg.search.keywords[0] if getattr(cfg.search, "keywords", None) else "Python Developer")
+
+        if target == "linkedin":
+            logger.info("[agent]🌐 Starting direct LinkedIn search in Google Chrome...[/agent]")
+            from src.browser.live_search import run_direct_chrome_search
+            jobs = await run_direct_chrome_search(keywords=[kw], location=loc, headless=False, keep_open=True)
+            console.print(f"[bold green]✅ Discovered {len(jobs)} jobs on LinkedIn via Google Chrome![/bold green]")
+        elif target == "google_only":
+            logger.info(f"[agent]🌐 Starting direct Google-only search in Google Chrome...[/agent]")
+            from src.browser.live_search import run_direct_google_keyword_search
+            results = await run_direct_google_keyword_search(keyword=kw, location=loc, headless=False, keep_open=True)
+            console.print(f"[bold green]✅ Found {len(results)} results directly inside Google Chrome![/bold green]")
+        else:
+            # Default: Search on Google -> Navigate to LinkedIn job roles -> Open top role in Chrome!
+            logger.info(f"[agent]🌐 Running keyword search -> LinkedIn job roles -> opening job role in Chrome...[/agent]")
+            from src.browser.live_search import run_google_to_linkedin_job_search
+            roles = await run_google_to_linkedin_job_search(
+                keyword=kw,
+                location=loc,
+                open_first_role=True,
+                headless=False,
+                keep_open=True,
+            )
+            console.print(f"[bold green]✅ Discovered {len(roles)} job roles and opened top role in Google Chrome![/bold green]")
+        return
 
     # ── Step 1: Validate inputs ───────────────────────────────────
     resume = Path(cfg.profile.resume_path)

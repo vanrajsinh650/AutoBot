@@ -71,8 +71,34 @@ class SearchNode:
             except Exception as e:
                 logger.error(f"Search provider error: {e}")
                 discovered_jobs = []
-        else:
-            logger.debug("No active search_provider attached to SearchNode; returning empty.")
+
+        if not discovered_jobs:
+            try:
+                from src.storage.db import get_db_connection, init_db
+                init_db()
+                with get_db_connection() as conn:
+                    pattern = f"%{keyword}%"
+                    rows = conn.execute(
+                        "SELECT * FROM jobs WHERE status != 'expired' AND (title LIKE ? OR description LIKE ?) ORDER BY id DESC LIMIT 20",
+                        (pattern, pattern),
+                    ).fetchall()
+                    if not rows:
+                        rows = conn.execute(
+                            "SELECT * FROM jobs WHERE status != 'expired' ORDER BY id DESC LIMIT 20"
+                        ).fetchall()
+                    for r in rows:
+                        discovered_jobs.append(JobPosting(
+                            job_id=str(r["id"]),
+                            title=r["title"],
+                            company=r["company"],
+                            location=r["location"] or "Remote",
+                            url=r["application_url"] or "",
+                            description=r["description"] or "",
+                            posted_date=r["publication_date"] or "",
+                            source=r["source_name"] or "ats",
+                        ))
+            except Exception as e:
+                logger.debug(f"Database job search fallback error: {e}")
 
         logger.info(
             f"[agent]📋 Found {len(discovered_jobs)} job postings on page {page}.[/agent]"
@@ -108,8 +134,34 @@ class SearchNode:
             except Exception as e:
                 logger.error(f"Search provider error: {e}")
                 discovered_jobs = []
-        else:
-            logger.debug("No active search_provider attached to SearchNode; returning empty.")
+
+        if not discovered_jobs:
+            try:
+                from src.storage.db import get_db_connection, init_db
+                init_db()
+                with get_db_connection() as conn:
+                    pattern = f"%{keyword}%"
+                    rows = conn.execute(
+                        "SELECT * FROM jobs WHERE status != 'expired' AND (title LIKE ? OR description LIKE ?) ORDER BY id DESC LIMIT 20",
+                        (pattern, pattern),
+                    ).fetchall()
+                    if not rows:
+                        rows = conn.execute(
+                            "SELECT * FROM jobs WHERE status != 'expired' ORDER BY id DESC LIMIT 20"
+                        ).fetchall()
+                    for r in rows:
+                        discovered_jobs.append(JobPosting(
+                            job_id=str(r["id"]),
+                            title=r["title"],
+                            company=r["company"],
+                            location=r["location"] or "Remote",
+                            url=r["application_url"] or "",
+                            description=r["description"] or "",
+                            posted_date=r["publication_date"] or "",
+                            source=r["source_name"] or "ats",
+                        ))
+            except Exception as e:
+                logger.debug(f"Database job search fallback error: {e}")
 
         logger.info(
             f"[agent]📋 Found {len(discovered_jobs)} job postings on page {page}.[/agent]"

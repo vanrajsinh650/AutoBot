@@ -220,4 +220,88 @@ async def test_api_logout(client: TestClient, auth_headers: dict):
     assert resp.status == 200
     data = await resp.json()
     assert data.get("success") is True
-    assert data.get("success") is True
+
+
+@pytest.mark.asyncio
+async def test_api_search_live_endpoint(client: TestClient, auth_headers: dict, monkeypatch):
+    """Verify /api/search/live endpoint triggers live Chrome search properly."""
+    from unittest.mock import AsyncMock, patch
+
+    mock_search = AsyncMock(return_value=[])
+    mock_google = AsyncMock(return_value=[])
+    with patch("src.browser.live_search.run_direct_chrome_search", mock_search), \
+         patch("src.browser.live_search.run_direct_google_keyword_search", mock_google):
+        resp = await client.post(
+            "/api/search/live",
+            json={"keyword": "Python Developer", "location": "India", "target": "google"},
+            headers=auth_headers,
+        )
+        assert resp.status == 200
+        data = await resp.json()
+        assert data.get("success") is True
+        assert "started" in data.get("message", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_api_apply_portals_endpoint(client: TestClient, monkeypatch, tmp_path):
+    """Verify /api/apply-portals returns categorized job applications and form links."""
+    from src.storage.db import save_scraped_job
+
+    db_file = tmp_path / "test_portals.db"
+    monkeypatch.setenv("AUTOBOT_DB_PATH", str(db_file))
+
+    # Save a LinkedIn Easy Apply job with full description and apply URL
+    save_scraped_job(
+        title="Senior Python Architect",
+        company="LinkedIn Tech",
+        location="Bengaluru, India",
+        description="We are seeking an expert Python Architect with 8+ years experience in distributed microservices.",
+        apply_url="https://in.linkedin.com/jobs/view/99998888/?apply=true",
+        source_name="LinkedIn",
+        is_easy_apply=True,
+        job_id="li_arch_99",
+        user_id=1,
+        db_path=str(db_file),
+    )
+
+    # Save an external Greenhouse job with full description and direct Greenhouse apply form link
+    save_scraped_job(
+        title="Backend Engineer (Data)",
+        company="Stripe",
+        location="Remote",
+        description="Join Stripe data infrastructure team building petabyte-scale event pipelines.",
+        apply_url="https://boards.greenhouse.io/stripe/jobs/1234567",
+        source_name="Greenhouse",
+        is_easy_apply=False,
+        job_id="gh_stripe_123",
+        user_id=1,
+        db_path=str(db_file),
+    )
+
+    # 1. Fetch all portals
+    resp = await client.get("/api/apply-portals")
+    assert resp.status == 200
+    data = await resp.json()
+
+    assert data["total"] == 2
+    assert data["linkedin_count"] == 1
+    assert data["external_count"] == 1
+    assert "LinkedIn (Easy Apply)" in data["platforms"]
+    assert "Greenhouse" in data["platforms"]
+
+    # 2. Filter LinkedIn only
+    li_resp = await client.get("/api/apply-portals?platform=linkedin")
+    assert li_resp.status == 200
+    li_data = await li_resp.json()
+    assert len(li_data["jobs"]) == 1
+    assert li_data["jobs"][0]["platform_category"] == "linkedin"
+    assert "linkedin.com" in li_data["jobs"][0]["apply_url"]
+
+    # 3. Filter External only
+    ext_resp = await client.get("/api/apply-portals?platform=external")
+    assert ext_resp.status == 200
+    ext_data = await ext_resp.json()
+    assert len(ext_data["jobs"]) == 1
+    assert ext_data["jobs"][0]["platform_category"] == "external"
+    assert "greenhouse.io" in ext_data["jobs"][0]["apply_url"]
+

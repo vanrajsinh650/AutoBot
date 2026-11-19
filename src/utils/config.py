@@ -34,6 +34,8 @@ class SearchConfig(BaseModel):
     date_posted: str = "week"
     experience_level: List[str] = ["mid-senior"]
     job_type: List[str] = ["full-time"]
+    under_10_applicants: bool = False
+    easy_apply_only: bool = False
 
 
 class AnswersConfig(BaseModel):
@@ -71,6 +73,8 @@ class BrowserConfig(BaseModel):
     slow_mo: int = 50
     viewport_width: int = 1280
     viewport_height: int = 800
+    executable_path: str = ""
+    use_system_chrome: bool = True
 
 
 class AppConfig(BaseModel):
@@ -106,10 +110,12 @@ class EnvSettings(BaseSettings):
     qdrant_collection: str = "autobot_profile"
 
     # Browser
-    headless:            bool = False
-    browser_backend:     str = "chromium"     # chromium | obscura
-    obscura_binary_path: str = ""
-    obscura_port:        int = 9222
+    headless:                bool = False
+    browser_backend:         str = "chromium"     # chromium | obscura
+    browser_executable_path: str = ""
+    use_system_chrome:       bool = True
+    obscura_binary_path:     str = ""
+    obscura_port:            int = 9222
 
     # Logging
     log_level:         str = "INFO"

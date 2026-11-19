@@ -33,6 +33,12 @@ from src.memory.form_rag import FormRAG
 from src.utils.config import AppConfig, EnvSettings, PROJECT_ROOT
 
 
+@pytest.fixture(autouse=True)
+def enable_strict_policy(monkeypatch):
+    """Enable strict compliance policy for security audit unit tests."""
+    monkeypatch.setenv("AUTOBOT_STRICT_POLICY", "1")
+
+
 # ── 1. Startup and Shutdown ──────────────────────────────────────────────────
 
 @pytest.mark.asyncio

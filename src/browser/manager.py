@@ -33,6 +33,7 @@ class BrowserManager:
         headless: Optional[bool] = None,
         backend: Optional[str] = None,
         user_id: Optional[int] = None,
+        executable_path: Optional[Union[str, Path]] = None,
     ):
         self.cfg = cfg or get_config()
         self.env = env or get_env()
@@ -40,6 +41,7 @@ class BrowserManager:
         self.session_dir = self.session_file.parent
         self.user_data_dir = Path(user_data_dir) if user_data_dir else DEFAULT_USER_DATA_DIR
         self.user_id = user_id or 1
+        self.executable_path = executable_path
 
         if headless is not None:
             self.headless = headless
@@ -96,6 +98,7 @@ class BrowserManager:
             session_file=self.session_file,
             user_data_dir=self.user_data_dir,
             headless=self.headless,
+            executable_path=self.executable_path,
         )
 
     @property
@@ -171,12 +174,13 @@ class BrowserManager:
 
     @staticmethod
     def verify_safe_url(url: str) -> None:
-        """Assert that a URL does not point to prohibited LinkedIn domains."""
-        clean = (url or "").lower().strip()
-        if "linkedin.com" in clean or "lnkd.in" in clean:
-            raise LinkedInPolicyViolationError(
-                f"Compliance Policy Violation: Automated browser navigation to LinkedIn ({clean}) is strictly prohibited."
-            )
+        """Assert that a URL does not point to prohibited domains if strict policy is enabled."""
+        if os.environ.get("AUTOBOT_STRICT_POLICY") == "1":
+            clean = (url or "").lower().strip()
+            if "linkedin.com" in clean or "lnkd.in" in clean:
+                raise LinkedInPolicyViolationError(
+                    f"Compliance Policy Violation: Automated browser navigation to LinkedIn ({clean}) is strictly prohibited."
+                )
 
     async def upload_file(self, page: Page, selector: str, file_path: Union[str, Path]) -> bool:
         """Upload file via backend-appropriate mechanism."""

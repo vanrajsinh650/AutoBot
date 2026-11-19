@@ -34,6 +34,9 @@ from src.utils.llm_factory import get_llm
 from src.utils.logger import logger
 
 
+_UNSET = object()
+
+
 class JobMatcher:
     """
     Evaluates job postings against the candidate's profile stored in Qdrant vector memory.
@@ -42,11 +45,12 @@ class JobMatcher:
     def __init__(
         self,
         retriever: ProfileRetriever,
-        llm: Optional[BaseChatModel] = None,
+        llm: Optional[BaseChatModel] = _UNSET,
         min_match_score: Optional[float] = None,
     ):
         self.retriever = retriever
-        self.llm = llm
+        self._llm = None if llm is _UNSET else llm
+        self._lazy_load = (llm is _UNSET)
         if min_match_score is not None:
             self.min_match_score = float(min_match_score)
         else:
@@ -55,13 +59,24 @@ class JobMatcher:
             except Exception:
                 self.min_match_score = 0.60
 
+    @property
+    def llm(self) -> Optional[BaseChatModel]:
+        return self._llm
+
+    @llm.setter
+    def llm(self, value: Optional[BaseChatModel]) -> None:
+        self._llm = value
+        self._lazy_load = False
+
     def _get_llm(self) -> Optional[BaseChatModel]:
         """Lazy loader for LLM model."""
-        if self.llm is not None:
-            return self.llm
+        if not self._lazy_load:
+            return self._llm
+        if self._llm is not None:
+            return self._llm
         try:
-            self.llm = get_llm(temperature=0.0)
-            return self.llm
+            self._llm = get_llm(temperature=0.0)
+            return self._llm
         except Exception as e:
             logger.debug(f"LLM not initialized in JobMatcher: {e}")
             return None

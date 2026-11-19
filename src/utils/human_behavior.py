@@ -172,7 +172,10 @@ async def human_delay(min_ms: float = 500, max_ms: float = 2000) -> None:
 
 
 async def ensure_visual_cursor(page: Any) -> None:
-    """Ensure the Gemini visual cursor overlay is injected and initialized in page."""
+    """Ensure visual cursor overlay is injected ONLY if explicitly requested (disabled by default to prevent anti-bot detection)."""
+    import os
+    if os.environ.get("AUTOBOT_VISUAL_CURSOR_OVERLAY") != "1":
+        return
     try:
         if hasattr(page, "evaluate"):
             await page.evaluate(CURSOR_OVERLAY_SCRIPT)
@@ -186,7 +189,10 @@ async def update_visual_cursor(
     y: Optional[float] = None,
     action_text: Optional[str] = None,
 ) -> None:
-    """Update on-screen visual cursor position and status badge."""
+    """Update on-screen visual cursor position and status badge if visual overlay is enabled."""
+    import os
+    if os.environ.get("AUTOBOT_VISUAL_CURSOR_OVERLAY") != "1":
+        return
     try:
         page_id = id(page)
         curr_x, curr_y = _LAST_CURSOR_POS.get(page_id, (200.0, 150.0))
@@ -242,7 +248,8 @@ async def smooth_move_cursor(
             if hasattr(page, "mouse") and hasattr(page.mouse, "move"):
                 await page.mouse.move(xi, yi)
 
-            if hasattr(page, "evaluate"):
+            import os
+            if os.environ.get("AUTOBOT_VISUAL_CURSOR_OVERLAY") == "1" and hasattr(page, "evaluate"):
                 await page.evaluate(
                     "([x, y, text]) => { if (window.__geminiUpdateCursor) window.__geminiUpdateCursor(x, y, text); }",
                     [xi, yi, action_text],
@@ -266,6 +273,11 @@ async def visual_click(
     triggers visual ripple, and clicks the element.
     """
     await ensure_visual_cursor(page)
+    try:
+        if hasattr(page, "evaluate"):
+            await page.evaluate("() => ({ scrollX: window.scrollX || 0, scrollY: window.scrollY || 0 })")
+    except Exception:
+        pass
 
     element = None
     if isinstance(element_or_selector, str):
@@ -308,9 +320,10 @@ async def visual_click(
         tx = box["x"] + box["width"] / 2.0 + random.uniform(-2.0, 2.0)
         ty = box["y"] + box["height"] / 2.0 + random.uniform(-2.0, 2.0)
 
-        # Highlight element with glowing focus ring
+        # Highlight element with glowing focus ring if overlay enabled
         try:
-            if hasattr(page, "evaluate"):
+            import os
+            if os.environ.get("AUTOBOT_VISUAL_CURSOR_OVERLAY") == "1" and hasattr(page, "evaluate"):
                 await page.evaluate(
                     "([rect]) => { if (window.__geminiHighlight) window.__geminiHighlight(rect); }",
                     [{"x": box["x"], "y": box["y"], "width": box["width"], "height": box["height"]}],
@@ -322,9 +335,10 @@ async def visual_click(
         await smooth_move_cursor(page, tx, ty, action_text=action_text or "Clicking element...")
         await asyncio.sleep(random.uniform(0.10, 0.20))
 
-        # Ripple pulse animation
+        # Ripple pulse animation if overlay enabled
         try:
-            if hasattr(page, "evaluate"):
+            import os
+            if os.environ.get("AUTOBOT_VISUAL_CURSOR_OVERLAY") == "1" and hasattr(page, "evaluate"):
                 await page.evaluate(
                     "([x, y]) => { if (window.__geminiClickAnimation) window.__geminiClickAnimation(x, y); }",
                     [tx, ty],
@@ -335,16 +349,31 @@ async def visual_click(
         # Perform actual click
         try:
             await element.click()
-        except Exception:
-            try:
-                if hasattr(page, "mouse") and hasattr(page.mouse, "click"):
-                    await page.mouse.click(tx, ty)
-            except Exception:
-                pass
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "intercept" in err_msg or "timeout" in err_msg or "pointer" in err_msg:
+                try:
+                    from src.browser.popup_handler import dismiss_sign_in_popup
+                    await dismiss_sign_in_popup(page, use_visual_cursor=False)
+                    await asyncio.sleep(0.2)
+                    await element.click(force=True)
+                except Exception:
+                    try:
+                        if hasattr(element, "evaluate"):
+                            await element.evaluate("el => el.click()")
+                    except Exception:
+                        pass
+            else:
+                try:
+                    if hasattr(page, "mouse") and hasattr(page.mouse, "click"):
+                        await page.mouse.click(tx, ty)
+                except Exception:
+                    pass
 
-        # Clear highlight
+        # Clear highlight if overlay enabled
         try:
-            if hasattr(page, "evaluate"):
+            import os
+            if os.environ.get("AUTOBOT_VISUAL_CURSOR_OVERLAY") == "1" and hasattr(page, "evaluate"):
                 await page.evaluate("() => { if (window.__geminiClearHighlight) window.__geminiClearHighlight(); }")
         except Exception:
             pass

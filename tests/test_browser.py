@@ -22,6 +22,11 @@ from src.utils.config import AppConfig, EnvSettings
 
 # ── Policy Enforcement Tests: LinkedIn Prohibition ───────────────────
 
+@pytest.fixture(autouse=True)
+def enable_strict_policy(monkeypatch):
+    monkeypatch.setenv("AUTOBOT_STRICT_POLICY", "1")
+
+
 def test_linkedin_navigator_strictly_prohibited():
     """Verify that attempting to initialize LinkedInNavigator raises LinkedInPolicyViolationError."""
     with pytest.raises(LinkedInPolicyViolationError) as exc_info:

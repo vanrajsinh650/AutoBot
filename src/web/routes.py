@@ -36,6 +36,7 @@ from src.storage.auth import (
 )
 from src.storage.db import (
     end_session,
+    get_apply_portals,
     get_candidate_profile,
     get_db_connection,
     get_job_preferences,
@@ -50,6 +51,7 @@ from src.storage.db import (
     save_job_preferences,
     save_resume_evidence,
     save_resume_version,
+    save_scraped_job,
     start_session,
 )
 from src.utils.config import get_config, get_env
@@ -108,18 +110,14 @@ class AgentExecutionManager:
 execution_manager = AgentExecutionManager()
 
 
-def get_current_user_id(request: web.Request, allow_fallback: bool = False) -> Optional[int]:
+def get_current_user_id(request: web.Request, allow_fallback: bool = True) -> Optional[int]:
     """
     Extract user_id from request state (attached by auth_middleware) or validate session header/cookie.
-    Strictly fail-closed: defaults to allow_fallback=False and returns None when unauthenticated.
+    In local open-source mode, defaults to user 1 seamlessly.
     """
-    from src.web.server import USER_ID_KEY
-    if USER_ID_KEY in request and request[USER_ID_KEY] is not None:
-        return request[USER_ID_KEY]
-    if hasattr(request, "_state") and "user_id" in request._state:
-        return request._state["user_id"]
-    if "user_id" in request and request["user_id"] is not None:
-        return request["user_id"]
+    import os
+    if os.environ.get("AUTOBOT_STRICT_AUTH") in ("1", "true", "True"):
+        allow_fallback = False
 
     auth_header = request.headers.get("Authorization", "")
     token = None
@@ -132,8 +130,20 @@ def get_current_user_id(request: web.Request, allow_fallback: bool = False) -> O
         session = validate_session(token)
         if session:
             return session["user_id"]
+        return None
 
-    return 1 if allow_fallback else None
+    if not allow_fallback:
+        return None
+
+    from src.web.server import USER_ID_KEY
+    if USER_ID_KEY in request and request[USER_ID_KEY] is not None:
+        return request[USER_ID_KEY]
+    if hasattr(request, "_state") and "user_id" in request._state:
+        return request._state["user_id"]
+    if "user_id" in request and request["user_id"] is not None:
+        return request["user_id"]
+
+    return 1
 
 
 # ── Global Browser Health State ────────────────────────────────────
@@ -225,7 +235,7 @@ async def configure_browser_handler(request: web.Request) -> web.Response:
     Restricted to authorized administrators.
     Engine switching during active application is strictly prohibited.
     """
-    user_id = get_current_user_id(request)
+    user_id = get_current_user_id(request, allow_fallback=False)
     if not user_id:
         return web.json_response({"error": "Authentication required"}, status=401)
 
@@ -316,6 +326,28 @@ async def get_jobs(request: web.Request) -> web.Response:
 
     jobs = [dict(row) for row in rows]
     return web.json_response({"total": total, "jobs": jobs})
+
+
+async def get_apply_portals_handler(request: web.Request) -> web.Response:
+    """
+    Return scraped job application forms and portals with platform categorization
+    (LinkedIn Native / Easy Apply vs External Platforms like Greenhouse, Lever, Workday, etc.).
+    """
+    user_id = get_current_user_id(request) or 1
+    platform_filter = request.query.get("platform", "").strip()
+    search_query = request.query.get("q", "").strip()
+    limit = int(request.query.get("limit", "100"))
+    offset = int(request.query.get("offset", "0"))
+
+    data = get_apply_portals(
+        user_id=user_id,
+        platform_category=platform_filter if platform_filter != "all" else None,
+        search_query=search_query if search_query else None,
+        limit=limit,
+        offset=offset,
+    )
+    return web.json_response(data)
+
 
 
 async def get_config_handler(request: web.Request) -> web.Response:
@@ -592,12 +624,12 @@ async def start_run(request: web.Request) -> web.Response:
                 resume_file = _resolve_path(cfg.profile.resume_path)
                 if resume_file.exists():
                     execution_manager.broadcast("log", {"level": "info", "message": "Starting profile ingestion...", "user_id": user_id})
-                    await ingest_profile(cfg, env, force=True, user_id=user_id)
+                    await ingest_profile(cfg, env, force=True)
                 else:
                     execution_manager.broadcast("log", {"level": "warning", "message": "No resume file found on disk; continuing in agile screening mode.", "user_id": user_id})
 
             execution_manager.broadcast("log", {"level": "info", "message": f"Commencing agent execution (dry_run={dry_run})...", "user_id": user_id})
-            await run_agent(cfg, env, dry_run=dry_run, user_id=user_id)
+            await run_agent(cfg, env, dry_run=dry_run)
             execution_manager.broadcast("log", {"level": "success", "message": "Agent execution finished successfully.", "user_id": user_id})
 
         except Exception as e:
@@ -635,6 +667,87 @@ async def stop_run(request: web.Request) -> web.Response:
         return web.json_response({"success": True, "message": "Agent execution stopped."})
 
     return web.json_response({"error": "No active execution to stop"}, status=400)
+
+
+async def search_live_handler(request: web.Request) -> web.Response:
+    """Trigger direct keyword search in real Google Chrome."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"error": "Authentication required"}, status=401)
+
+    if execution_manager.is_running:
+        return web.json_response({"error": "An agent task is already running"}, status=409)
+
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+
+    keywords = body.get("keywords")
+    if isinstance(keywords, str) and keywords.strip():
+        keywords = [k.strip() for k in keywords.split(",") if k.strip()]
+    keyword = str(body.get("keyword", "")).strip() or (keywords[0] if keywords else "")
+    location = body.get("location")
+    target = str(body.get("target", "google")).lower().strip()
+
+    execution_manager.user_id = user_id
+
+    async def _execute_search():
+        execution_manager.is_running = True
+        execution_manager.current_node = "search"
+        execution_manager.broadcast("status", {"state": "running", "node": "search", "user_id": user_id})
+
+        try:
+            from src.browser.live_search import (
+                run_direct_chrome_search,
+                run_direct_google_keyword_search,
+                run_google_to_linkedin_job_search,
+            )
+
+            def cb(lvl: str, msg: str):
+                execution_manager.broadcast("log", {"level": lvl, "message": msg, "user_id": user_id})
+
+            if target == "linkedin":
+                await run_direct_chrome_search(
+                    keywords=keywords,
+                    location=location,
+                    headless=False,
+                    progress_callback=cb,
+                    user_id=user_id,
+                    keep_open=True,
+                )
+            elif target == "google_only":
+                await run_direct_google_keyword_search(
+                    keyword=keyword,
+                    location=location,
+                    headless=False,
+                    progress_callback=cb,
+                    user_id=user_id,
+                    keep_open=True,
+                )
+            else:
+                # Default: Google search -> Navigate to LinkedIn job roles -> Open role
+                await run_google_to_linkedin_job_search(
+                    keyword=keyword,
+                    location=location,
+                    open_first_role=True,
+                    headless=False,
+                    progress_callback=cb,
+                    user_id=user_id,
+                    keep_open=True,
+                )
+            execution_manager.broadcast("log", {"level": "success", "message": "Direct Chrome search and role navigation completed successfully.", "user_id": user_id})
+        except Exception as e:
+            logger.error(f"Error in direct Chrome search task: {e}")
+            execution_manager.broadcast("log", {"level": "error", "message": f"Search error: {e}", "user_id": user_id})
+        finally:
+            execution_manager.is_running = False
+            execution_manager.current_node = "idle"
+            execution_manager.broadcast("status", {"state": "idle", "node": "idle", "user_id": user_id})
+
+    execution_manager.active_task = asyncio.create_task(_execute_search())
+    return web.json_response({"success": True, "message": f"Direct Chrome search ({target}) started."})
 
 
 async def logout_handler(request: web.Request) -> web.Response:

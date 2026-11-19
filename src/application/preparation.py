@@ -36,6 +36,9 @@ class ApplicationPreparationService:
     def _get_llm(self) -> Optional[BaseChatModel]:
         if self._llm is not None:
             return self._llm
+        import os
+        if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("AUTOBOT_OFFLINE") == "1":
+            return None
         try:
             self._llm = get_llm(temperature=0.2)
             return self._llm

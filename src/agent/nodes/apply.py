@@ -52,9 +52,11 @@ class ApplyNode:
         self,
         executor: Optional[ApplicationExecutor] = None,
         cover_letter_gen: Optional[CoverLetterGenerator] = None,
+        delay_between_jobs: float = 2.0,
     ):
         self.executor = executor
         self.cover_letter_gen = cover_letter_gen
+        self.delay_between_jobs = delay_between_jobs
 
     def __call__(self, state: AgentState) -> Dict[str, Any]:
         current_job = state.get("current_job")
@@ -105,6 +107,10 @@ class ApplyNode:
             except Exception as e:
                 logger.error(f"Application execution error for {current_job.job_id}: {e}")
                 success = False
+
+        if self.delay_between_jobs > 0 and not is_dry_run:
+            import time
+            time.sleep(self.delay_between_jobs)
 
         if success:
             logger.info(
@@ -174,6 +180,9 @@ class ApplyNode:
             except Exception as e:
                 logger.error(f"Application execution error for {current_job.job_id}: {e}")
                 success = False
+
+        if self.delay_between_jobs > 0 and not is_dry_run:
+            await asyncio.sleep(self.delay_between_jobs)
 
         if success:
             logger.info(

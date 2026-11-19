@@ -15,8 +15,9 @@ from src.web.server import create_app
 
 
 @pytest_asyncio.fixture
-async def client():
+async def client(monkeypatch):
     """Create test client with isolated database."""
+    monkeypatch.setenv("AUTOBOT_STRICT_AUTH", "1")
     app = create_app()
     server = TestServer(app)
     c = TestClient(server)

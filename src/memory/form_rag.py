@@ -32,6 +32,9 @@ from src.utils.llm_factory import get_llm
 from src.utils.logger import logger
 
 
+_UNSET = object()
+
+
 class FormRAG:
     """
     RAG-powered form answering agent for LinkedIn Easy Apply and external forms.
@@ -40,11 +43,12 @@ class FormRAG:
     def __init__(
         self,
         retriever: ProfileRetriever,
-        llm: Optional[BaseChatModel] = None,
+        llm: Any = _UNSET,
         config_answers: Optional[Union[Dict[str, Any], AnswersConfig]] = None,
     ):
         self.retriever = retriever
-        self.llm = llm  # Lazily evaluated or injected for testing
+        self._llm = None if llm is _UNSET else llm
+        self._lazy_load = (llm is _UNSET)
         if config_answers is None:
             try:
                 self.config_answers = get_config().apply.answers.model_dump()
@@ -55,13 +59,24 @@ class FormRAG:
         else:
             self.config_answers = dict(config_answers)
 
+    @property
+    def llm(self) -> Optional[BaseChatModel]:
+        return self._llm
+
+    @llm.setter
+    def llm(self, value: Optional[BaseChatModel]) -> None:
+        self._llm = value
+        self._lazy_load = False
+
     def _get_llm(self) -> Optional[BaseChatModel]:
         """Lazy loader for LLM model."""
-        if self.llm is not None:
-            return self.llm
+        if not self._lazy_load:
+            return self._llm
+        if self._llm is not None:
+            return self._llm
         try:
-            self.llm = get_llm(temperature=0.0)
-            return self.llm
+            self._llm = get_llm(temperature=0.0)
+            return self._llm
         except Exception as e:
             logger.debug(f"LLM not initialized: {e}")
             return None
