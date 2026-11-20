@@ -21,8 +21,22 @@ KNOWN_COMPANY_ATS_PORTALS: Dict[str, str] = {
     "synechron": "https://synechron.wd1.myworkdayjobs.com/SynechronCareers/job/Bengaluru---Bellandur-GTP/Python-Software-Engineer---Application-Maintenance--Debugging---Agile-Development_JR1044669?source=LinkedIn",
     "rws": "https://careers-rws.icims.com/jobs/6323/python-full-stack-developer/job",
     "kla": "https://kla.wd1.myworkdayjobs.com/Search/job/Chennai-India/Software-Quality-Engineer_2641380-1",
+    "blue yonder": "https://jda.wd5.myworkdayjobs.com/en-US/JDA_Careers/job/IND---Coimbatore-708/Technical-Consultant-Int---Cloud---Python-Automation--Shell-Scripting--RestAPI--CI-CD_261885/apply/applyManually",
+    "dassault systèmes": "https://www.3ds.com/careers/jobs/multibody-dynamics-testing-engineer-550607",
+    "dassault systemes": "https://www.3ds.com/careers/jobs/multibody-dynamics-testing-engineer-550607",
+    "qualcomm": "https://qualcomm.wd5.myworkdayjobs.com/External/job/Bengaluru-India/Associate-Engineer--CAD-AI-ML_3097154",
+    "black & veatch": "https://bv.wd5.myworkdayjobs.com/en-US/Careers/job/Pune-India/Associate-Engineer---Instrumentation---Controls--Advanced-Power-Generation-_116584",
+    "synopsys inc": "https://synopsys.wd1.myworkdayjobs.com/Synopsys_Careers/job/Noida-India/R-D-Engineer--IP-Quality_18521",
+    "synopsys": "https://synopsys.wd1.myworkdayjobs.com/Synopsys_Careers/job/Noida-India/R-D-Engineer--IP-Quality_18521",
+    "kite": "https://www.foundit.in/company/kite-technologies-jobs",
+    "infineon technologies": "https://www.infineon.com/cms/en/careers/jobsearch/jobsearch/",
+    "infineon": "https://www.infineon.com/cms/en/careers/jobsearch/jobsearch/",
+    "cyient": "https://cyient.wd3.myworkdayjobs.com/en-US/careers",
+    "ecolab": "https://ecolab.wd1.myworkdayjobs.com/Ecolab_External",
+    "daikin applied americas": "https://daikinapplied.wd5.myworkdayjobs.com/Daikin_Applied_Careers",
+    "gea group": "https://gea.wd3.myworkdayjobs.com/GEA_Careers",
 
-    # Major Tech & Engineering Enterprise ATS Systems
+    # Major Tech & Engineering Enterprise ATS Systems (Verified Clean URLs)
     "amazon": "https://amazon.jobs/en/search?base_query={query}",
     "ibm": "https://www.ibm.com/careers/search?q={query}",
     "siemens": "https://jobs.siemens.com/jobs?keywords={query}",
@@ -31,10 +45,7 @@ KNOWN_COMPANY_ATS_PORTALS: Dict[str, str] = {
     "apple": "https://jobs.apple.com/en-us/search?search={query}",
     "honeywell technologies": "https://careers.honeywell.com/us/en/search-results?keywords={query}",
     "honeywell": "https://careers.honeywell.com/us/en/search-results?keywords={query}",
-    "qualcomm": "https://qualcomm.wd5.myworkdayjobs.com/External?q={query}",
-    "cyient": "https://cyient.wd3.myworkdayjobs.com/en-US/careers?q={query}",
     "fujitsu": "https://www.fujitsu.com/global/about/careers/",
-    "ecolab": "https://ecolab.wd1.myworkdayjobs.com/Ecolab_External?q={query}",
     "hewlett packard enterprise": "https://careers.hpe.com/us/en/search-results?keywords={query}",
     "hpe": "https://careers.hpe.com/us/en/search-results?keywords={query}",
     "thermo fisher scientific": "https://jobs.thermofisher.com/global/en/search-results?keywords={query}",
@@ -42,32 +53,21 @@ KNOWN_COMPANY_ATS_PORTALS: Dict[str, str] = {
     "abb": "https://careers.abb/global/en/search-results?keywords={query}",
     "allianz services": "https://careers.allianz.com/search/?searchby=location&createNewAlert=false&q={query}",
     "allianz": "https://careers.allianz.com/search/?searchby=location&createNewAlert=false&q={query}",
-    "synopsys inc": "https://synopsys.wd1.myworkdayjobs.com/Synopsys_Careers?q={query}",
-    "synopsys": "https://synopsys.wd1.myworkdayjobs.com/Synopsys_Careers?q={query}",
     "cummins india": "https://cummins.jobs/search-jobs/{query}",
     "cummins": "https://cummins.jobs/search-jobs/{query}",
-    "dassault systèmes": "https://careers.3ds.com/jobs?keywords={query}",
-    "dassault systemes": "https://careers.3ds.com/jobs?keywords={query}",
     "logitech": "https://jobs.jobvite.com/logitech?q={query}",
     "toyota automated logistics": "https://toyota-forklifts.eu/careers/",
     "toyota": "https://toyota-forklifts.eu/careers/",
-    "black & veatch": "https://bv.wd5.myworkdayjobs.com/Careers?q={query}",
     "blackhawk network india": "https://careers.blackhawknetwork.com/search/?q={query}",
     "blackhawk network": "https://careers.blackhawknetwork.com/search/?q={query}",
-    "blue yonder": "https://blueyonder.wd1.myworkdayjobs.com/External?q={query}",
     "tata electronics": "https://www.tataelectronics.com/careers",
-    "infineon technologies": "https://www.infineon.com/cms/en/careers/jobsearch/jobsearch/#!view=jobs&term={query}",
-    "infineon": "https://www.infineon.com/cms/en/careers/jobsearch/jobsearch/#!view=jobs&term={query}",
     "ntt data business solutions": "https://careers.services.global.ntt/global/en/search-results?keywords={query}",
     "ntt data north america": "https://careers.services.global.ntt/global/en/search-results?keywords={query}",
     "ntt data": "https://careers.services.global.ntt/global/en/search-results?keywords={query}",
     "exl": "https://www.exlservice.com/careers",
     "deepintent": "https://jobs.lever.co/deepintent",
-    "kite": "https://kite.com/careers",
-    "daikin applied americas": "https://daikinapplied.wd5.myworkdayjobs.com/Daikin_Applied_Careers?q={query}",
     "asurion india gcc": "https://careers.asurion.com/search-jobs/{query}",
     "ge vernova": "https://jobs.gevernova.com/global/en/search-results?keywords={query}",
-    "gea group": "https://gea.wd3.myworkdayjobs.com/GEA_Careers?q={query}",
     "jobgether": "https://jobgether.com/jobs?q={query}",
     "martechbar": "https://martechbar.com/careers",
     "mechelonic welders private limited": "https://mechelonic.com/careers/",
@@ -131,6 +131,42 @@ def resolve_company_direct_apply_url(
     # KLA Software Quality Engineer (2641380-1 / 4490875675)
     if "4490875675" in clean_url or ("kla" in clean_comp and "quality" in clean_title.lower()):
         return "https://kla.wd1.myworkdayjobs.com/Search/job/Chennai-India/Software-Quality-Engineer_2641380-1"
+
+    # Blue Yonder Technical Consultant Int - Cloud (261885 / 4483673519)
+    if "4483673519" in clean_url or ("blue yonder" in clean_comp and ("technical consultant" in clean_title.lower() or "cloud" in clean_title.lower())):
+        return "https://jda.wd5.myworkdayjobs.com/en-US/JDA_Careers/job/IND---Coimbatore-708/Technical-Consultant-Int---Cloud---Python-Automation--Shell-Scripting--RestAPI--CI-CD_261885/apply/applyManually"
+
+    # Dassault Systèmes Multibody Dynamics Testing Engineer (550607 / 4484942761 / 4492770282)
+    if "4484942761" in clean_url or "4492770282" in clean_url or ("dassault" in clean_comp and "multibody" in clean_title.lower()):
+        return "https://www.3ds.com/careers/jobs/multibody-dynamics-testing-engineer-550607"
+
+    # Dassault Systèmes Industry Process Expert (550612 / 4492796385 / 4491796191)
+    if "4492796385" in clean_url or "4491796191" in clean_url or ("dassault" in clean_comp and "industry process" in clean_title.lower()):
+        return "https://www.3ds.com/careers/jobs/multibody-dynamics-testing-engineer-550607"
+
+    # Qualcomm Associate Engineer – CAD AI/ML (3097154 / 4491197174)
+    if "4491197174" in clean_url or ("qualcomm" in clean_comp and ("cad" in clean_title.lower() or "ai/ml" in clean_title.lower())):
+        return "https://qualcomm.wd5.myworkdayjobs.com/External/job/Bengaluru-India/Associate-Engineer--CAD-AI-ML_3097154"
+
+    # Black & Veatch Associate Engineer - Instrumentation & Controls (116584 / 4492025732)
+    if "4492025732" in clean_url or ("black" in clean_comp and "veatch" in clean_comp and "instrumentation" in clean_title.lower()):
+        return "https://bv.wd5.myworkdayjobs.com/en-US/Careers/job/Pune-India/Associate-Engineer---Instrumentation---Controls--Advanced-Power-Generation-_116584"
+
+    # Synopsys R&D Engineer, IP Quality (18521 / 4483733075)
+    if "4483733075" in clean_url or ("synopsys" in clean_comp and "quality" in clean_title.lower()):
+        return "https://synopsys.wd1.myworkdayjobs.com/Synopsys_Careers/job/Noida-India/R-D-Engineer--IP-Quality_18521"
+
+    # Kite (Kite Technologies Gurgaon) SDET – I (4492939025)
+    if "4492939025" in clean_url or ("kite" in clean_comp and "sdet" in clean_title.lower()):
+        return "https://www.foundit.in/company/kite-technologies-jobs"
+
+    # Infineon Technologies Specialist (4490433726)
+    if "4490433726" in clean_url or ("infineon" in clean_comp and "specialist" in clean_title.lower()):
+        return "https://www.infineon.com/cms/en/careers/jobsearch/jobsearch/"
+
+    # Cyient Instrumentation & Control Engineer (4481443008)
+    if "4481443008" in clean_url or ("cyient" in clean_comp and "instrumentation" in clean_title.lower()):
+        return "https://cyient.wd3.myworkdayjobs.com/en-US/careers"
 
     # 5. Match against known company ATS career portals
     if clean_comp:

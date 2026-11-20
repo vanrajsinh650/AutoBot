@@ -535,5 +535,42 @@ async def test_api_open_job_form_and_resolve_apply_url(client: TestClient, monke
     assert resp_enc.status == 302
     assert resp_enc.headers.get("Location") == "https://careers.rws.com/job/python"
 
+    # 4. Test exact mapping resolution for Blue Yonder, Dassault, Qualcomm, Kite
+    save_scraped_job(
+        title="Technical Consultant Int - Cloud - Python Automation",
+        company="Blue Yonder",
+        location="Coimbatore, India",
+        description="Cloud Python role",
+        apply_url="https://in.linkedin.com/jobs/view/4483673519",
+        source_name="LinkedIn",
+        is_easy_apply=False,
+        job_id="blueyonder_4483673519",
+        user_id=1,
+        match_score=0.88,
+        db_path=str(db_file),
+    )
+    resp_by = await client.get("/api/jobs/blueyonder_4483673519/open-form", allow_redirects=False)
+    assert resp_by.status == 302
+    assert "jda.wd5.myworkdayjobs.com" in resp_by.headers.get("Location")
+    assert "community.workday.com/maintenance-page" not in resp_by.headers.get("Location")
+
+    save_scraped_job(
+        title="Multibody Dynamics Testing Engineer",
+        company="Dassault Systèmes",
+        location="Pune, India",
+        description="Multibody testing role",
+        apply_url="https://in.linkedin.com/jobs/view/4484942761",
+        source_name="LinkedIn",
+        is_easy_apply=False,
+        job_id="dassault_4484942761",
+        user_id=1,
+        match_score=0.82,
+        db_path=str(db_file),
+    )
+    resp_ds = await client.get("/api/jobs/dassault_4484942761/open-form", allow_redirects=False)
+    assert resp_ds.status == 302
+    assert "3ds.com/careers/jobs/multibody-dynamics-testing-engineer-550607" in resp_ds.headers.get("Location")
+
+
 
 
