@@ -54,7 +54,13 @@ def create_initial_state(
     """
     Construct the baseline AgentState from application configuration.
     """
-    keywords = list(cfg.search.keywords) if cfg.search.keywords else ["Software Engineer"]
+    from src.matching.keyword_expansion import resolve_search_keywords
+    configured_kws = list(cfg.search.keywords) if cfg.search.keywords else []
+    resolved_kws, kw_origin = resolve_search_keywords(
+        user_provided=configured_kws if configured_kws and configured_kws != ["Software Engineer"] else None,
+        user_id=1,
+    )
+    keywords = resolved_kws or ["Software Engineer"]
     first_keyword = keywords[0] if keywords else "Software Engineer"
 
     return {

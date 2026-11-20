@@ -275,23 +275,26 @@ def detect_apply_platform(
     is_easy_apply: bool = False,
 ) -> Tuple[str, str]:
     """
-    Detect the specific ATS or job platform and its high-level platform category.
+    Detect the specific ATS or job platform and its platform category.
 
     Returns:
         (platform_name, platform_category)
-        where platform_category is either 'linkedin' or 'external'.
+        where platform_category is either 'linkedin' (for in-app Easy Apply) or 'external'
+        (for external forms including Oracle Cloud, Workday, Greenhouse, Lever, Ashby, etc.).
     """
     u = (url or "").lower().strip()
     s = (source_name or "").lower().strip()
 
-    if is_easy_apply or "easy_apply" in u or "easy_apply" in s or "easy apply" in s:
-        return ("LinkedIn (Easy Apply)", "linkedin")
+    # Check if this URL contains an encoded target parameter
+    try:
+        from src.browser.linkedin_apply_extractor import decode_linkedin_apply_url
+        decoded = decode_linkedin_apply_url(url or "")
+        if decoded:
+            u = decoded.lower().strip()
+    except Exception:
+        pass
 
-    if "linkedin.com" in u or "lnkd.in" in u:
-        if is_easy_apply:
-            return ("LinkedIn (Easy Apply)", "linkedin")
-        return ("LinkedIn", "linkedin")
-
+    # 1. Direct ATS platform match (even if found via LinkedIn search)
     if "greenhouse.io" in u or "greenhouse" in s:
         return ("Greenhouse", "external")
     if "lever.co" in u or "lever" in s:
@@ -300,6 +303,20 @@ def detect_apply_platform(
         return ("Ashby", "external")
     if "myworkdayjobs.com" in u or "workday" in u or "workday" in s:
         return ("Workday", "external")
+    if "oraclecloud.com" in u or "oracle" in u or "fa.oraclecloud" in u:
+        return ("Oracle Cloud", "external")
+    if "amazon.jobs" in u or "amazon" in u:
+        return ("Amazon Jobs", "external")
+    if "jobs.apple.com" in u or "apple.com/careers" in u:
+        return ("Apple Jobs", "external")
+    if "careers.microsoft.com" in u:
+        return ("Microsoft Careers", "external")
+    if "careers.google.com" in u:
+        return ("Google Careers", "external")
+    if "successfactors.com" in u or "jobs2web.com" in u:
+        return ("SuccessFactors", "external")
+    if "eightfold.ai" in u:
+        return ("Eightfold", "external")
     if "smartrecruiters.com" in u or "smartrecruiters" in s:
         return ("SmartRecruiters", "external")
     if "taleo.net" in u or "taleo" in s:
@@ -314,13 +331,25 @@ def detect_apply_platform(
         return ("Workable", "external")
     if "rippling.com" in u or "rippling" in s:
         return ("Rippling", "external")
+    if "csod.com" in u:
+        return ("CornerStone", "external")
+    if "phenom.com" in u or "phenompeople.com" in u:
+        return ("Phenom", "external")
 
-    if s and s != "linkedin":
+    # 2. LinkedIn platforms: Distinctly separate native Easy Apply from External Company Forms
+    if is_easy_apply or "easy_apply" in u or "easy_apply" in s or "easy apply" in s:
+        return ("LinkedIn (Easy Apply)", "linkedin")
+
+    if "linkedin.com" in u or "lnkd.in" in u or s == "linkedin":
+        return ("LinkedIn (External Form)", "external")
+
+    # 3. Generic career portals
+    if s and s not in ("linkedin", "manual"):
         return (source_name.title(), "external")
-    if u and not ("linkedin.com" in u):
+    if u and not ("linkedin.com" in u or "lnkd.in" in u):
         return ("Company Career Portal", "external")
 
-    return ("LinkedIn", "linkedin")
+    return ("LinkedIn (External Form)", "external")
 
 
 def save_scraped_job(
@@ -335,6 +364,8 @@ def save_scraped_job(
     user_id: int = 1,
     db_path: Optional[str] = None,
     raw_data: Optional[Dict[str, Any]] = None,
+    match_score: Optional[float] = None,
+    status: Optional[str] = None,
 ) -> str:
     """
     Save a scraped job posting with full description, apply form link, and platform metadata
@@ -346,7 +377,7 @@ def save_scraped_job(
         source_name=source_name,
         is_easy_apply=is_easy_apply,
     )
-    apply_type = "easy_apply" if (is_easy_apply or platform_category == "linkedin") else "external"
+    apply_type = "easy_apply" if is_easy_apply else "external"
 
     clean_title = (title or "Untitled Role").strip()
     clean_company = (company or "Unknown Company").strip()
@@ -367,6 +398,31 @@ def save_scraped_job(
         "scraped_at": now,
         "is_easy_apply": is_easy_apply,
     })
+
+    # Evaluate seniority and match score
+    from src.matching.evaluator import evaluate_scraped_job_fit, is_senior_or_blacklisted_title
+
+    is_senior, senior_kw = is_senior_or_blacklisted_title(clean_title)
+    if is_senior:
+        final_match_score = 0.0
+        final_status = "rejected_seniority"
+    elif match_score is not None:
+        final_match_score = float(match_score)
+        final_status = status or "discovered"
+    else:
+        try:
+            eval_res = evaluate_scraped_job_fit(
+                title=clean_title,
+                company=clean_company,
+                description=clean_desc,
+                user_id=user_id,
+                db_path=db_path,
+            )
+            final_match_score = eval_res["match_score"]
+            final_status = status or "discovered"
+        except Exception:
+            final_match_score = 0.70
+            final_status = status or "discovered"
 
     with get_db_connection(db_path) as conn:
         conn.execute(
@@ -421,8 +477,8 @@ def save_scraped_job(
                 clean_company,
                 clean_location,
                 apply_type,
-                0.85,
-                "discovered",
+                final_match_score,
+                final_status,
                 clean_url,
                 now,
                 f"Platform: {platform_name} ({platform_category}) | Apply Form: {clean_url}",
@@ -437,7 +493,9 @@ def save_scraped_job(
 def get_apply_portals(
     user_id: int,
     platform_category: Optional[str] = None,
+    platform_name: Optional[str] = None,
     search_query: Optional[str] = None,
+    min_match_score: Optional[float] = None,
     limit: int = 50,
     offset: int = 0,
     db_path: Optional[str] = None,
@@ -445,8 +503,11 @@ def get_apply_portals(
     """
     Retrieve all scraped job postings with their direct apply form links,
     categorized by platform (LinkedIn vs External platforms like Greenhouse, Lever, etc.).
+    Filters out senior-level roles and low match score jobs (< min_match_score).
     """
     init_db(db_path)
+    from src.matching.evaluator import evaluate_scraped_job_fit, is_senior_or_blacklisted_title
+
     with get_db_connection(db_path) as conn:
         sql = """
             SELECT 
@@ -466,7 +527,7 @@ def get_apply_portals(
                 a.url as app_url,
                 a.match_score
             FROM jobs j
-            LEFT JOIN applications a ON j.stable_id = a.job_id AND a.user_id = ?
+            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND a.user_id = ?
             WHERE 1=1
         """
         params: List[Any] = [user_id]
@@ -480,12 +541,27 @@ def get_apply_portals(
         rows = conn.execute(sql, params).fetchall()
 
     linkedin_count = 0
+    linkedin_easy_count = 0
+    linkedin_ext_count = 0
     external_count = 0
     platform_breakdown: Dict[str, int] = {}
     items: List[Dict[str, Any]] = []
 
+    # Preload candidate profile once for fast in-memory scoring
+    cached_profile = get_candidate_profile(user_id, db_path)
+    cached_preferences = get_job_preferences(user_id, db_path)
+    cached_evidence = get_resume_evidence(user_id, None, db_path)
+
     for r in rows:
         row_dict = dict(r)
+        title = (row_dict.get("title") or "Untitled Role").strip()
+        company = (row_dict.get("company") or "Unknown Company").strip()
+
+        # 1. Reject blacklisted senior roles
+        is_senior, _ = is_senior_or_blacklisted_title(title)
+        if is_senior:
+            continue
+
         raw = {}
         try:
             if row_dict.get("raw_data"):
@@ -503,28 +579,92 @@ def get_apply_portals(
 
         plat_name, plat_cat = detect_apply_platform(url=app_url, source_name=src_name, is_easy_apply=is_easy)
 
-        if plat_cat == "linkedin":
+        # 2. Match score computation & verification
+        raw_score = row_dict.get("match_score")
+        if raw_score is not None and float(raw_score) > 0:
+            computed_score = round(float(raw_score), 2)
+        else:
+            try:
+                eval_res = evaluate_scraped_job_fit(
+                    title=title,
+                    company=company,
+                    description=row_dict.get("description") or "",
+                    user_id=user_id,
+                    db_path=db_path,
+                    profile=cached_profile,
+                    preferences=cached_preferences,
+                    evidence=cached_evidence,
+                )
+                computed_score = eval_res["match_score"]
+            except Exception:
+                computed_score = 0.70
+
+        # 3. Filter by min_match_score threshold (e.g. 0.60 or 0.80)
+        if min_match_score is not None and min_match_score > 0.0:
+            if computed_score < min_match_score:
+                continue
+
+        is_li_easy = (plat_name == "LinkedIn (Easy Apply)" or is_easy)
+        is_from_linkedin = (
+            src_name.lower() == "linkedin"
+            or "linkedin.com" in app_url.lower()
+            or "lnkd.in" in app_url.lower()
+            or bool(raw.get("source_url") and "linkedin" in str(raw.get("source_url")).lower())
+            or plat_name.startswith("LinkedIn")
+            or is_li_easy
+        )
+        is_li_ext = is_from_linkedin and (not is_li_easy)
+
+        if is_li_easy:
+            linkedin_easy_count += 1
             linkedin_count += 1
+        elif is_li_ext:
+            linkedin_ext_count += 1
+            linkedin_count += 1
+            external_count += 1
         else:
             external_count += 1
 
         platform_breakdown[plat_name] = platform_breakdown.get(plat_name, 0) + 1
 
-        # Platform filter
+        # 1. Platform Category filter (e.g. linkedin vs external, or specific tabs)
         if platform_category and platform_category.lower() != "all":
-            req_cat = platform_category.lower()
-            if req_cat in ("linkedin", "linkedin_only") and plat_cat != "linkedin":
+            req_cat = platform_category.lower().strip()
+            if req_cat in ("linkedin_external", "linkedin-external", "linkedin_ext", "external_linkedin"):
+                if not is_li_ext:
+                    continue
+            elif req_cat in ("linkedin_easy", "linkedin-easy", "easy_apply", "easyapply"):
+                if not is_li_easy:
+                    continue
+            elif req_cat in ("external", "external_ats", "ats"):
+                if plat_cat != "external":
+                    continue
+            elif req_cat in ("linkedin", "linkedin_only", "linkedin_all"):
+                if not is_from_linkedin:
+                    continue
+            elif req_cat not in ("linkedin", "external") and req_cat not in plat_name.lower():
                 continue
-            if req_cat in ("external", "other", "other_platforms") and plat_cat != "external":
-                continue
-            if req_cat not in ("linkedin", "external") and plat_name.lower() != req_cat:
+
+        # 2. Specific Platform Name filter (e.g. Greenhouse, Ashby, Lever, Workday, Company Career Portal, LinkedIn)
+        if platform_name and platform_name.lower() != "all":
+            req_plat = platform_name.lower().strip()
+            if req_plat in ("linkedin (easy apply)", "linkedin easy apply", "easy apply"):
+                if not is_li_easy:
+                    continue
+            elif req_plat in ("linkedin (external form)", "linkedin external form", "linkedin external", "linkedin_external"):
+                if not is_li_ext:
+                    continue
+            elif req_plat in ("linkedin", "linkedin_all"):
+                if not (is_li_easy or is_li_ext or plat_cat == "linkedin"):
+                    continue
+            elif req_plat not in plat_name.lower() and req_plat != plat_name.lower():
                 continue
 
         items.append({
             "id": row_dict.get("job_table_id") or row_dict.get("app_id"),
             "stable_id": row_dict.get("stable_id"),
-            "title": row_dict.get("title") or "Untitled Role",
-            "company": row_dict.get("company") or "Unknown Company",
+            "title": title,
+            "company": company,
             "location": row_dict.get("location") or "Remote",
             "description": row_dict.get("description") or "",
             "apply_url": app_url,
@@ -532,7 +672,7 @@ def get_apply_portals(
             "platform": plat_name,
             "platform_category": plat_cat,
             "apply_type": "Easy Apply" if is_easy else "External Apply",
-            "match_score": row_dict.get("match_score") or 0.85,
+            "match_score": computed_score,
             "status": row_dict.get("application_status") or "discovered",
             "created_at": row_dict.get("created_at") or "",
         })
@@ -542,10 +682,111 @@ def get_apply_portals(
     return {
         "total": len(items),
         "linkedin_count": linkedin_count,
+        "linkedin_easy_count": linkedin_easy_count,
+        "linkedin_external_count": linkedin_ext_count,
         "external_count": external_count,
         "platforms": platform_breakdown,
         "jobs": paginated_items,
     }
+
+
+def purge_blacklisted_senior_jobs(db_path: Optional[str] = None) -> int:
+    """
+    Purge or mark blacklisted senior job postings from previous un-filtered scrapes.
+    Returns number of purged senior jobs.
+    """
+    init_db(db_path)
+    from src.matching.evaluator import is_senior_or_blacklisted_title
+
+    purged = 0
+    with get_db_connection(db_path) as conn:
+        rows = conn.execute("SELECT id, stable_id, title FROM jobs").fetchall()
+        for r in rows:
+            if is_senior_or_blacklisted_title(r["title"])[0]:
+                conn.execute("DELETE FROM jobs WHERE id = ?", (r["id"],))
+                conn.execute(
+                    "UPDATE applications SET status = 'rejected_seniority', match_score = 0.0 WHERE job_id = ? OR job_id = ?",
+                    (r["stable_id"], str(r["id"])),
+                )
+                purged += 1
+        conn.commit()
+    return purged
+
+
+def delete_portal_jobs(
+    job_ids: List[Union[int, str]],
+    user_id: int = 1,
+    db_path: Optional[str] = None,
+) -> int:
+    """
+    Delete specific scraped jobs and their associated tracking applications.
+    Supports individual job deletion or batch selection deletion.
+    """
+    if not job_ids:
+        return 0
+    init_db(db_path)
+    deleted_count = 0
+    with get_db_connection(db_path) as conn:
+        for jid in job_ids:
+            s_jid = str(jid).strip()
+            if not s_jid:
+                continue
+            int_id = int(s_jid) if s_jid.isdigit() else -1
+
+            # Fetch stable_id before deleting if int_id was passed
+            stable_ids_to_clean = [s_jid]
+            if int_id > 0:
+                row = conn.execute("SELECT stable_id FROM jobs WHERE id = ?", (int_id,)).fetchone()
+                if row and row["stable_id"]:
+                    stable_ids_to_clean.append(str(row["stable_id"]))
+
+            # Delete from jobs
+            cur = conn.execute("DELETE FROM jobs WHERE id = ? OR stable_id = ?", (int_id, s_jid))
+            if cur.rowcount > 0:
+                deleted_count += cur.rowcount
+
+            # Delete from applications
+            for sid in stable_ids_to_clean:
+                conn.execute(
+                    "DELETE FROM applications WHERE (job_id = ? OR CAST(id AS TEXT) = ?) AND (user_id = ? OR user_id = 1)",
+                    (sid, sid, user_id),
+                )
+                conn.execute("DELETE FROM match_evaluations WHERE job_id = ? AND user_id = ?", (sid, user_id))
+                conn.execute("DELETE FROM application_packs WHERE job_id = ? AND user_id = ?", (sid, user_id))
+        conn.commit()
+    return deleted_count
+
+
+def delete_all_portal_jobs(
+    user_id: int = 1,
+    category: Optional[str] = None,
+    platform: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> int:
+    """
+    Delete all scraped jobs (or filtered by category / platform).
+    """
+    init_db(db_path)
+    # If filtered view is active, delete only the matching jobs
+    if (category and category.lower() != "all") or (platform and platform.lower() != "all"):
+        portals_data = get_apply_portals(
+            user_id=user_id,
+            platform_category=category,
+            platform_name=platform,
+            limit=10000,
+            db_path=db_path,
+        )
+        matched_ids = [j["id"] for j in portals_data.get("jobs", []) if j.get("id")]
+        return delete_portal_jobs(matched_ids, user_id=user_id, db_path=db_path)
+
+    with get_db_connection(db_path) as conn:
+        cur_jobs = conn.execute("DELETE FROM jobs")
+        deleted_count = cur_jobs.rowcount
+        conn.execute("DELETE FROM applications WHERE user_id = ? OR user_id = 1", (user_id,))
+        conn.execute("DELETE FROM match_evaluations WHERE user_id = ? OR user_id = 1", (user_id,))
+        conn.execute("DELETE FROM application_packs WHERE user_id = ? OR user_id = 1", (user_id,))
+        conn.commit()
+    return max(deleted_count, 0)
 
 
 def update_application_status(

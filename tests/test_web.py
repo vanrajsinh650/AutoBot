@@ -252,15 +252,16 @@ async def test_api_apply_portals_endpoint(client: TestClient, monkeypatch, tmp_p
 
     # Save a LinkedIn Easy Apply job with full description and apply URL
     save_scraped_job(
-        title="Senior Python Architect",
+        title="Python Developer",
         company="LinkedIn Tech",
         location="Bengaluru, India",
-        description="We are seeking an expert Python Architect with 8+ years experience in distributed microservices.",
+        description="We are seeking a Python Developer with experience in FastAPI and distributed services.",
         apply_url="https://in.linkedin.com/jobs/view/99998888/?apply=true",
         source_name="LinkedIn",
         is_easy_apply=True,
         job_id="li_arch_99",
         user_id=1,
+        match_score=0.85,
         db_path=str(db_file),
     )
 
@@ -275,6 +276,7 @@ async def test_api_apply_portals_endpoint(client: TestClient, monkeypatch, tmp_p
         is_easy_apply=False,
         job_id="gh_stripe_123",
         user_id=1,
+        match_score=0.85,
         db_path=str(db_file),
     )
 
@@ -304,4 +306,178 @@ async def test_api_apply_portals_endpoint(client: TestClient, monkeypatch, tmp_p
     assert len(ext_data["jobs"]) == 1
     assert ext_data["jobs"][0]["platform_category"] == "external"
     assert "greenhouse.io" in ext_data["jobs"][0]["apply_url"]
+
+    # 3b. Save an External Form job from LinkedIn (is_easy_apply=False)
+    save_scraped_job(
+        title="Software Engineer II",
+        company="Amazon",
+        location="Remote",
+        description="Amazon AWS backend services team.",
+        apply_url="https://in.linkedin.com/jobs/view/4490760961",
+        source_name="LinkedIn",
+        is_easy_apply=False,
+        job_id="li_ext_amazon_1",
+        user_id=1,
+        match_score=0.88,
+        db_path=str(db_file),
+    )
+
+    li_ext_resp = await client.get("/api/apply-portals?category=linkedin_external")
+    assert li_ext_resp.status == 200
+    li_ext_data = await li_ext_resp.json()
+    assert len(li_ext_data["jobs"]) == 1
+    assert li_ext_data["jobs"][0]["platform"] == "LinkedIn (External Form)"
+    assert li_ext_data["jobs"][0]["company"] == "Amazon"
+
+    # Verify linkedin_easy category does NOT include external form jobs
+    li_easy_resp = await client.get("/api/apply-portals?category=linkedin_easy")
+    assert li_easy_resp.status == 200
+    li_easy_data = await li_easy_resp.json()
+    assert len(li_easy_data["jobs"]) == 1
+    assert li_easy_data["jobs"][0]["platform"] == "LinkedIn (Easy Apply)"
+
+    # 4. Save a Senior job and verify it is filtered out
+    save_scraped_job(
+        title="Sr Java Developer",
+        company="SAS",
+        location="Pune",
+        description="Senior role with 10+ years experience required.",
+        apply_url="https://in.linkedin.com/jobs/view/4476162243",
+        source_name="LinkedIn",
+        job_id="li_sr_sas",
+        user_id=1,
+        db_path=str(db_file),
+    )
+    all_resp = await client.get("/api/apply-portals?min_score=all")
+    assert all_resp.status == 200
+    all_data = await all_resp.json()
+    # Senior job must NOT be in portals
+    titles = [j["title"] for j in all_data["jobs"]]
+    assert "Sr Java Developer" not in titles
+
+    # 5. Verify threshold filtering
+    # Save a low-match non-senior job (score 0.40)
+    save_scraped_job(
+        title="Cobol Programmer",
+        company="Legacy Systems",
+        location="Remote",
+        description="Cobol mainframe maintenance.",
+        apply_url="https://boards.greenhouse.io/legacy/jobs/555",
+        source_name="Greenhouse",
+        match_score=0.40,
+        job_id="gh_legacy_555",
+        user_id=1,
+        db_path=str(db_file),
+    )
+    # With min_score=0.60, Cobol Programmer should be excluded
+    t60_resp = await client.get("/api/apply-portals?min_score=0.60")
+    t60_data = await t60_resp.json()
+    t60_titles = [j["title"] for j in t60_data["jobs"]]
+    assert "Cobol Programmer" not in t60_titles
+    assert "Python Developer" in t60_titles
+
+    # With min_score=0.30, Cobol Programmer should be included
+    t30_resp = await client.get("/api/apply-portals?min_score=0.30")
+    t30_data = await t30_resp.json()
+    t30_titles = [j["title"] for j in t30_data["jobs"]]
+    assert "Cobol Programmer" in t30_titles
+
+    # 6. Specific Platform Name filtering (e.g. Greenhouse)
+    gh_resp = await client.get("/api/apply-portals?category=external&platform=Greenhouse")
+    assert gh_resp.status == 200
+    gh_data = await gh_resp.json()
+    assert all("greenhouse.io" in j["apply_url"] for j in gh_data["jobs"])
+
+
+@pytest.mark.asyncio
+async def test_api_portals_apply_validation(client: TestClient):
+    """Verify /api/portals/apply requires job_ids or job_id."""
+    resp = await client.post("/api/portals/apply", json={})
+    assert resp.status == 400
+    data = await resp.json()
+    assert "error" in data
+
+
+@pytest.mark.asyncio
+async def test_api_portals_apply_execution(client: TestClient, monkeypatch):
+    """Verify /api/portals/apply triggers automated bot execution."""
+    from unittest.mock import AsyncMock
+
+    mock_apply = AsyncMock(return_value={"success": True, "total": 2, "succeeded": 2, "failed": 0})
+    monkeypatch.setattr("src.browser.portal_applicator.apply_to_portals", mock_apply)
+
+    payload = {
+        "job_ids": ["gh_stripe_123", "ashby_ramp_456"],
+        "dry_run": True,
+        "background": True,
+    }
+    resp = await client.post("/api/portals/apply", json=payload)
+    assert resp.status == 200
+    data = await resp.json()
+    assert data["success"] is True
+    assert data["count"] == 2
+    assert data["dry_run"] is True
+
+
+def test_resolve_search_keywords_unit():
+    """Verify resolve_search_keywords prioritizes user keywords and falls back to deep resume analysis."""
+    from src.matching.keyword_expansion import resolve_search_keywords
+
+    # 1. Custom string
+    kws, origin = resolve_search_keywords("Go Developer, Rust Engineer")
+    assert origin == "user_provided"
+    assert kws == ["Go Developer", "Rust Engineer"]
+
+    # 2. Custom list
+    kws, origin = resolve_search_keywords(["Backend Specialist", "API Developer"])
+    assert origin == "user_provided"
+    assert kws == ["Backend Specialist", "API Developer"]
+
+    # 3. Empty string / None -> deep resume analysis fallback
+    kws_empty, origin_empty = resolve_search_keywords("", user_id=1)
+    assert origin_empty == "deep_resume_analysis"
+    assert len(kws_empty) > 0
+    # Must include tech matching resume (Python / Developer / Engineer)
+    assert any("python" in k.lower() or "developer" in k.lower() or "engineer" in k.lower() for k in kws_empty)
+
+    # 4. None
+    kws_none, origin_none = resolve_search_keywords(None, user_id=1)
+    assert origin_none == "deep_resume_analysis"
+    assert len(kws_none) > 0
+
+
+@pytest.mark.asyncio
+async def test_api_candidate_suggested_keywords(client: TestClient):
+    """Verify /api/candidate/suggested-keywords returns deep resume analyzed search keywords."""
+    resp = await client.get("/api/candidate/suggested-keywords")
+    assert resp.status == 200
+    data = await resp.json()
+    assert "suggested_keywords" in data
+    assert isinstance(data["suggested_keywords"], list)
+    assert len(data["suggested_keywords"]) > 0
+    assert data["origin"] == "deep_resume_analysis"
+    assert "primary_skills" in data
+    assert "target_roles" in data
+
+
+@pytest.mark.asyncio
+async def test_api_search_live_keyword_resolution(client: TestClient, monkeypatch):
+    """Verify /api/search/live accepts custom keywords or defaults to deep resume analysis."""
+    from unittest.mock import AsyncMock
+
+    mock_search = AsyncMock(return_value=[])
+    monkeypatch.setattr("src.browser.live_search.run_google_to_linkedin_job_search", mock_search)
+
+    # A: Empty payload -> triggers deep resume analysis
+    resp1 = await client.post("/api/search/live", json={"target": "google"})
+    assert resp1.status == 200
+    data1 = await resp1.json()
+    assert data1["success"] is True
+
+    # B: Custom keyword provided
+    resp2 = await client.post("/api/search/live", json={"target": "google", "keyword": "FastAPI Developer"})
+    assert resp2.status == 200
+    data2 = await resp2.json()
+    assert data2["success"] is True
+
 

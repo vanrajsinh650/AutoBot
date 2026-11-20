@@ -3,11 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>AutoBot — Autonomous Job Application Assistant</title>
-  <link rel="stylesheet" href="/static/app.css?v=2.4.0">
+  <link rel="stylesheet" href="/static/app.css?v=7.0.0&t=1795153000">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="app-container">
@@ -22,91 +25,106 @@
           </svg>
         </div>
         <div>
-          <div class="brand-title">AutoBot</div>
-          <div class="brand-subtitle">AUTONOMOUS ASSISTANT</div>
+          <div class="brand-title">
+            AutoBot
+            <span class="version-tag">v2.4</span>
+          </div>
+          <div class="brand-subtitle">Autonomous Agent Cockpit</div>
         </div>
       </div>
 
-      <ul class="nav-menu">
-        <li class="nav-item">
-          <button id="nav-mission" class="active" data-view="mission">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-              <polyline points="2 17 12 22 22 17"></polyline>
-              <polyline points="2 12 12 17 22 12"></polyline>
-            </svg>
-            Mission Control
-          </button>
-        </li>
-        <li class="nav-item">
-          <button id="nav-discovery" data-view="discovery">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            Job Discovery
-          </button>
-        </li>
-        <li class="nav-item">
-          <button id="nav-apply-portals" data-view="apply-portals">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-            </svg>
-            Apply Portals & Links
-          </button>
-        </li>
-        <li class="nav-item">
-          <button id="nav-matching" data-view="matching">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 20V10"></path>
-              <path d="M18 20V4"></path>
-              <path d="M6 20v-4"></path>
-            </svg>
-            Fit & Eligibility
-          </button>
-        </li>
-        <li class="nav-item">
-          <button id="nav-packs" data-view="packs">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-            </svg>
-            Application Packs
-          </button>
-        </li>
-        <li class="nav-item">
-          <button id="nav-applications" data-view="applications">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <line x1="3" y1="10" x2="21" y2="10"></line>
-            </svg>
-            Applications Tracker
-          </button>
-        </li>
-        <li class="nav-item">
-          <button id="nav-profile" data-view="profile">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            Profile & Vector Memory
-          </button>
-        </li>
-        <li class="nav-item">
-          <button id="nav-settings" data-view="settings">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            Agent Parameters
-          </button>
-        </li>
-      </ul>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">WORKSPACE</div>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <button id="nav-mission" class="active" data-view="mission">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+              <span>Mission Control</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button id="nav-apply-portals" data-view="apply-portals">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              </svg>
+              <span>Apply Portals & Links</span>
+              <span class="nav-badge" id="nav-badge-portals">101</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button id="nav-discovery" data-view="discovery">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <span>Job Discovery</span>
+            </button>
+          </li>
+        </ul>
+
+        <div class="nav-section-label">AGENT INTELLIGENCE</div>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <button id="nav-matching" data-view="matching">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20V10"></path>
+                <path d="M18 20V4"></path>
+                <path d="M6 20v-4"></path>
+              </svg>
+              <span>Fit & Eligibility</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button id="nav-packs" data-view="packs">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+              <span>Application Packs</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button id="nav-applications" data-view="applications">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              <span>Applications Tracker</span>
+            </button>
+          </li>
+        </ul>
+
+        <div class="nav-section-label">CONFIGURATION</div>
+        <ul class="nav-menu">
+          <li class="nav-item">
+            <button id="nav-profile" data-view="profile">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <span>Profile & Vector DB</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button id="nav-settings" data-view="settings">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Agent Parameters</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
 
       <div class="sidebar-footer">
         <div class="system-status-indicator">
@@ -121,213 +139,361 @@
     <main class="main-content">
       <header class="top-bar">
         <div class="top-bar-left">
-          <h1 id="topbar-title" class="page-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" color="var(--primary)">
-              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-              <polyline points="2 17 12 22 22 17"></polyline>
-              <polyline points="2 12 12 17 22 12"></polyline>
-            </svg>
-            Mission Control
-          </h1>
-          <div id="browser-health-pill" class="browser-health-badge" title="Browser Engine Telemetry & Active Backend">
+          <div class="topbar-view-heading">
+            <h1 id="topbar-title" class="page-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="title-icon">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+              <span>Mission Control</span>
+            </h1>
+          </div>
+
+          <div id="browser-health-pill" class="browser-health-badge" title="Stealth Browser Engine Status">
             <span id="browser-pulse-indicator" class="browser-pulse-dot"></span>
-            <span id="browser-engine-text">Chromium (Default)</span>
-            <span class="browser-divider">|</span>
-            <span id="browser-proc-status">Ready</span>
-            <span class="browser-divider">|</span>
+            <span id="browser-engine-text">Chromium Stealth</span>
+            <span class="browser-divider">·</span>
+            <span id="browser-proc-status">READY</span>
+            <span class="browser-divider">·</span>
             <span id="browser-fallback-badge" class="badge-fallback-ok">Fallback: Standby</span>
+          </div>
+
+          <div id="badge-ui-mode" class="ui-mode-badge" title="Dynamic UI Mode: High performance, zero system lag">
+            <span class="mode-pulse-dot"></span>
+            <span>DYNAMIC UI</span>
           </div>
         </div>
 
         <div class="action-bar">
-          <!-- Audio Feedback Toggle -->
-          <button id="btn-audio-toggle" class="btn btn-audio" title="Tactile UI Sounds">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-            </svg>
-            <span id="audio-state-text" style="font-size: 11px; font-weight: 700;">AUDIO ON</span>
-          </button>
+          <!-- Segmented Settings Controls -->
+          <div class="topbar-controls-group">
+            <button id="btn-audio-toggle" class="btn-topbar-audio" title="Tactile UI Sounds Toggle">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+              <span id="audio-state-text">AUDIO ON</span>
+            </button>
 
-          <label class="toggle-wrapper" title="Simulate execution without submitting live forms">
-            <span class="switch">
-              <input type="checkbox" id="dry-run-checkbox" checked>
-              <span class="slider-toggle"></span>
-            </span>
-            <span>Dry Run</span>
-          </label>
+            <span class="topbar-divider"></span>
 
-          <label class="toggle-wrapper" title="Run browser silently in background without stealing screen focus">
-            <span class="switch">
-              <input type="checkbox" id="bg-mode-checkbox" checked>
-              <span class="slider-toggle"></span>
-            </span>
-            <span>Background Mode</span>
-          </label>
+            <label class="toggle-wrapper" title="Simulate execution without submitting live forms">
+              <span class="switch">
+                <input type="checkbox" id="dry-run-checkbox" checked>
+                <span class="slider-toggle"></span>
+              </span>
+              <span>Dry Run</span>
+            </label>
 
-          <button id="btn-quick-upload" class="btn btn-secondary" title="Upload or replace candidate resume PDF/DOCX">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            Upload Resume
-          </button>
+            <span class="topbar-divider"></span>
 
-          <button id="btn-force-ingest" class="btn btn-secondary" title="Re-extract and re-embed candidate resume into Qdrant">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 2v6h-6"></path>
-              <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
-              <path d="M3 22v-6h6"></path>
-              <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
-            </svg>
-            Sync Ingestion
-          </button>
+            <label class="toggle-wrapper" title="Run browser silently in background without window focus">
+              <span class="switch">
+                <input type="checkbox" id="bg-mode-checkbox" checked>
+                <span class="slider-toggle"></span>
+              </span>
+              <span>Background</span>
+            </label>
+          </div>
 
-          <button id="btn-search-chrome" class="btn btn-secondary" title="Open real Google Chrome directly and search keywords on LinkedIn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            Search in Chrome
-          </button>
+          <!-- Primary Actions -->
+          <div class="topbar-actions-group">
+            <button id="btn-search-chrome" class="btn btn-secondary" title="Search targeted roles in Google Chrome">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <span>Search in Chrome</span>
+            </button>
 
-          <button id="btn-start-run" class="btn btn-primary" title="Launch autonomous job search and application cycle">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
-            Start Run
-          </button>
+            <button id="btn-start-run" class="btn btn-primary" title="Launch autonomous job search and application cycle">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span>Start Run</span>
+            </button>
 
-          <button id="btn-stop-run" class="btn btn-danger" disabled title="Cancel active agent run">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="6" y="6" width="12" height="12"></rect>
-            </svg>
-            Stop
-          </button>
+            <button id="btn-stop-run" class="btn btn-danger" disabled title="Cancel active agent run">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="6" width="12" height="12"></rect>
+              </svg>
+              <span>Stop</span>
+            </button>
+          </div>
         </div>
       </header>
 
       <!-- ════════════ VIEW 1: MISSION CONTROL ═════════════════════ -->
       <section id="view-mission" class="view-container active">
-        <!-- ── Clean Control Hero Banner ──────────────────────────── -->
-        <div class="hero-card">
-          <div class="hero-info">
-            <h2>Automated Job Applications & Matching</h2>
-            <p>
-              Streamline job discovery, resume evaluation, semantic scoring, and automated application submission with full transparency and control.
-            </p>
+        <!-- ── Candidate Intelligence & Cockpit Strip ─────────────── -->
+        <div class="candidate-cockpit-bar">
+          <div class="candidate-profile-block">
+            <div class="candidate-avatar">VS</div>
+            <div class="candidate-bio">
+              <div class="candidate-name-row">
+                <span class="candidate-name">VANRAJ SOLANKI</span>
+                <span class="candidate-role-pill">AI & Backend Engineer</span>
+                <span class="candidate-target-badge">Ahmedabad · Remote</span>
+              </div>
+              <div class="candidate-skills-row">
+                <span class="skill-tag">Python</span>
+                <span class="skill-tag">FastAPI</span>
+                <span class="skill-tag">Playwright Stealth</span>
+                <span class="skill-tag">LangGraph</span>
+                <span class="skill-tag">Qdrant RAG</span>
+                <span class="skill-tag">SQLite ACID</span>
+              </div>
+            </div>
           </div>
-          <div class="hero-actions">
-            <button id="btn-hero-launch" class="btn btn-primary">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-              Start Run
+
+          <div class="candidate-meta-block">
+            <div class="meta-item">
+              <span class="meta-label">Vector Memory</span>
+              <span class="meta-val meta-emerald">resume.pdf (7 chunks)</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Fit Cutoff</span>
+              <span class="meta-val">≥ 60% Match</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Protection</span>
+              <span class="meta-val meta-cyan">Senior Roles Purged</span>
+            </div>
+          </div>
+
+          <!-- ── 3D Live Discovery Radar Motion Widget ────────────── -->
+          <div class="cockpit-radar-widget" title="Active Stealth Discovery Radar: Continuous Multi-Platform Scan">
+            <div class="radar-scope">
+              <div class="radar-scan-sweep"></div>
+              <div class="radar-grid-circle grid-1"></div>
+              <div class="radar-grid-circle grid-2"></div>
+              <div class="radar-crosshair-h"></div>
+              <div class="radar-crosshair-v"></div>
+              <div class="radar-target-dot target-1" title="LinkedIn Match"></div>
+              <div class="radar-target-dot target-2" title="Greenhouse Match"></div>
+              <div class="radar-target-dot target-3" title="Ashby Match"></div>
+            </div>
+            <div class="radar-info">
+              <div class="radar-label-row">
+                <span class="radar-pulse-dot"></span>
+                <span class="radar-title">3D SCANNER</span>
+              </div>
+              <div class="radar-coords">201 DISCOVERED · LIVE</div>
+            </div>
+          </div>
+
+          <div class="candidate-actions-block">
+            <button id="btn-hero-upload" class="btn btn-secondary btn-sm" title="Upload or replace candidate resume">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              <span>Update Resume</span>
             </button>
-            <button id="btn-hero-upload" class="btn btn-secondary">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-              Upload Resume
+            <button id="btn-force-ingest" class="btn btn-secondary btn-sm" title="Re-sync Qdrant vector memory">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+              <span>Sync Vector DB</span>
             </button>
+            <button id="btn-hero-launch" class="btn btn-primary btn-sm" title="Launch Autonomous Application Loop">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Launch Cycle</span>
+            </button>
+            <!-- Hidden alias to satisfy any direct getElementById references -->
+            <button id="btn-quick-upload" style="display: none;"></button>
           </div>
         </div>
 
-        <!-- ── Metrics Grid ───────────────────────────────────────── -->
-        <div class="metrics-row">
-          <div class="metric-card">
-            <div class="metric-label">
-              Total Applications
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+        <!-- ── Bento KPI Matrix ───────────────────────────────────── -->
+        <div class="metrics-row bento-metrics">
+          <div class="metric-card bento-card">
+            <div class="metric-header">
+              <span class="metric-title">TOTAL DISCOVERED</span>
+              <span class="metric-icon text-cyan">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+              </span>
             </div>
-            <div id="metric-total" class="metric-value">0</div>
+            <div class="metric-body">
+              <div id="metric-total" class="metric-value">0</div>
+              <span class="metric-chip chip-cyan">Active Pool</span>
+            </div>
+            <div class="metric-footer">Scraped from LinkedIn, Ashby, Greenhouse & Lever</div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">
-              Applied (Live Submission)
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--primary)"><polyline points="20 6 9 17 4 12"></polyline></svg>
+
+          <div class="metric-card bento-card">
+            <div class="metric-header">
+              <span class="metric-title">APPLIED (LIVE SUBMITTED)</span>
+              <span class="metric-icon text-emerald">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </span>
             </div>
-            <div id="metric-applied" class="metric-value applied">0</div>
+            <div class="metric-body">
+              <div id="metric-applied" class="metric-value applied">0</div>
+              <span class="metric-chip chip-emerald">Live Verified</span>
+            </div>
+            <div class="metric-footer">Submitted & logged into ACID audit tracker</div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">
-              Dry Run (Simulated)
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="#c084fc"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+
+          <div class="metric-card bento-card">
+            <div class="metric-header">
+              <span class="metric-title">DRY RUN (SIMULATION)</span>
+              <span class="metric-icon text-zinc">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              </span>
             </div>
-            <div id="metric-dry-run" class="metric-value dry-run">0</div>
+            <div class="metric-body">
+              <div id="metric-dry-run" class="metric-value dry-run">0</div>
+              <span class="metric-chip chip-zinc">Safe Mode</span>
+            </div>
+            <div class="metric-footer">Form fields parsed without final click</div>
           </div>
-          <div class="metric-card">
-            <div class="metric-label">
-              Skipped / Low Fit
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--text-dim)"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+
+          <div class="metric-card bento-card">
+            <div class="metric-header">
+              <span class="metric-title">FILTERED (PURGED)</span>
+              <span class="metric-icon text-rose">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+              </span>
             </div>
-            <div id="metric-skipped" class="metric-value skipped">0</div>
+            <div class="metric-body">
+              <div id="metric-skipped" class="metric-value skipped">0</div>
+              <span class="metric-chip chip-rose">64 Senior Purged</span>
+            </div>
+            <div class="metric-footer">Protected from senior roles & low semantic fit</div>
           </div>
         </div>
 
-        <!-- ── LangGraph Pipeline Visualizer ──────────────────────── -->
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--cyan)">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-              </svg>
-              LangGraph State Machine Pipeline
+        <!-- ── LangGraph Pipeline Stepper ────────────────────────── -->
+        <div class="pipeline-card">
+          <div class="pipeline-header">
+            <div class="pipeline-title-group">
+              <div class="pipeline-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+              </div>
+              <div>
+                <span class="pipeline-heading">LangGraph State Machine Pipeline</span>
+                <span class="pipeline-subheading">Autonomous sequential execution graph</span>
+              </div>
             </div>
-            <span id="active-node-indicator" class="badge badge-dry-run">STATUS: IDLE</span>
+            <div class="pipeline-status-badge">
+              <span class="status-pulse-dot"></span>
+              <span id="active-node-indicator">STATUS: IDLE</span>
+            </div>
           </div>
 
           <div class="graph-visualizer">
             <div id="node-search" class="graph-node" data-node="search">
-              <div class="node-name">1. SEARCH</div>
-              <span class="badge badge-dry-run" style="font-size: 9px;">Playwright Stealth</span>
+              <div class="node-num">01</div>
+              <div class="node-info">
+                <div class="node-name">SEARCH</div>
+                <div class="node-meta">Stealth Playwright</div>
+              </div>
             </div>
-            <div class="graph-arrow">➔</div>
+            <div class="graph-node-connector">➔</div>
+
             <div id="node-filter" class="graph-node" data-node="filter">
-              <div class="node-name">2. FILTER</div>
-              <span class="badge badge-skipped" style="font-size: 9px;">SQLite Dedup</span>
+              <div class="node-num">02</div>
+              <div class="node-info">
+                <div class="node-name">FILTER</div>
+                <div class="node-meta">Senior & Dedup</div>
+              </div>
             </div>
-            <div class="graph-arrow">➔</div>
+            <div class="graph-node-connector">➔</div>
+
             <div id="node-evaluate" class="graph-node" data-node="evaluate">
-              <div class="node-name">3. EVALUATE</div>
-              <span class="badge badge-dry-run" style="font-size: 9px;">Qdrant RAG</span>
+              <div class="node-num">03</div>
+              <div class="node-info">
+                <div class="node-name">EVALUATE</div>
+                <div class="node-meta">Qdrant RAG</div>
+              </div>
             </div>
-            <div class="graph-arrow">➔</div>
+            <div class="graph-node-connector">➔</div>
+
             <div id="node-apply" class="graph-node" data-node="apply">
-              <div class="node-name">4. APPLY</div>
-              <span class="badge badge-applied" style="font-size: 9px;">Form Actuator</span>
+              <div class="node-num">04</div>
+              <div class="node-info">
+                <div class="node-name">APPLY</div>
+                <div class="node-meta">Form Actuator</div>
+              </div>
             </div>
-            <div class="graph-arrow">➔</div>
+            <div class="graph-node-connector">➔</div>
+
             <div id="node-record" class="graph-node" data-node="record">
-              <div class="node-name">5. RECORD</div>
-              <span class="badge badge-dry-run" style="font-size: 9px;">ACID Audit</span>
+              <div class="node-num">05</div>
+              <div class="node-info">
+                <div class="node-name">RECORD</div>
+                <div class="node-meta">ACID Audit Log</div>
+              </div>
             </div>
-            <div class="graph-arrow">➔</div>
+            <div class="graph-node-connector">➔</div>
+
             <div id="node-advance" class="graph-node" data-node="advance">
-              <div class="node-name">6. ADVANCE</div>
-              <span class="badge badge-skipped" style="font-size: 9px;">State Loop</span>
+              <div class="node-num">06</div>
+              <div class="node-info">
+                <div class="node-name">ADVANCE</div>
+                <div class="node-meta">Cycle State Loop</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- ── Live Telemetry Console (SSE Stream) ────────────────── -->
-        <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--primary)">
-                <polyline points="4 17 10 11 4 5"></polyline>
-                <line x1="12" y1="19" x2="20" y2="19"></line>
-              </svg>
-              Live Telemetry Console (Server-Sent Events)
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <button id="btn-clear-logs" class="btn btn-secondary" style="padding: 5px 12px; font-size: 11px;">Clear Buffer</button>
+        <!-- ── Mission Control Two-Column Cockpit ────────────────── -->
+        <div class="mission-split-layout">
+          <!-- Left Column: Matched Portals & Direct Form Links -->
+          <div class="mission-col-portals">
+            <div class="cockpit-panel">
+              <div class="cockpit-panel-header">
+                <div class="cockpit-title-group">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-cyan"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                  <div>
+                    <span class="cockpit-title">Direct Application Portals</span>
+                    <span class="cockpit-subtitle">Verified external and in-app jobs matching your profile</span>
+                  </div>
+                </div>
+                <button id="btn-mission-view-all-portals" class="btn btn-secondary btn-xs" title="Open full portal manager">
+                  <span>View All 101 Portals →</span>
+                </button>
+              </div>
+
+              <!-- Container populated with top high-fit jobs -->
+              <div id="mission-featured-portals" class="featured-portals-list">
+                <div class="featured-portals-empty">
+                  <div class="spinner-small"></div>
+                  <span>Loading top candidate matches...</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div id="terminal-feed" class="terminal-feed">
-            <div class="log-entry">
-              <span class="log-time">[00:00:00]</span>
-              <span class="log-level info">[SYS]</span>
-              <span class="log-msg">AutoBot system online. Ready for job search and applications.</span>
+
+          <!-- Right Column: Live Telemetry Terminal -->
+          <div class="mission-col-telemetry">
+            <div class="cockpit-panel">
+              <div class="cockpit-panel-header">
+                <div class="cockpit-title-group">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-emerald"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                  <div>
+                    <span class="cockpit-title">Live Agent Telemetry</span>
+                    <span class="cockpit-subtitle">SSE execution stream & runtime logs</span>
+                  </div>
+                </div>
+                <div class="telemetry-actions">
+                  <div class="log-filter-group">
+                    <button class="log-filter-btn active" data-filter="all">All</button>
+                    <button class="log-filter-btn" data-filter="info">Info</button>
+                    <button class="log-filter-btn" data-filter="success">Success</button>
+                    <button class="log-filter-btn" data-filter="warning">Warn</button>
+                    <button class="log-filter-btn" data-filter="error">Error</button>
+                  </div>
+                  <button id="btn-copy-logs" class="btn btn-secondary btn-xs" title="Copy logs to clipboard">Copy</button>
+                  <button id="btn-autoscroll-toggle" class="btn btn-secondary btn-xs" title="Toggle automatic terminal scrolling">Auto: ON</button>
+                  <button id="btn-clear-logs" class="btn btn-secondary btn-xs" title="Clear buffer">Clear</button>
+                </div>
+              </div>
+
+              <div id="terminal-feed" class="terminal-feed">
+                <div class="log-entry">
+                  <span class="log-time">[00:00:00]</span>
+                  <span class="log-level info">[SYS]</span>
+                  <span class="log-msg">AutoBot system online. Ready for job search and applications.</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -389,8 +555,8 @@
           <div class="pagination-bar">
             <span id="pagination-info">Showing 0 of 0 applications</span>
             <div style="display: flex; gap: 8px;">
-              <button id="btn-prev-page" class="btn btn-secondary" style="padding: 5px 12px; font-size: 11px;" disabled>Previous</button>
-              <button id="btn-next-page" class="btn btn-secondary" style="padding: 5px 12px; font-size: 11px;" disabled>Next</button>
+              <button id="btn-prev-page" class="btn btn-secondary" style="padding: 5px 12px; font-size: 12px;" disabled>Previous</button>
+              <button id="btn-next-page" class="btn btn-secondary" style="padding: 5px 12px; font-size: 12px;" disabled>Next</button>
             </div>
           </div>
         </div>
@@ -409,7 +575,7 @@
               </svg>
               Upload Candidate Document
             </div>
-            <span class="badge badge-applied" style="font-size: 10px;">AGILE PROFILE MODE ACTIVE</span>
+            <span class="badge badge-applied" style="font-size: 12px;">AGILE PROFILE MODE ACTIVE</span>
           </div>
 
           <div class="upload-dropzone" id="resume-dropzone">
@@ -423,18 +589,18 @@
                 <line x1="15" y1="15" x2="12" y2="12"></line>
               </svg>
             </div>
-            <div class="upload-title">Drop your resume file here, or <span style="color: var(--primary); text-decoration: underline;">click to browse files</span></div>
+            <div class="upload-title">Drop your resume file here, or <span style="color: var(--primary-text); text-decoration: underline;">click to browse files</span></div>
             <div class="upload-subtitle">Supports PDF, DOCX, DOC, TXT (Up to 15MB) · AutoBot parses 7 semantic sections into vector memory</div>
             <div style="display: flex; justify-content: center; gap: 8px;">
-              <span class="badge badge-dry-run" style="font-size: 11px;">
+              <span class="badge badge-dry-run" style="font-size: 12px;">
                 ⚡ Optional: AutoBot also runs seamlessly without an uploaded resume using candidate answers
               </span>
             </div>
 
             <div id="upload-progress-box" class="upload-progress-box">
-              <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px;">
+              <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
                 <span id="upload-status-label" style="color: var(--text-muted);">Scanning & vectorizing document...</span>
-                <span id="upload-pct-label" style="font-family: var(--font-mono); color: var(--primary);">0%</span>
+                <span id="upload-pct-label" style="font-family: var(--font-mono); color: var(--primary-text);">0%</span>
               </div>
               <div class="progress-track">
                 <div id="upload-progress-fill" class="progress-fill"></div>
@@ -499,7 +665,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
             <!-- Profile Info -->
             <div class="form-grid" style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 8px;">
-              <h3 style="grid-column: 1 / -1; font-size: 14px; color: var(--primary); margin-bottom: 4px;">Candidate Identity & Skills</h3>
+              <h2 style="grid-column: 1 / -1; font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Candidate Identity & Skills</h2>
               <div class="form-group full-width">
                 <label class="form-label" for="cand-full-name">Full Name</label>
                 <input type="text" id="cand-full-name" class="form-input" placeholder="e.g. Alex Johnson">
@@ -532,7 +698,7 @@
 
             <!-- Job Preferences -->
             <div class="form-grid" style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 8px;">
-              <h3 style="grid-column: 1 / -1; font-size: 14px; color: var(--cyan); margin-bottom: 4px;">Target Search & Eligibility Preferences</h3>
+              <h2 style="grid-column: 1 / -1; font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">Target Search & Eligibility Preferences</h2>
               <div class="form-group full-width">
                 <label class="form-label" for="pref-target-roles">Target Job Roles (comma separated)</label>
                 <input type="text" id="pref-target-roles" class="form-input" placeholder="Software Engineer, Backend Engineer, Platform Architect">
@@ -584,7 +750,7 @@
         <form id="settings-form" class="panel" onsubmit="return false;">
           <div class="panel-header">
             <div class="panel-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--purple)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" color="var(--text-main)">
                 <line x1="4" y1="21" x2="4" y2="14"></line>
                 <line x1="4" y1="10" x2="4" y2="3"></line>
                 <line x1="12" y1="21" x2="12" y2="12"></line>
@@ -697,7 +863,7 @@
             </div>
 
             <div id="browser-engine-status-info" style="margin-top: 14px; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums;">
-              Active Engine: <strong id="info-active-engine" style="color: var(--primary);">chromium</strong> &nbsp;|&nbsp;
+              Active Engine: <strong id="info-active-engine" style="color: var(--primary-text);">chromium</strong> &nbsp;|&nbsp;
               Process Status: <span id="info-proc-status" style="color: var(--text-main);">ready</span> &nbsp;|&nbsp;
               Last Health Check: <span id="info-last-health">-</span> &nbsp;|&nbsp;
               Fallback Status: <span id="info-fallback-status">standby</span>
@@ -705,7 +871,7 @@
 
             <div style="margin-top: 16px; display: flex; align-items: center; gap: 12px;">
               <button id="btn-save-browser-config" class="btn btn-secondary" style="font-size: 12px;">Apply Engine Configuration</button>
-              <span id="browser-config-status-msg" style="font-size: 12px; color: var(--primary); display: none;">✓ Engine updated</span>
+              <span id="browser-config-status-msg" style="font-size: 12px; color: var(--emerald-text); display: none;">✓ Engine updated</span>
             </div>
           </div>
         </div>
@@ -732,8 +898,8 @@
           <!-- Source Health & Synchronization Status -->
           <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <h3 style="font-size: 13px; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">ATS Source Health & Synchronization Status</h3>
-              <button id="btn-refresh-sources" class="btn btn-secondary" style="font-size: 11px; padding: 3px 8px;">Refresh Sources</button>
+              <h2 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">ATS Source Health & Synchronization Status</h2>
+              <button id="btn-refresh-sources" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Refresh Sources</button>
             </div>
             <div id="sources-health-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
               <div style="color: var(--text-muted); font-size: 12px;">Loading ATS source status...</div>
@@ -743,8 +909,8 @@
           <!-- Personalized Search & Keyword Expansion -->
           <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <h3 style="font-size: 13px; color: var(--primary); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Personalized Keyword Expansion</h3>
-              <button id="btn-load-personalized" class="btn btn-primary" style="font-size: 11px; padding: 4px 10px;">Find My Strong Matches</button>
+              <h2 style="font-size: 13px; font-weight: 700; color: var(--text-main); margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Personalized Keyword Expansion</h2>
+              <button id="btn-load-personalized" class="btn btn-primary" style="font-size: 12px; padding: 5px 12px;">Find My Strong Matches</button>
             </div>
             <div id="keyword-expansion-container" style="font-size: 12px; color: var(--text-muted);">
               Loading candidate profile keyword expansion...
@@ -754,7 +920,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <!-- Manual Import Box -->
             <div class="form-grid" style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px;">
-              <h3 style="grid-column: 1 / -1; font-size: 14px; color: var(--primary);">Manual / LinkedIn Job Import</h3>
+              <h2 style="grid-column: 1 / -1; font-size: 14px; font-weight: 700; color: var(--text-main);">Manual / LinkedIn Job Import</h2>
               <div class="form-group full-width">
                 <label class="form-label" for="import-job-title">Job Title</label>
                 <input type="text" id="import-job-title" class="form-input" placeholder="e.g. Senior Backend Engineer">
@@ -782,7 +948,7 @@
             <div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <h3 style="font-size: 14px; margin: 0; color: var(--text-main);">Available Jobs in Registry</h3>
-                <span id="discovery-job-count" style="font-size: 11px; color: var(--text-muted);">0 jobs</span>
+                <span id="discovery-job-count" style="font-size: 12px; color: var(--text-muted);">0 jobs</span>
               </div>
 
               <!-- Filter Bar -->
@@ -867,20 +1033,22 @@
         <div class="glass-panel" style="margin-bottom: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
             <div>
-              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary);">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                  </svg>
-                </div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--sky-text);">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
                 <h2 style="font-size: 20px; font-weight: 700; margin: 0; color: #FFFFFF;">Application Portals & Direct Form Links</h2>
               </div>
-              <p style="color: var(--text-muted); font-size: 13px; margin: 0; max-width: 680px;">
-                Scraped direct application forms with complete job descriptions. Visual distinction separates LinkedIn Native / Easy Apply from External ATS Platforms (Greenhouse, Lever, Ashby, Workday).
+              <p style="color: var(--text-muted); font-size: 13px; margin: 0; max-width: 720px;">
+                Scraped direct application forms with complete job descriptions. Clear visual distinction separates LinkedIn External Forms (offsite company portals) and Native Easy Apply from Direct ATS Platforms (Greenhouse, Lever, Ashby, Workday).
               </p>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <button id="btn-delete-all-portals" class="btn btn-sm" style="display: inline-flex; align-items: center; gap: 7px; background: #DC2626; color: #FFFFFF; border: 1px solid #EF4444; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4); font-size: 12.5px;" title="Reset & Delete all scraped job opportunities from the system">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Delete All Opportunities
+              </button>
               <button id="btn-refresh-portals" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 6px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
                 Refresh
@@ -893,27 +1061,27 @@
           </div>
 
           <!-- Summary Metric Cards -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-top: 20px;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 20px;">
             <div class="portal-stat-card" style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
-              <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Form Links</div>
+              <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Opportunities</div>
               <div id="stat-apply-total" style="font-size: 26px; font-weight: 800; color: #FFFFFF; margin-top: 4px;">0</div>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Ready for application</div>
-            </div>
-            <div class="portal-stat-card" style="background: rgba(10, 102, 194, 0.12); border: 1px solid rgba(10, 102, 194, 0.35); border-radius: 10px; padding: 14px 18px;">
-              <div style="font-size: 12px; color: #60A5FA; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38BDF8;"></span>
-                LinkedIn (Easy Apply)
-              </div>
-              <div id="stat-apply-linkedin" style="font-size: 26px; font-weight: 800; color: #93C5FD; margin-top: 4px;">0</div>
-              <div style="font-size: 11px; color: #93C5FD; margin-top: 2px;">In-app 1-click forms</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">All scraped LinkedIn roles</div>
             </div>
             <div class="portal-stat-card" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 10px; padding: 14px 18px;">
               <div style="font-size: 12px; color: #34D399; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
                 <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10B981;"></span>
-                External Platforms
+                Direct External Form Links
               </div>
-              <div id="stat-apply-external" style="font-size: 26px; font-weight: 800; color: #6EE7B7; margin-top: 4px;">0</div>
-              <div style="font-size: 11px; color: #6EE7B7; margin-top: 2px;">Greenhouse, Lever, Workday, Ashby</div>
+              <div id="stat-apply-linkedin-ext" style="font-size: 26px; font-weight: 800; color: #6EE7B7; margin-top: 4px;">0</div>
+              <div style="font-size: 12px; color: #6EE7B7; margin-top: 2px;">Behind Apply ↗ (Oracle Cloud, Workday, etc.)</div>
+            </div>
+            <div class="portal-stat-card" style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.35); border-radius: 10px; padding: 14px 18px;">
+              <div style="font-size: 12px; color: #38BDF8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38BDF8;"></span>
+                LinkedIn (Easy Apply)
+              </div>
+              <div id="stat-apply-linkedin-easy" style="font-size: 26px; font-weight: 800; color: #7DD3FC; margin-top: 4px;">0</div>
+              <div style="font-size: 12px; color: #7DD3FC; margin-top: 2px;">In-app 1-click apply forms</div>
             </div>
           </div>
         </div>
@@ -922,15 +1090,36 @@
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px;">
           <!-- Category Tabs -->
           <div class="platform-tabs-container" style="display: flex; gap: 8px; background: rgba(15, 23, 42, 0.7); padding: 5px; border-radius: 10px; border: 1px solid var(--border);">
-            <button class="platform-tab active" data-category="all" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--primary); color: #0F172A; transition: all 0.2s;">
-              All Portals (<span id="cnt-tab-all">0</span>)
+            <button class="platform-tab active" data-category="all" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--primary); color: #ffffff; transition: all 0.2s;">
+              All Opportunities (<span id="cnt-tab-all">0</span>)
             </button>
-            <button class="platform-tab" data-category="linkedin" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
-              LinkedIn Direct (<span id="cnt-tab-linkedin">0</span>)
+            <button class="platform-tab" data-category="linkedin_external" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
+              Direct External Form Links (<span id="cnt-tab-linkedin-ext">0</span>)
             </button>
-            <button class="platform-tab" data-category="external" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
-              External Platforms (<span id="cnt-tab-external">0</span>)
+            <button class="platform-tab" data-category="linkedin_easy" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
+              LinkedIn (Easy Apply) (<span id="cnt-tab-linkedin-easy">0</span>)
             </button>
+          </div>
+
+          <!-- Platform / Opportunity Filter Dropdown -->
+          <div id="portal-platform-filter-wrap" style="display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.7); padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); transition: all 0.2s;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary-text);"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+            <label for="portal-platform-select" style="font-size: 12px; color: var(--text-muted); font-weight: 600; white-space: nowrap;">Platform:</label>
+            <select id="portal-platform-select" style="background: transparent; color: #FFFFFF; border: none; font-size: 12.5px; font-weight: 600; cursor: pointer; outline: none;">
+              <option value="all" style="background: #0F172A; color: #FFFFFF;">All Platforms</option>
+            </select>
+          </div>
+
+          <!-- Resume Match Threshold Filter -->
+          <div style="display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.7); padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--primary-text);"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <label for="portal-threshold-select" style="font-size: 12px; color: var(--text-muted); font-weight: 600; white-space: nowrap;">Resume Fit:</label>
+            <select id="portal-threshold-select" style="background: transparent; color: #FFFFFF; border: none; font-size: 12.5px; font-weight: 600; cursor: pointer; outline: none;">
+              <option value="0.60" selected style="background: #0F172A; color: #FFFFFF;">≥ 60% Match (Configured)</option>
+              <option value="0.80" style="background: #0F172A; color: #FFFFFF;">≥ 80% Match (High Fit)</option>
+              <option value="0.50" style="background: #0F172A; color: #FFFFFF;">≥ 50% Match</option>
+              <option value="all" style="background: #0F172A; color: #FFFFFF;">Show All Non-Senior</option>
+            </select>
           </div>
 
           <!-- Search Input -->
@@ -939,6 +1128,36 @@
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
+          </div>
+        </div>
+
+        <!-- Batch Selection & Auto-Apply Control Bar -->
+        <div id="portals-batch-bar" class="portals-batch-bar" style="margin-bottom: 16px; background: rgba(15, 23, 42, 0.85); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: #FFFFFF; user-select: none;">
+              <input type="checkbox" id="portals-select-all-checkbox" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--primary);">
+              <span>Select All</span>
+            </label>
+            <span id="portals-selected-counter" class="badge" style="background: var(--sky-subtle); color: var(--sky-text); border: 1px solid rgba(14, 165, 233, 0.25); font-size: 12px; padding: 3px 10px; border-radius: 9999px;">
+              0 selected
+            </span>
+            <button id="btn-clear-selection" class="btn btn-secondary btn-sm" style="display: none; padding: 4px 10px; font-size: 12px;">
+              Clear Selection
+            </button>
+            <button id="btn-delete-selected" class="btn btn-sm" style="display: none; background: #DC2626; border: 1px solid #EF4444; color: #FFFFFF; font-weight: 700; padding: 6px 14px; border-radius: 7px; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);" title="Delete all selected opportunities">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              <span>Delete Selected (<span id="btn-delete-selected-count">0</span>)</span>
+            </button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #E2E8F0; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="portals-dryrun-checkbox" style="cursor: pointer; width: 15px; height: 15px; accent-color: var(--primary);" checked>
+              <span>Dry Run (Simulate Form Fill)</span>
+            </label>
+            <button id="btn-apply-selected" class="btn btn-primary btn-sm" style="display: flex; align-items: center; gap: 7px; opacity: 0.5; pointer-events: none; transition: all 0.2s; font-weight: 700; padding: 8px 16px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              <span id="btn-apply-selected-text">Apply to Selected (0) ⚡</span>
+            </button>
           </div>
         </div>
 
@@ -954,23 +1173,112 @@
     </main>
   </div>
 
+  <!-- Intelligent Chrome Search Modal -->
+  <div id="search-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 999999; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: #0F172A; border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+      <!-- Header -->
+      <div style="padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; margin-bottom: 6px; background: var(--sky-subtle); color: var(--sky-text); border: 1px solid rgba(14, 165, 233, 0.25);">
+            GOOGLE CHROME SEARCH & SCRAPE
+          </div>
+          <h3 style="margin: 0; font-size: 18px; color: #FFFFFF;">Intelligent Job Search</h3>
+          <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+            Search using custom keywords or automatic deep resume analysis
+          </div>
+        </div>
+        <button id="search-modal-close-btn" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 24px; line-height: 1; padding: 4px;">&times;</button>
+      </div>
+
+      <!-- Body -->
+      <div style="padding: 20px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Keywords Input -->
+        <div>
+          <label style="display: block; font-size: 13px; font-weight: 600; color: #FFFFFF; margin-bottom: 6px;">
+            Search Keywords <span style="font-size: 12px; font-weight: 400; color: var(--text-muted);">(Custom or Resume-Analyzed)</span>
+          </label>
+          <input type="text" id="search-modal-keywords" class="form-input" style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: #FFFFFF;" placeholder="e.g. Python Developer, FastAPI, Backend Engineer (Leave blank to auto-use resume)">
+        </div>
+
+        <!-- Suggested Resume Keywords -->
+        <div id="search-modal-suggested-section" style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 12px; font-weight: 600; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+              <span>✨</span> Suggested from Deep Resume Analysis
+            </span>
+            <span id="search-modal-suggested-origin" style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;"></span>
+          </div>
+          <div id="search-modal-suggested-pills" style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <span style="font-size: 12px; color: var(--text-muted);">Loading suggested keywords from your profile...</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.4;">
+            💡 <strong>Smart Fallback:</strong> If you leave the keywords field blank, AutoBot automatically executes search using these deep resume-analyzed terms tailored to your skills.
+          </div>
+        </div>
+
+        <!-- Location -->
+        <div>
+          <label style="display: block; font-size: 13px; font-weight: 600; color: #FFFFFF; margin-bottom: 6px;">
+            Target Location
+          </label>
+          <input type="text" id="search-modal-location" class="form-input" style="width: 100%; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: #FFFFFF;" value="India" placeholder="e.g. India, Remote, United States">
+        </div>
+
+        <!-- Search Mode / Target -->
+        <div>
+          <label style="display: block; font-size: 13px; font-weight: 600; color: #FFFFFF; margin-bottom: 6px;">
+            Search Target
+          </label>
+          <select id="search-modal-target" style="width: 100%; background: #0F172A; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: #FFFFFF; cursor: pointer;">
+            <option value="google" selected>Google Search ➔ LinkedIn Job Roles (Recommended - Bypasses login gates)</option>
+            <option value="linkedin">Direct LinkedIn Jobs Search</option>
+            <option value="google_only">Google Jobs Search Only</option>
+          </select>
+        </div>
+
+        <!-- Background Execution Toggle -->
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); border-radius: 8px;">
+          <input type="checkbox" id="search-modal-background" checked style="width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer;">
+          <label for="search-modal-background" style="font-size: 13px; color: #FFFFFF; cursor: pointer; user-select: none;">
+            Run silently in background (headless Chrome - won't interrupt desktop work)
+          </label>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 12px; background: rgba(0,0,0,0.2);">
+        <button id="search-modal-cancel-btn" class="btn btn-secondary btn-sm">Cancel</button>
+        <button id="search-modal-submit-btn" class="btn btn-primary btn-sm" style="display: flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Start Job Search
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Job Description Modal -->
   <div id="job-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 999999; align-items: center; justify-content: center; padding: 20px;">
     <div style="background: #0F172A; border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 720px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
       <div style="padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <div id="modal-platform-badge" style="display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; margin-bottom: 6px;"></div>
+          <div id="modal-platform-badge" style="display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; margin-bottom: 6px;"></div>
           <h3 id="modal-job-title" style="margin: 0; font-size: 18px; color: #FFFFFF;"></h3>
           <div id="modal-job-subtitle" style="font-size: 13px; color: var(--text-muted); margin-top: 2px;"></div>
         </div>
         <button id="modal-close-btn" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 24px; line-height: 1; padding: 4px;">&times;</button>
       </div>
       <div id="modal-job-desc" style="padding: 20px 24px; overflow-y: auto; color: var(--text); font-size: 14px; line-height: 1.6; white-space: pre-wrap;"></div>
-      <div style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 12px; background: rgba(0,0,0,0.2);">
-        <button id="modal-cancel-btn" class="btn btn-secondary btn-sm">Close</button>
-        <a id="modal-apply-link" href="#" target="_blank" class="btn btn-primary btn-sm" style="display: flex; align-items: center; gap: 6px;">
-          Open Apply Form ↗
-        </a>
+      <div style="padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2);">
+        <button id="modal-delete-btn" class="btn btn-sm" style="color: #FFFFFF; background: #DC2626; border: 1px solid #EF4444; display: flex; align-items: center; gap: 6px; font-weight: 700; padding: 7px 16px; border-radius: 7px; cursor: pointer; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          Delete Opportunity
+        </button>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <button id="modal-cancel-btn" class="btn btn-secondary btn-sm">Close</button>
+          <a id="modal-apply-link" href="#" target="_blank" class="btn btn-primary btn-sm" style="display: flex; align-items: center; gap: 6px;">
+            Open Apply Form ↗
+          </a>
+        </div>
       </div>
     </div>
   </div>
@@ -978,6 +1286,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="/static/app.js?v=2.4.0"></script>
+  <script src="/static/app.js?v=7.0.0&t=1795153000"></script>
 </body>
 </html>

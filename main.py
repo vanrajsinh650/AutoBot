@@ -4,6 +4,7 @@ Run: python main.py [--ingest-only] [--dry-run]
 """
 import asyncio
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -33,6 +34,13 @@ def parse_args():
         "--ui",
         action="store_true",
         help="Launch the interactive web Mission Control dashboard",
+    )
+    parser.add_argument(
+        "--frontend-only",
+        "--frontend",
+        dest="frontend_only",
+        action="store_true",
+        help="Run lightweight dynamic frontend UI without background schedulers or heavy scrapers",
     )
     parser.add_argument(
         "--port",
@@ -97,7 +105,10 @@ async def main(args=None):
     if getattr(args, "search_live", False) or search_keyword:
         target = getattr(args, "target", "roles").lower()
         loc = getattr(args, "location", "").strip() or None
-        kw = search_keyword or (cfg.search.keywords[0] if getattr(cfg.search, "keywords", None) else "Python Developer")
+        from src.matching.keyword_expansion import resolve_search_keywords
+        resolved_kws, kw_origin = resolve_search_keywords(user_provided=search_keyword or None, user_id=1)
+        kw = resolved_kws[0] if resolved_kws else "Python Developer"
+        logger.info(f"[agent]🔍 Search keyword resolved ({kw_origin}): '{kw}'[/agent]")
 
         if target == "linkedin":
             logger.info("[agent]🌐 Starting direct LinkedIn search in Google Chrome...[/agent]")
@@ -149,7 +160,10 @@ async def main(args=None):
 
 if __name__ == "__main__":
     args = parse_args()
-    if args.ui:
+    if args.ui or getattr(args, "frontend_only", False):
+        if getattr(args, "frontend_only", False):
+            os.environ["AUTOBOT_DISABLE_SCHEDULER"] = "1"
+            os.environ["AUTOBOT_FRONTEND_ONLY"] = "1"
         from src.web.server import start_server
         try:
             start_server(host=args.host, port=args.port)

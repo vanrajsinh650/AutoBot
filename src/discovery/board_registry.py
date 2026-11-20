@@ -15,29 +15,9 @@ from src.storage.db import get_db_connection, get_db_path, init_db
 from src.utils.logger import logger
 
 
-DEFAULT_COMPANY_BOARDS: List[JobSourceConfig] = [
-    JobSourceConfig(
-        name="Cloudflare",
-        source_type=SourceType.GREENHOUSE,
-        board_token_or_slug="cloudflare",
-        refresh_interval=3600,
-        concurrency_limit=2,
-    ),
-    JobSourceConfig(
-        name="Lever Demo",
-        source_type=SourceType.LEVER,
-        board_token_or_slug="leverdemo",
-        refresh_interval=3600,
-        concurrency_limit=2,
-    ),
-    JobSourceConfig(
-        name="Ramp",
-        source_type=SourceType.ASHBY,
-        board_token_or_slug="ramp",
-        refresh_interval=3600,
-        concurrency_limit=2,
-    ),
-]
+# Default company boards: kept empty so AutoBot focuses exclusively on LinkedIn
+# (Direct External Form Links and Easy Apply). Custom ATS boards can be added by the user as needed.
+DEFAULT_COMPANY_BOARDS: List[JobSourceConfig] = []
 
 
 class BoardRegistry:

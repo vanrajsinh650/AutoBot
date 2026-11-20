@@ -374,3 +374,151 @@ def search_personalized_jobs(
         "expansion": expansion.to_dict(),
         "jobs": jobs,
     }
+
+
+def resolve_search_keywords(
+    user_provided: Optional[Union[str, List[str]]] = None,
+    user_id: int = 1,
+    max_keywords: int = 5,
+    db_path: Optional[str] = None,
+) -> Tuple[List[str], str]:
+    """
+    Resolve search keywords prioritizing:
+      1. User-provided keywords (from UI input, CLI args, or API request payload).
+      2. Deep resume analysis (analyzing candidate profile, primary skills, summary, and target roles).
+
+    Returns:
+      (keywords_list, origin_description)
+      where origin_description is either 'user_provided' or 'deep_resume_analysis'.
+    """
+    # ── 1. Check User-Provided Keywords ──
+    if user_provided:
+        if isinstance(user_provided, str):
+            parts = [p.strip() for p in re.split(r"[,;|\n]", user_provided) if p.strip()]
+        elif isinstance(user_provided, (list, tuple, set)):
+            parts = [str(p).strip() for p in user_provided if str(p).strip()]
+        else:
+            parts = []
+
+        # Filter out empty or placeholder strings
+        cleaned = [p for p in parts if p and p.lower() not in {"none", "null", "all"}]
+        if cleaned:
+            return cleaned[:max_keywords], "user_provided"
+
+    # ── 2. Deep Resume & Profile Analysis ──
+    try:
+        profile = get_candidate_profile(user_id, db_path) or {}
+    except Exception as e:
+        logger.debug(f"Could not load candidate profile for keyword extraction: {e}")
+        profile = {}
+
+    try:
+        prefs = get_job_preferences(user_id, db_path) or {}
+    except Exception as e:
+        logger.debug(f"Could not load job preferences for keyword extraction: {e}")
+        prefs = {}
+
+    # Gather raw technical skills from preferences & profile
+    raw_skills: List[str] = []
+    seen_skills: Set[str] = set()
+
+    for s in (
+        (prefs.get("primary_skills") or [])
+        + (profile.get("primary_skills") or [])
+        + (profile.get("technical_skills") or [])
+    ):
+        sc = str(s).strip()
+        if sc and sc.lower() not in seen_skills:
+            raw_skills.append(sc)
+            seen_skills.add(sc.lower())
+
+    summary = str(profile.get("summary") or "").lower()
+    headline = str(profile.get("headline") or "").lower()
+    target_roles = [str(r).strip() for r in (prefs.get("target_roles") or []) if str(r).strip()]
+
+    # Infer candidate target roles and domains from summary, headline, or experience
+    inferred_roles: List[str] = list(target_roles)
+    role_signals: List[Tuple[str, str]] = [
+        ("backend", "Backend Developer"),
+        ("full stack", "Full Stack Developer"),
+        ("frontend", "Frontend Developer"),
+        ("ai engineer", "AI Engineer"),
+        ("ai executive", "AI Engineer"),
+        ("ai automation", "AI Automation Engineer"),
+        ("machine learning", "Machine Learning Engineer"),
+        ("python developer", "Python Developer"),
+        ("software engineer", "Software Engineer"),
+        ("data engineer", "Data Engineer"),
+        ("devops", "DevOps Engineer"),
+    ]
+
+    for pattern, role_title in role_signals:
+        if pattern in summary or pattern in headline:
+            if role_title.lower() not in [r.lower() for r in inferred_roles]:
+                inferred_roles.append(role_title)
+
+    # Filter out senior or blacklisted roles from candidate target roles if any
+    clean_inferred_roles: List[str] = []
+    for r in inferred_roles:
+        r_low = r.lower()
+        if any(w in r_low for w in ["senior", "lead", "principal", "architect", "director", "staff", "vp"]):
+            continue
+        if r not in clean_inferred_roles:
+            clean_inferred_roles.append(r)
+
+    if not clean_inferred_roles:
+        clean_inferred_roles = ["Software Engineer"]
+
+    # Identify primary languages and key frameworks
+    primary_tech: List[str] = []
+    high_priority_tech = [
+        "python", "fastapi", "django", "javascript", "typescript",
+        "react", "node.js", "node", "go", "golang", "java", "c++", "sql"
+    ]
+    for t in high_priority_tech:
+        for s in raw_skills:
+            if t == s.lower():
+                if s not in primary_tech:
+                    primary_tech.append(s)
+                break
+
+    # Synthesize composite, high-precision search phrases
+    composite_phrases: List[str] = []
+    seen_phrases: Set[str] = set()
+
+    def add_phrase(p: str):
+        p_clean = p.strip()
+        if p_clean and p_clean.lower() not in seen_phrases:
+            composite_phrases.append(p_clean)
+            seen_phrases.add(p_clean.lower())
+
+    # Strategy A: Primary Language + Developer (e.g. 'Python Developer')
+    if primary_tech:
+        top_lang = primary_tech[0]
+        add_phrase(f"{top_lang} Developer")
+
+        # Strategy B: Target Roles combined with Primary Language (e.g. 'Software Engineer Python', 'Backend Developer Python')
+        for r in clean_inferred_roles:
+            if top_lang.lower() not in r.lower():
+                add_phrase(f"{r} {top_lang}")
+            else:
+                add_phrase(r)
+
+        # Strategy C: Core Frameworks (e.g. 'FastAPI Developer', 'Django Developer')
+        for tech in primary_tech[1:4]:
+            if tech.lower() not in {"git", "rest", "sql", "mysql", "sqlite"}:
+                add_phrase(f"{tech} Developer")
+    else:
+        for r in clean_inferred_roles:
+            add_phrase(r)
+
+    # Strategy D: Raw clean target roles
+    for r in clean_inferred_roles:
+        add_phrase(r)
+
+    # Strategy E: Fallback if everything is empty
+    if not composite_phrases:
+        composite_phrases = ["Python Developer", "Software Engineer", "Backend Developer"]
+
+    return composite_phrases[:max_keywords], "deep_resume_analysis"
+

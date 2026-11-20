@@ -25,6 +25,7 @@ from playwright.async_api import ElementHandle, Page
 
 from src.agent.state import JobPosting
 from src.application.workflows import LinkedInPolicyViolationError
+from src.browser.external_apply_actuator import load_candidate_profile_info
 from src.memory.form_rag import FormRAG
 from src.memory.models import FieldType
 from src.utils.config import AppConfig, get_config
@@ -51,6 +52,7 @@ class EasyApplyActuator:
         form_rag: Optional[FormRAG] = None,
         cfg: Optional[AppConfig] = None,
         resume_path: Optional[Path] = None,
+        candidate_info: Optional[dict] = None,
     ):
         if page is None or os.environ.get("AUTOBOT_STRICT_POLICY") == "1":
             raise LinkedInPolicyViolationError(
@@ -60,6 +62,7 @@ class EasyApplyActuator:
         self.page = page
         self.form_rag = form_rag
         self.cfg = cfg or get_config()
+        self.candidate_info = candidate_info or load_candidate_profile_info(self.cfg)
 
         if resume_path is not None:
             self.resume_path = Path(resume_path)
@@ -67,10 +70,91 @@ class EasyApplyActuator:
             p = getattr(self.cfg.profile, "resume_path", "data/resume/resume.pdf")
             self.resume_path = Path(p)
 
+    def _answer_heuristic(
+        self,
+        question: str,
+        field_type: FieldType = FieldType.TEXT,
+        options: Optional[List[str]] = None,
+    ) -> str:
+        """
+        Fallback question answering using candidate profile and standard application heuristics
+        when FormRAG is unavailable or returns an empty answer.
+        """
+        q = (question or "").lower()
+        info = self.candidate_info or {}
+
+        # 1. Contact details
+        if any(w in q for w in ("phone", "mobile", "cell", "contact number")):
+            return info.get("phone", "+91-8320452875")
+        if "email" in q:
+            return info.get("email", "vanrajsolanki2875@gmail.com")
+        if "first name" in q:
+            return info.get("first_name", "Vanraj")
+        if "last name" in q:
+            return info.get("last_name", "Solanki")
+        if "full name" in q:
+            return info.get("full_name", "Vanraj Solanki")
+        if any(w in q for w in ("linkedin", "profile link", "profile url")):
+            return info.get("linkedin", "https://linkedin.com/in/vanrajsinh")
+        if any(w in q for w in ("github", "repo", "git")):
+            return info.get("github", "https://github.com/vanrajsinh650")
+        if any(w in q for w in ("portfolio", "website", "personal site", "url")):
+            return info.get("portfolio", "https://github.com/vanrajsinh650")
+        if any(w in q for w in ("city", "location", "address", "residence", "where are you located", "postal", "country")):
+            return info.get("location", "India")
+
+        # 2. Legal authorization & background check
+        if any(w in q for w in ("authorized to work", "legally authorized", "eligible to work", "right to work")):
+            if options:
+                for opt in options:
+                    if opt.lower().strip() in ("yes", "y", "authorized"):
+                        return opt
+            return "Yes"
+
+        if any(w in q for w in ("sponsorship", "visa sponsorship", "require sponsorship")):
+            if options:
+                for opt in options:
+                    if opt.lower().strip() in ("no", "n", "do not require"):
+                        return opt
+            return "No"
+
+        if any(w in q for w in ("background check", "drug test", "18 years of age", "at least 18", "bachelor", "degree")):
+            if options:
+                for opt in options:
+                    if opt.lower().strip() in ("yes", "y"):
+                        return opt
+            return "Yes"
+
+        # 3. Experience & Numerical
+        if field_type == FieldType.NUMBER or any(w in q for w in ("years of experience", "years have you", "how many years", "total experience")):
+            return "3"
+
+        # 4. Notice period & Availability
+        if any(w in q for w in ("notice period", "availability", "how soon", "when can you start")):
+            if options:
+                for opt in options:
+                    if any(w in opt.lower() for w in ("immediate", "15", "30", "1 month")):
+                        return opt
+            return "15 days"
+
+        # 5. Compensation expectations
+        if any(w in q for w in ("salary", "compensation", "expected ctc", "desired salary")):
+            return "Competitive" if field_type == FieldType.TEXT else "75000"
+
+        # 6. Dropdown / Radio generic match
+        if options:
+            for opt in options:
+                if opt.lower().strip() in ("yes", "y"):
+                    return opt
+            return options[0]
+
+        return ""
+
     async def apply(
         self,
         job: JobPosting,
         cover_letter: Optional[str] = None,
+        dry_run: bool = False,
     ) -> bool:
         """
         Execute the complete Easy Apply flow for the given JobPosting.
@@ -78,13 +162,15 @@ class EasyApplyActuator:
         Args:
             job: Target JobPosting.
             cover_letter: Optional tailored cover letter text.
+            dry_run: When True, simulates form completion and safely dismisses without final submission.
 
         Returns:
-            True if submitted successfully, False otherwise.
+            True if submitted or simulated successfully, False otherwise.
         """
-        logger.info(f"[browser]📝 Commencing Easy Apply for '{job.title}' @ '{job.company}'...[/browser]")
+        logger.info(f"[browser]📝 Commencing Easy Apply for '{job.title}' @ '{job.company}' (dry_run={dry_run})...[/browser]")
         try:
-            await update_visual_cursor(self.page, action_text=f"Easy Apply: {job.title[:20]}...")
+            mode_badge = "[DRY RUN] " if dry_run else ""
+            await update_visual_cursor(self.page, action_text=f"{mode_badge}Easy Apply: {job.title[:18]}...")
         except Exception:
             pass
 
@@ -107,6 +193,16 @@ class EasyApplyActuator:
 
             # Check if we have arrived at the Submit step
             if await self._is_submit_step():
+                if dry_run:
+                    logger.info(f"[browser]  → Step {step}: Submit reached! [DRY RUN SIMULATION] Form filled successfully.[/browser]")
+                    try:
+                        await update_visual_cursor(self.page, action_text="[DRY RUN] Complete! Discarding modal.")
+                    except Exception:
+                        pass
+                    await human_delay(1200, 2000)
+                    await self._dismiss_modal()
+                    return True
+
                 logger.info(f"[browser]  → Step {step}: Submit application reached.[/browser]")
                 return await self._submit_application()
 
@@ -301,16 +397,21 @@ class EasyApplyActuator:
                     field_type = FieldType.NUMBER if field_type_str == "number" else FieldType.TEXT
 
                     # If this input asks for cover letter and we have one synthesized:
+                    answer_text = ""
                     if "cover letter" in label.lower() and cover_letter:
                         answer_text = cover_letter
                     elif self.form_rag:
-                        form_ans = self.form_rag.answer_question(
-                            question=label or "Form question",
-                            field_type=field_type,
-                        )
-                        answer_text = form_ans.answer
-                    else:
-                        answer_text = ""
+                        try:
+                            form_ans = self.form_rag.answer_question(
+                                question=label or "Form question",
+                                field_type=field_type,
+                            )
+                            answer_text = form_ans.answer
+                        except Exception:
+                            answer_text = ""
+
+                    if not answer_text:
+                        answer_text = self._answer_heuristic(label, field_type=field_type)
 
                     if not answer_text:
                         continue
@@ -328,9 +429,7 @@ class EasyApplyActuator:
             pass
 
     async def _fill_select_dropdowns(self) -> None:
-        """Select appropriate options for dropdowns using FormRAG."""
-        if not self.form_rag:
-            return
+        """Select appropriate options for dropdowns using FormRAG with heuristic fallback."""
         try:
             selects = await self.page.query_selector_all(
                 ".jobs-easy-apply-form-section__grouping select"
@@ -351,14 +450,29 @@ class EasyApplyActuator:
                         continue
 
                     label = await self._get_label_for_element(sel)
-                    ans = self.form_rag.answer_question(
-                        question=label or "Dropdown selection",
-                        field_type=FieldType.SELECT,
-                        options=options,
-                    )
+                    ans_text = ""
+                    if self.form_rag:
+                        try:
+                            ans = self.form_rag.answer_question(
+                                question=label or "Dropdown selection",
+                                field_type=FieldType.SELECT,
+                                options=options,
+                            )
+                            ans_text = ans.answer
+                        except Exception:
+                            ans_text = ""
 
-                    await visual_click(self.page, sel, action_text=f"Selecting: {ans.answer[:18]}")
-                    await sel.select_option(label=ans.answer)
+                    if not ans_text:
+                        ans_text = self._answer_heuristic(label, field_type=FieldType.SELECT, options=options)
+
+                    if not ans_text:
+                        continue
+
+                    await visual_click(self.page, sel, action_text=f"Selecting: {ans_text[:18]}")
+                    try:
+                        await sel.select_option(label=ans_text)
+                    except Exception:
+                        await sel.select_option(value=ans_text)
                     await human_delay(300, 600)
                 except Exception:
                     continue
@@ -366,9 +480,7 @@ class EasyApplyActuator:
             pass
 
     async def _fill_radio_groups(self) -> None:
-        """Select appropriate radio buttons within fieldsets using FormRAG."""
-        if not self.form_rag:
-            return
+        """Select appropriate radio buttons within fieldsets using FormRAG with heuristic fallback."""
         try:
             fieldsets = await self.page.query_selector_all(
                 "fieldset.fb-text-selectable__option, "
@@ -398,15 +510,27 @@ class EasyApplyActuator:
                         continue
 
                     allowed_options = [om[1] for om in options_map if om[1]]
-                    ans = self.form_rag.answer_question(
-                        question=question_text,
-                        field_type=FieldType.RADIO,
-                        options=allowed_options,
-                    )
+                    ans_text = ""
+                    if self.form_rag:
+                        try:
+                            ans = self.form_rag.answer_question(
+                                question=question_text,
+                                field_type=FieldType.RADIO,
+                                options=allowed_options,
+                            )
+                            ans_text = ans.answer
+                        except Exception:
+                            ans_text = ""
+
+                    if not ans_text:
+                        ans_text = self._answer_heuristic(question_text, field_type=FieldType.RADIO, options=allowed_options)
+
+                    if not ans_text:
+                        continue
 
                     # Click matching radio
                     for r, opt_text in options_map:
-                        if opt_text.lower().strip() == ans.answer.lower().strip():
+                        if opt_text.lower().strip() == ans_text.lower().strip() or (ans_text.lower() in opt_text.lower()):
                             await visual_click(self.page, r, action_text=f"Selecting: {opt_text[:18]}")
                             await human_delay(300, 600)
                             break

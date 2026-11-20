@@ -28,6 +28,10 @@ from playwright.async_api import ElementHandle, Page
 
 from src.agent.state import JobPosting
 from src.application.workflows import LinkedInPolicyViolationError
+from src.browser.linkedin_apply_extractor import (
+    decode_linkedin_apply_url,
+    resolve_direct_apply_url_from_page,
+)
 from src.browser.manager import BrowserManager
 from src.browser.popup_handler import dismiss_sign_in_popup, install_popup_observer
 from src.storage.db import save_scraped_job
@@ -675,7 +679,11 @@ class LinkedInNavigator:
 
             # Check for direct apply link on card
             apply_el = await card.query_selector("a.apply-button, a[data-tracking-control-name*='apply']")
-            apply_url = (await apply_el.get_attribute("href")) if apply_el else url
+            raw_apply_href = (await apply_el.get_attribute("href")) if apply_el else None
+            decoded_direct = decode_linkedin_apply_url(raw_apply_href) if raw_apply_href else None
+            apply_url = decoded_direct or raw_apply_href or url
+            if decoded_direct:
+                is_easy_apply = False
 
             # Save discovered role to database for tracker & Apply Portals section
             try:
@@ -706,7 +714,7 @@ class LinkedInNavigator:
             return None
 
     async def fetch_job_details(self, job: JobPosting) -> JobPosting:
-        """Navigate to the job details page and scrape the full description text with visual cursor."""
+        """Navigate to the job details page and scrape the full description text and direct external apply form link."""
         # 1. First check if details are already rendered in the right-hand panel
         try:
             desc_el = await self.page.query_selector(
@@ -716,6 +724,28 @@ class LinkedInNavigator:
                 full_text = (await desc_el.inner_text()).strip()
                 if len(full_text) > 80:
                     job.description = full_text
+                    # Check for direct external apply form link behind the Apply button
+                    direct_url = await resolve_direct_apply_url_from_page(self.page)
+                    final_apply_url = direct_url or getattr(job, "external_apply_url", None) or job.url
+                    final_is_easy = False if direct_url else job.is_easy_apply
+                    job.is_easy_apply = final_is_easy
+                    job.external_apply_url = final_apply_url
+
+                    try:
+                        save_scraped_job(
+                            title=job.title,
+                            company=job.company,
+                            location=job.location,
+                            description=full_text,
+                            apply_url=final_apply_url,
+                            source_name="LinkedIn",
+                            is_easy_apply=final_is_easy,
+                            job_id=job.job_id,
+                            user_id=1,
+                        )
+                    except Exception:
+                        pass
+
                     await visual_scroll(
                         self.page,
                         distance=300,
@@ -757,15 +787,23 @@ class LinkedInNavigator:
                 full_text = (await desc_el.inner_text()).strip()
                 if full_text:
                     job.description = full_text
+
+                    # Extract direct external application form link behind Apply button
+                    direct_url = await resolve_direct_apply_url_from_page(self.page)
+                    final_apply_url = direct_url or getattr(job, "external_apply_url", None) or job.url
+                    final_is_easy = False if direct_url else job.is_easy_apply
+                    job.is_easy_apply = final_is_easy
+                    job.external_apply_url = final_apply_url
+
                     try:
                         save_scraped_job(
                             title=job.title,
                             company=job.company,
                             location=job.location,
                             description=full_text,
-                            apply_url=job.url,
+                            apply_url=final_apply_url,
                             source_name="LinkedIn",
-                            is_easy_apply=job.is_easy_apply,
+                            is_easy_apply=final_is_easy,
                             job_id=job.job_id,
                             user_id=1,
                         )

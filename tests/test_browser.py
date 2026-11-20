@@ -170,6 +170,25 @@ async def test_external_apply_halts_on_anti_bot_challenge():
     assert "Anti-bot challenge gate detected" in str(exc_info.value)
 
 
+@pytest.mark.asyncio
+async def test_external_apply_cloudflare_greenhouse_not_blocked():
+    """Verify that legitimate Cloudflare Greenhouse job postings are not falsely flagged as CAPTCHAs."""
+    actuator = ExternalApplyActuator(
+        context=AsyncMock(),
+        form_rag=MagicMock(spec=FormRAG),
+        cfg=AppConfig(),
+    )
+
+    page = AsyncMock()
+    page.url = "https://boards.greenhouse.io/cloudflare/jobs/8257140"
+    page.title = AsyncMock(return_value="Job Application for Systems Engineer - Data Security at Cloudflare")
+    page.evaluate = AsyncMock(return_value="About Us At Cloudflare, we are on a mission to help build a better Internet...")
+    page.query_selector = AsyncMock(return_value=None)
+
+    # Must NOT raise AntiBotChallengeDetected
+    await actuator.check_security_challenges(page)
+
+
 # ── BrowserBridge Compliance Tests ───────────────────────────────────
 
 @pytest.mark.asyncio

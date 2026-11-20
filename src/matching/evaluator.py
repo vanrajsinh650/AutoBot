@@ -7,7 +7,7 @@ computes deterministic scores in Python, and records tenant-isolated evaluations
 from datetime import datetime
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -271,3 +271,116 @@ class JobFitEvaluator:
             "explanation": full_explanation,
             "disclaimer": DISCLAIMER_NOTICE,
         }
+
+
+DEFAULT_BLACKLIST_KEYWORDS = [
+    "senior",
+    "sr.",
+    "sr",
+    "lead",
+    "principal",
+    "staff",
+    "director",
+    "vp",
+    "10+ years",
+    "15+ years",
+    "head of",
+]
+
+
+def is_senior_or_blacklisted_title(
+    title: str, blacklist_keywords: Optional[List[str]] = None
+) -> Tuple[bool, str]:
+    """
+    Check if a job title contains senior-level keywords or blacklisted terms.
+    Uses regex word boundaries for alphanumeric keywords like 'sr' to avoid
+    false positive substring matches (e.g., 'Israel' matching 'sr').
+    """
+    if not title:
+        return False, ""
+    title_lower = title.lower()
+
+    keywords = blacklist_keywords
+    if keywords is None:
+        try:
+            from src.utils.config import get_config
+            keywords = get_config().blacklist.title_keywords
+        except Exception:
+            keywords = DEFAULT_BLACKLIST_KEYWORDS
+
+    for kw in (keywords or DEFAULT_BLACKLIST_KEYWORDS):
+        clean_kw = kw.strip().lower()
+        if not clean_kw:
+            continue
+        if clean_kw.isalnum():
+            if re.search(rf"\b{re.escape(clean_kw)}\b", title_lower):
+                return True, kw
+        else:
+            if clean_kw in title_lower:
+                return True, kw
+    return False, ""
+
+
+def evaluate_scraped_job_fit(
+    title: str,
+    company: str,
+    description: str,
+    user_id: int = 1,
+    db_path: Optional[str] = None,
+    profile: Optional[Dict[str, Any]] = None,
+    preferences: Optional[Dict[str, Any]] = None,
+    evidence: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """
+    Lightweight, fast, deterministic evaluation of any scraped job against the
+    candidate's parsed resume and preferences.
+    """
+    # 1. Seniority / Blacklist check
+    is_senior, kw = is_senior_or_blacklisted_title(title)
+    if is_senior:
+        return {
+            "match_score": 0.0,
+            "match_percentage": 0,
+            "is_senior": True,
+            "eligibility_status": "ineligible_seniority",
+            "matched_requirements": [],
+            "missing_requirements": [f"Seniority conflict: Title contains '{kw}'"],
+            "explanation": f"Rejected by blacklist / seniority filter: '{title}' contains '{kw}'",
+        }
+
+    # 2. Candidate profile & preferences (use preloaded if provided)
+    if profile is None:
+        profile = get_candidate_profile(user_id, db_path) or {
+            "full_name": "Candidate",
+            "technical_skills": [],
+            "experience": [],
+            "education": [],
+        }
+    if preferences is None:
+        preferences = get_job_preferences(user_id, db_path)
+    if evidence is None:
+        evidence = get_resume_evidence(user_id, None, db_path)
+
+    # 3. Requirement extraction (heuristics for fast, offline, reliable scoring)
+    reqs = extract_requirements_heuristic(description or f"{title} at {company}")
+
+    # 4. Deterministic score calculation
+    breakdown = DeterministicFitScorer.calculate_score(
+        candidate_profile=profile,
+        candidate_preferences=preferences,
+        job_title=title,
+        job_reqs=reqs,
+        resume_evidence=evidence,
+    )
+
+    score_fraction = round(max(0.0, min(1.0, breakdown.overall_score / 100.0)), 2)
+
+    return {
+        "match_score": score_fraction,
+        "match_percentage": int(round(breakdown.overall_score)),
+        "is_senior": False,
+        "eligibility_status": "eligible",
+        "matched_requirements": breakdown.matched_requirements,
+        "missing_requirements": breakdown.missing_requirements,
+        "explanation": breakdown.explanation,
+    }

@@ -148,9 +148,41 @@ class BrowserBridge:
         elif not job.is_easy_apply and getattr(self.cfg.apply, "external_apply", True):
             if not self.external_apply_actuator:
                 return False
+
+            apply_target = job.external_apply_url or job.url or ""
+            # If the apply URL is still pointing to LinkedIn, extract direct outbound company ATS link
+            if any(li in apply_target.lower() for li in ("linkedin.com", "lnkd.in")):
+                from src.browser.linkedin_apply_extractor import (
+                    decode_linkedin_apply_url,
+                    resolve_direct_apply_url_from_page,
+                )
+                from src.browser.popup_handler import dismiss_sign_in_popup
+
+                decoded = decode_linkedin_apply_url(apply_target)
+                if not decoded and self.manager and self.manager.page:
+                    try:
+                        await self.manager.page.goto(apply_target, wait_until="domcontentloaded", timeout=20000)
+                        await dismiss_sign_in_popup(self.manager.page)
+                        decoded = await resolve_direct_apply_url_from_page(self.manager.page, timeout_ms=8000)
+
+                        if not decoded:
+                            # Check if actually an Easy Apply button
+                            easy_btn = await self.manager.page.query_selector(
+                                ".jobs-apply-button:has-text('Easy Apply'), button[aria-label*='Easy Apply'], .jobs-s-apply button"
+                            )
+                            if easy_btn and self.easy_apply_actuator:
+                                job.is_easy_apply = True
+                                return await self.easy_apply_actuator.apply(job, cover_letter=cover_letter)
+                    except Exception as e:
+                        logger.debug(f"[bridge]Direct link extraction error: {e}")
+
+                if decoded:
+                    apply_target = decoded
+                    job.external_apply_url = decoded
+
             return await self.external_apply_actuator.apply(
                 job,
-                apply_url=job.external_apply_url or job.url,
+                apply_url=apply_target,
                 cover_letter=cover_letter,
             )
 

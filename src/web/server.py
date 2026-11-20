@@ -7,6 +7,7 @@ from aiohttp import web
 
 from src.web.routes import (
     add_source_handler,
+    apply_portals_bot_handler,
     approve_application_pack_handler,
     auth_login_handler,
     auth_logout_handler,
@@ -15,6 +16,7 @@ from src.web.routes import (
     configure_browser_handler,
     confirm_linkedin_submission_handler,
     delete_account_handler,
+    delete_portals_handler,
     discover_jobs_handler,
     download_application_pack_handler,
     evaluate_job_handler,
@@ -23,6 +25,7 @@ from src.web.routes import (
     get_browser_health_handler,
     get_candidate_profile_handler,
     get_candidate_search_history_handler,
+    get_candidate_suggested_keywords_handler,
     get_config_handler,
     get_discovered_jobs_handler,
     get_jobs,
@@ -65,6 +68,8 @@ PUBLIC_EXACT_PATHS = {
     "/api/auth/login",
     "/api/events",
     "/api/apply-portals",
+    "/api/apply-portals/delete",
+    "/api/portals/apply",
 }
 
 
@@ -76,67 +81,48 @@ SESSION_KEY: Any = web.RequestKey("session", object) if hasattr(web, "RequestKey
 
 
 @web.middleware
+async def cache_control_middleware(request: web.Request, handler):
+    """Ensure static assets and dashboard HTML are never stuck in stale browser cache."""
+    response = await handler(request)
+    path = request.path
+    if path == "/" or path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
+@web.middleware
 async def auth_middleware(request: web.Request, handler):
     """
-    Authentication Middleware for AutoBot.
-    In open-source local desktop mode, defaults seamlessly to local user without requiring account creation.
-    If AUTOBOT_STRICT_AUTH=1 is set, strictly enforces Bearer session tokens.
+    Open-Source Standalone Context Middleware for AutoBot.
+    Always operates as the local user (user_id=1, admin role)
+    with zero authentication barriers or login requirements.
     """
-    path = request.path
-
-    # Allow public endpoints and static assets
-    if path in PUBLIC_EXACT_PATHS or path.startswith("/static/"):
-        return await handler(request)
-
-    # API endpoints
-    if path.startswith("/api/"):
-        import os
-        strict_auth = os.environ.get("AUTOBOT_STRICT_AUTH") in ("1", "true", "True")
-
-        auth_header = request.headers.get("Authorization", "")
-        token = None
-        if auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1].strip()
-        if not token:
-            token = request.cookies.get("auth_token") or request.query.get("token")
-
-        if not token:
-            if not strict_auth:
-                request[USER_ID_KEY] = 1
-                request[USER_EMAIL_KEY] = "local@autobot"
-                request[SESSION_KEY] = {"user_id": 1, "role": "admin", "email": "local@autobot"}
-                return await handler(request)
-            return web.json_response(
-                {"error": "Authentication required. Missing Bearer token or auth cookie."},
-                status=401,
-            )
-
-        from src.storage.auth import validate_session
-        session = validate_session(token)
-        if not session:
-            return web.json_response(
-                {"error": "Authentication required. Invalid, expired, or revoked session token."},
-                status=401,
-            )
-
-        # Attach validated session data to request state
-        request[USER_ID_KEY] = session["user_id"]
-        request[USER_EMAIL_KEY] = session.get("email")
-        request[SESSION_KEY] = session
-
+    request[USER_ID_KEY] = 1
+    request[USER_EMAIL_KEY] = "local@autobot"
+    request[SESSION_KEY] = {"user_id": 1, "role": "admin", "email": "local@autobot"}
     return await handler(request)
 
 
 async def index_handler(request: web.Request) -> web.FileResponse:
-    """Serve the single-page application dashboard."""
+    """Serve the single-page application dashboard with strict cache busting."""
     index_file = STATIC_DIR / "index.html"
-    return web.FileResponse(index_file)
+    res = web.FileResponse(index_file)
+    res.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    res.headers["Pragma"] = "no-cache"
+    res.headers["Expires"] = "0"
+    return res
 
 
 async def _start_scheduler(app: web.Application) -> None:
     """Initialize and start the background recurring job discovery scheduler."""
     import os
-    if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("AUTOBOT_DISABLE_SCHEDULER") == "1":
+    if (
+        os.environ.get("PYTEST_CURRENT_TEST")
+        or os.environ.get("AUTOBOT_DISABLE_SCHEDULER") == "1"
+        or os.environ.get("AUTOBOT_FRONTEND_ONLY") == "1"
+    ):
         return
     from src.discovery.scheduler import DiscoveryScheduler
     scheduler = DiscoveryScheduler()
@@ -153,7 +139,7 @@ async def _stop_scheduler(app: web.Application) -> None:
 
 def create_app() -> web.Application:
     """Build and configure the aiohttp Application instance with centralized auth middleware."""
-    app = web.Application(middlewares=[auth_middleware])
+    app = web.Application(middlewares=[cache_control_middleware, auth_middleware])
     app.on_startup.append(_start_scheduler)
     app.on_cleanup.append(_stop_scheduler)
 
@@ -164,6 +150,9 @@ def create_app() -> web.Application:
     app.router.add_get("/api/stats", get_stats_handler)
     app.router.add_get("/api/jobs", get_jobs)
     app.router.add_get("/api/apply-portals", get_apply_portals_handler)
+    app.router.add_post("/api/apply-portals/delete", delete_portals_handler)
+    app.router.add_delete("/api/apply-portals/delete", delete_portals_handler)
+    app.router.add_post("/api/portals/apply", apply_portals_bot_handler)
     app.router.add_get("/api/config", get_config_handler)
     app.router.add_post("/api/config", save_config_handler)
     app.router.add_get("/api/profile", get_profile_handler)
@@ -183,6 +172,7 @@ def create_app() -> web.Application:
 
     # ── Candidate Profile & Preferences Routes ────────────────────
     app.router.add_get("/api/candidate/profile", get_candidate_profile_handler)
+    app.router.add_get("/api/candidate/suggested-keywords", get_candidate_suggested_keywords_handler)
     app.router.add_put("/api/candidate/profile", update_candidate_profile_handler)
     app.router.add_get("/api/candidate/preferences", get_preferences_handler)
     app.router.add_put("/api/candidate/preferences", update_preferences_handler)

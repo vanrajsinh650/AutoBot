@@ -12,6 +12,10 @@ from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import quote_plus
 
 from src.agent.state import JobPosting
+from src.browser.linkedin_apply_extractor import (
+    decode_linkedin_apply_url,
+    resolve_direct_apply_url_from_page,
+)
 from src.browser.manager import BrowserManager
 from src.browser.navigator import LinkedInNavigator
 from src.browser.popup_handler import dismiss_sign_in_popup, install_popup_observer, recover_from_authwall
@@ -55,13 +59,16 @@ async def run_direct_chrome_search(
             except Exception:
                 pass
 
-    # 1. Resolve keywords and location
-    search_keywords = keywords or getattr(cfg.search, "keywords", ["Software Engineer"])
-    if isinstance(search_keywords, str):
-        search_keywords = [search_keywords]
+    # 1. Resolve keywords (User Provided OR Deep Resume Analysis) and location
+    from src.matching.keyword_expansion import resolve_search_keywords
+    search_keywords, origin = resolve_search_keywords(
+        user_provided=keywords,
+        user_id=user_id,
+        db_path=getattr(cfg.storage, "db_path", None),
+    )
     search_location = location or getattr(cfg.search, "location", "India")
 
-    _notify("info", f"Starting direct Google Chrome search for: {', '.join(search_keywords)} in {search_location}")
+    _notify("info", f"Starting direct Google Chrome search for: {', '.join(search_keywords)} ({origin}) in {search_location}")
 
     # 2. Instantiate and launch BrowserManager with real Chrome
     manager = BrowserManager(
@@ -135,7 +142,26 @@ async def run_direct_chrome_search(
                         logger.info(f"[live-search]⏭ Skipping duplicate already processed job: '{job.title}' @ '{job.company}'")
                         continue
 
-                    all_discovered_jobs.append(job)
+                    # Evaluate resume match fit
+                    from src.matching.evaluator import evaluate_scraped_job_fit
+
+                    eval_res = evaluate_scraped_job_fit(
+                        title=job.title,
+                        company=job.company,
+                        description=job.description or f"Role: {job.title} at {job.company}.",
+                        user_id=user_id,
+                    )
+                    match_score = eval_res["match_score"]
+                    match_pct = eval_res["match_percentage"]
+                    min_score_threshold = float(getattr(getattr(cfg, "apply", None), "min_match_score", 0.60))
+
+                    if match_score >= min_score_threshold:
+                        all_discovered_jobs.append(job)
+                        status_label = "discovered"
+                        _notify("info", f"🎯 Matched: '{job.title}' @ '{job.company}' ({match_pct}% fit >= {int(min_score_threshold*100)}% threshold)")
+                    else:
+                        status_label = "skipped_low_fit"
+                        logger.info(f"[live-search]⏭ Filtered low-fit role: '{job.title}' ({match_pct}% < {int(min_score_threshold*100)}%)")
 
                     # Persist to database so it appears in Mission Control & Apply Portals section
                     try:
@@ -149,7 +175,9 @@ async def run_direct_chrome_search(
                             is_easy_apply=job.is_easy_apply,
                             job_id=job.job_id,
                             user_id=user_id,
-                            raw_data={"search_keyword": kw, "source_url": job.url},
+                            raw_data={"search_keyword": kw, "source_url": job.url, "match_percentage": match_pct},
+                            match_score=match_score,
+                            status=status_label,
                         )
                     except Exception as ex:
                         logger.debug(f"Could not save application record: {ex}")
@@ -210,13 +238,20 @@ async def run_direct_google_keyword_search(
             except Exception:
                 pass
 
-    query = keyword.strip() if keyword else getattr(cfg.search, "keywords", ["Python Developer"])[0]
+    from src.matching.keyword_expansion import resolve_search_keywords
+    resolved_kws, origin = resolve_search_keywords(
+        user_provided=keyword,
+        user_id=user_id,
+        db_path=getattr(cfg.storage, "db_path", None),
+    )
+    base_kw = resolved_kws[0] if resolved_kws else "Python Developer"
+    query = base_kw
     if location and location.strip():
         query += f" jobs in {location.strip()}"
     elif "job" not in query.lower():
         query += " jobs"
 
-    _notify("info", f"Opening Google Chrome for single keyword search: '{query}'")
+    _notify("info", f"Opening Google Chrome for keyword search: '{query}' ({origin})")
 
     manager = BrowserManager(
         cfg=cfg,
@@ -333,10 +368,16 @@ async def run_google_to_linkedin_job_search(
             except Exception:
                 pass
 
-    search_kw = keyword.strip() if keyword else getattr(cfg.search, "keywords", ["Python Developer"])[0]
+    from src.matching.keyword_expansion import resolve_search_keywords
+    resolved_kws, origin = resolve_search_keywords(
+        user_provided=keyword,
+        user_id=user_id,
+        db_path=getattr(cfg.storage, "db_path", None),
+    )
+    search_kw = resolved_kws[0] if resolved_kws else "Python Developer"
     search_loc = (location.strip() if location and location.strip() else getattr(cfg.search, "location", "India")) or "India"
 
-    _notify("info", f"Initiating Google Chrome job search: '{search_kw}' in {search_loc}...")
+    _notify("info", f"Initiating Google Chrome job search: '{search_kw}' ({origin}) in {search_loc}...")
 
     manager = BrowserManager(
         cfg=cfg,
@@ -461,7 +502,15 @@ async def run_google_to_linkedin_job_search(
             title_lower = title.lower()
             company = r.get("company", "")
             url = r.get("url", "")
-            apply_url = r.get("apply_url") or url
+            
+            # Check if there is an encoded direct external apply form URL
+            decoded_direct = decode_linkedin_apply_url(r.get("apply_url") or "")
+            if decoded_direct:
+                apply_url = decoded_direct
+                is_easy = False
+            else:
+                apply_url = r.get("apply_url") or url
+                is_easy = r.get("is_easy_apply", False)
 
             # Check seniority / title blacklist
             is_blacklisted = False
@@ -485,9 +534,38 @@ async def run_google_to_linkedin_job_search(
                 user_id=user_id,
             )
 
+            if is_blacklisted:
+                logger.info(f"[live-search]⏭ Filtered out senior role: '{title}' @ '{company}'")
+                continue
+
+            if already_processed:
+                logger.info(f"[live-search]⏭ Filtered out duplicate job already in database: '{title}' @ '{company}'")
+                continue
+
             discovered_roles.append(r)
 
-            # Persist to local database
+            # Evaluate resume match fit
+            from src.matching.evaluator import evaluate_scraped_job_fit
+
+            eval_res = evaluate_scraped_job_fit(
+                title=title,
+                company=company,
+                description=r.get("description") or f"Position: {title} at {company}. Location: {r.get('location') or search_loc}.",
+                user_id=user_id,
+            )
+            match_score = eval_res["match_score"]
+            match_pct = eval_res["match_percentage"]
+            min_score_threshold = float(getattr(getattr(cfg, "apply", None), "min_match_score", 0.60))
+
+            if match_score >= min_score_threshold:
+                eligible_roles.append(r)
+                status_label = "discovered"
+                _notify("info", f"🎯 Matched '{title}' @ '{company}': {match_pct}% fit (>= {int(min_score_threshold*100)}% threshold)")
+            else:
+                status_label = "skipped_low_fit"
+                _notify("info", f"⏭ Below threshold: '{title}' @ '{company}': {match_pct}% fit (< {int(min_score_threshold*100)}%). Skipped.")
+
+            # Persist to local database with clean separation of direct external apply vs easy apply
             try:
                 save_scraped_job(
                     title=title,
@@ -496,25 +574,20 @@ async def run_google_to_linkedin_job_search(
                     description=r.get("description") or f"Position: {title} at {company}. Location: {r.get('location') or search_loc}.",
                     apply_url=apply_url,
                     source_name="LinkedIn",
-                    is_easy_apply=r.get("is_easy_apply", False),
+                    is_easy_apply=is_easy,
                     user_id=user_id,
                     raw_data={
                         "source_url": url,
                         "search_keyword": search_kw,
-                        "is_easy_apply": r.get("is_easy_apply", False),
-                        "is_blacklisted": is_blacklisted,
-                        "already_processed": already_processed,
+                        "is_easy_apply": is_easy,
+                        "match_percentage": match_pct,
+                        "direct_apply_url": apply_url if apply_url != url else None,
                     },
+                    match_score=match_score,
+                    status=status_label,
                 )
             except Exception:
                 pass
-
-            if not is_blacklisted and not already_processed:
-                eligible_roles.append(r)
-            elif is_blacklisted:
-                logger.info(f"[live-search]⏭ Filtered out senior role: '{title}' @ '{company}'")
-            elif already_processed:
-                logger.info(f"[live-search]⏭ Filtered out duplicate job already in database: '{title}' @ '{company}'")
 
         _notify("info", f"{len(eligible_roles)} fresh, eligible non-senior roles available to process.")
 
@@ -579,21 +652,50 @@ async def run_google_to_linkedin_job_search(
                             apply_url: applyEl && applyEl.href ? applyEl.href : ''
                         };
                     }""")
+
+                    # Extract direct external application form link behind the Apply button
+                    direct_apply_link = await resolve_direct_apply_url_from_page(page)
+
                     if full_details and full_details.get("description"):
                         top_role["description"] = full_details["description"]
-                        if full_details.get("apply_url"):
+
+                    if direct_apply_link:
+                        top_role["apply_url"] = direct_apply_link
+                        top_role["is_easy_apply"] = False
+                    elif full_details and full_details.get("apply_url"):
+                        decoded = decode_linkedin_apply_url(full_details["apply_url"])
+                        if decoded:
+                            top_role["apply_url"] = decoded
+                            top_role["is_easy_apply"] = False
+                        else:
                             top_role["apply_url"] = full_details["apply_url"]
-                        save_scraped_job(
-                            title=top_role["title"],
-                            company=top_role["company"],
-                            location=top_role.get("location") or search_loc,
-                            description=top_role["description"],
-                            apply_url=top_role.get("apply_url") or top_role["url"],
-                            source_name="LinkedIn",
-                            is_easy_apply=top_role.get("is_easy_apply", False),
-                            user_id=user_id,
-                            raw_data={"source_url": top_role["url"], "search_keyword": search_kw},
-                        )
+
+                    from src.matching.evaluator import evaluate_scraped_job_fit
+                    eval_res = evaluate_scraped_job_fit(
+                        title=top_role["title"],
+                        company=top_role["company"],
+                        description=top_role.get("description") or "",
+                        user_id=user_id,
+                    )
+                    match_score = eval_res["match_score"]
+                    save_scraped_job(
+                        title=top_role["title"],
+                        company=top_role["company"],
+                        location=top_role.get("location") or search_loc,
+                        description=top_role.get("description") or "",
+                        apply_url=top_role.get("apply_url") or top_role["url"],
+                        source_name="LinkedIn",
+                        is_easy_apply=top_role.get("is_easy_apply", False),
+                        user_id=user_id,
+                        raw_data={
+                            "source_url": top_role["url"],
+                            "search_keyword": search_kw,
+                            "match_percentage": eval_res["match_percentage"],
+                            "direct_apply_url": top_role.get("apply_url") if top_role.get("apply_url") != top_role["url"] else None,
+                        },
+                        match_score=match_score,
+                        status="discovered",
+                    )
                 except Exception as dx:
                     logger.debug(f"Full details extraction: {dx}")
 
