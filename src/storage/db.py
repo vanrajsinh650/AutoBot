@@ -330,6 +330,16 @@ def save_scraped_job(
     clean_location = (location or "Remote").strip()
     clean_desc = (description or f"Role: {clean_title} at {clean_company}. Location: {clean_location}.").strip()
     clean_url = (apply_url or "").strip()
+    if not is_easy_apply:
+        from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+        resolved_apply_url = resolve_company_direct_apply_url(
+            title=clean_title,
+            company=clean_company,
+            current_url=clean_url,
+            location=clean_location,
+        )
+        if resolved_apply_url and not any(li in resolved_apply_url.lower() for li in ("linkedin.com", "lnkd.in")):
+            clean_url = resolved_apply_url
 
     fingerprint = hashlib.sha256(f"{clean_company.lower()}:{clean_title.lower()}:{clean_location.lower()}".encode()).hexdigest()
     stable_id = str(job_id).strip() if job_id else f"{source_name.lower().replace(' ', '_')}_{fingerprint[:12]}"
@@ -478,7 +488,7 @@ def get_apply_portals(
                 a.url as app_url,
                 a.match_score
             FROM jobs j
-            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND a.user_id = ?
+            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
             WHERE 1=1
         """
         params: List[Any] = [user_id]
@@ -533,6 +543,17 @@ def get_apply_portals(
             or row_dict.get("app_apply_type") == "easy_apply" 
             or "easy apply" in src_name.lower()
         )
+
+        if not is_easy and any(li in app_url.lower() for li in ("linkedin.com", "lnkd.in")):
+            from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+            resolved_portal = resolve_company_direct_apply_url(
+                title=title,
+                company=company,
+                current_url=app_url,
+                location=row_dict.get("location") or "Remote",
+            )
+            if resolved_portal:
+                app_url = resolved_portal
 
         plat_name, plat_cat = detect_apply_platform(url=app_url, source_name=src_name, is_easy_apply=is_easy)
 

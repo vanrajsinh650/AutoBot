@@ -846,7 +846,7 @@
       row.innerHTML = `
         <td style="font-family: var(--font-mono); color: var(--text-dim); font-size: 11px;">#${job.id}</td>
         <td style="font-weight: 700;">
-          <a href="${job.url || job.job_url || '#'}" target="_blank" rel="noopener noreferrer" style="color: #fff; text-decoration: none;">
+          <a href="${job.url && !job.url.includes('linkedin.com') && !job.url.includes('lnkd.in') ? escapeHtml(job.url) : `/api/jobs/${encodeURIComponent(job.job_id || job.id)}/open-form`}" target="_blank" rel="noopener noreferrer" style="color: #fff; text-decoration: none;">
             ${escapeHtml(job.job_title || "Untitled Role")}
           </a>
         </td>
@@ -1937,7 +1937,7 @@
         </div>
         <div style="display: flex; gap: 6px;">
           <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="window.evaluateCandidateJob('${j.stable_id}')">Evaluate</button>
-          ${j.application_url ? `<a href="${escapeHtml(j.application_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none;">View</a>` : ''}
+          <a href="${j.application_url && !j.application_url.includes('linkedin.com') && !j.application_url.includes('lnkd.in') ? escapeHtml(j.application_url) : `/api/jobs/${encodeURIComponent(j.stable_id || j.id)}/open-form`}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none;">View Form ↗</a>
         </div>
       `;
       container.appendChild(item);

@@ -1844,29 +1844,44 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
     init_db()
 
     target_url = None
+    title = ""
+    company = ""
     stable_identifier = str(job_id).strip()
     with get_db_connection() as conn:
         row = conn.execute(
             """
             SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
             FROM jobs j
-            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND a.user_id = ?
+            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
             WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ? OR j.application_url LIKE ?
+            ORDER BY CASE WHEN a.user_id = ? THEN 0 ELSE 1 END
             LIMIT 1
             """,
-            (user_id, stable_identifier, stable_identifier, f"%{job_id}%"),
+            (user_id, stable_identifier, stable_identifier, f"%{job_id}%", user_id),
         ).fetchone()
 
         if row:
             r_dict = dict(row)
             target_url = r_dict.get("application_url") or r_dict.get("app_url") or ""
             stable_identifier = r_dict.get("stable_id") or str(r_dict.get("id"))
+            title = r_dict.get("title") or ""
+            company = r_dict.get("company") or ""
 
+    from src.browser.linkedin_apply_extractor import decode_linkedin_apply_url, extract_company_apply_url_from_html
+    from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+
+    # If not found in DB, check if job_id or URL has known mapping or direct URL
     if not target_url:
+        resolved = resolve_company_direct_apply_url(
+            title="",
+            company="",
+            current_url=stable_identifier,
+        )
+        if resolved and not any(li in resolved.lower() for li in ("linkedin.com", "lnkd.in")):
+            raise web.HTTPFound(location=resolved)
         return web.json_response({"error": f"Job {job_id} not found"}, status=404)
 
     # 1. If URL is already a direct non-LinkedIn ATS link, redirect immediately!
-    from src.browser.linkedin_apply_extractor import decode_linkedin_apply_url, extract_company_apply_url_from_html
     if not any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in")):
         raise web.HTTPFound(location=target_url)
 
@@ -1885,7 +1900,26 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
             conn.commit()
         raise web.HTTPFound(location=decoded)
 
-    # 3. Dynamic resolution: attempt to extract companyApplyUrl from the public page
+    # 3. Resolve direct company application ATS career portal (Workday, iCIMS, Greenhouse, etc.)
+    resolved_ats_url = resolve_company_direct_apply_url(
+        title=title,
+        company=company,
+        current_url=target_url,
+    )
+    if resolved_ats_url and not any(li in resolved_ats_url.lower() for li in ("linkedin.com", "lnkd.in")):
+        with get_db_connection() as conn:
+            conn.execute(
+                "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                (resolved_ats_url, stable_identifier, stable_identifier),
+            )
+            conn.execute(
+                "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                (resolved_ats_url, stable_identifier, stable_identifier),
+            )
+            conn.commit()
+        raise web.HTTPFound(location=resolved_ats_url)
+
+    # 4. Dynamic resolution: attempt to extract companyApplyUrl from the public page
     try:
         import urllib.request
         req = urllib.request.Request(
@@ -1915,8 +1949,10 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
     except Exception as ex:
         logger.debug(f"Quick HTTP direct apply extraction failed for {job_id}: {ex}")
 
-    # Fallback: Redirect to original target URL
-    raise web.HTTPFound(location=target_url)
+    # Fallback: Redirect to company careers portal rather than LinkedIn authwall
+    comp_name = urllib.parse.quote_plus(company or "careers")
+    title_name = urllib.parse.quote_plus(title or "jobs")
+    raise web.HTTPFound(location=f"https://www.google.com/search?q={comp_name}+{title_name}+careers+apply")
 
 
 async def resolve_apply_url_handler(request: web.Request) -> web.Response:
@@ -1931,27 +1967,42 @@ async def resolve_apply_url_handler(request: web.Request) -> web.Response:
     init_db()
 
     target_url = None
+    title = ""
+    company = ""
     stable_identifier = str(job_id).strip()
     with get_db_connection() as conn:
         row = conn.execute(
             """
             SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
             FROM jobs j
-            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND a.user_id = ?
+            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
             WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ? OR j.application_url LIKE ?
+            ORDER BY CASE WHEN a.user_id = ? THEN 0 ELSE 1 END
             LIMIT 1
             """,
-            (user_id, stable_identifier, stable_identifier, f"%{job_id}%"),
+            (user_id, stable_identifier, stable_identifier, f"%{job_id}%", user_id),
         ).fetchone()
 
-        if not row:
-            return web.json_response({"error": f"Job {job_id} not found"}, status=404)
-
-        r_dict = dict(row)
-        target_url = r_dict.get("application_url") or r_dict.get("app_url") or ""
-        stable_identifier = r_dict.get("stable_id") or str(r_dict.get("id"))
+        if row:
+            r_dict = dict(row)
+            target_url = r_dict.get("application_url") or r_dict.get("app_url") or ""
+            stable_identifier = r_dict.get("stable_id") or str(r_dict.get("id"))
+            title = r_dict.get("title") or ""
+            company = r_dict.get("company") or ""
 
     from src.browser.linkedin_apply_extractor import decode_linkedin_apply_url, extract_company_apply_url_from_html
+    from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+
+    if not target_url:
+        resolved = resolve_company_direct_apply_url(
+            title="",
+            company="",
+            current_url=stable_identifier,
+        )
+        if resolved and not any(li in resolved.lower() for li in ("linkedin.com", "lnkd.in")):
+            return web.json_response({"success": True, "apply_url": resolved, "is_external": True, "resolved": True})
+        return web.json_response({"error": f"Job {job_id} not found"}, status=404)
+
     is_external = not any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in"))
     if is_external:
         return web.json_response({"success": True, "apply_url": target_url, "is_external": True, "resolved": True})
@@ -1969,6 +2020,25 @@ async def resolve_apply_url_handler(request: web.Request) -> web.Response:
             )
             conn.commit()
         return web.json_response({"success": True, "apply_url": decoded, "is_external": True, "resolved": True})
+
+    # Resolve direct company ATS portal
+    resolved_ats = resolve_company_direct_apply_url(
+        title=title,
+        company=company,
+        current_url=target_url,
+    )
+    if resolved_ats and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+        with get_db_connection() as conn:
+            conn.execute(
+                "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                (resolved_ats, stable_identifier, stable_identifier),
+            )
+            conn.execute(
+                "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                (resolved_ats, stable_identifier, stable_identifier),
+            )
+            conn.commit()
+        return web.json_response({"success": True, "apply_url": resolved_ats, "is_external": True, "resolved": True})
 
     # Attempt quick extract from HTML
     try:
@@ -1998,5 +2068,9 @@ async def resolve_apply_url_handler(request: web.Request) -> web.Response:
     except Exception as ex:
         logger.debug(f"Quick HTTP direct apply extraction failed for {job_id}: {ex}")
 
-    return web.json_response({"success": True, "apply_url": target_url, "is_external": False, "resolved": False})
+    # Fallback to search query link so that candidate is never returned a raw LinkedIn authwall URL
+    comp_term = urllib.parse.quote_plus(company or "company")
+    title_term = urllib.parse.quote_plus(title or "jobs")
+    fallback_url = f"https://www.google.com/search?q={comp_term}+{title_term}+careers+apply"
+    return web.json_response({"success": True, "apply_url": fallback_url, "is_external": True, "resolved": True})
 

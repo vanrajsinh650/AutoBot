@@ -290,7 +290,16 @@ class JobDiscoveryEngine:
                         duplicates_removed += 1
                         continue
 
-                    # Insert new job
+                    # Insert new job with resolved company ATS direct link
+                    from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+                    direct_apply_url = resolve_company_direct_apply_url(
+                        title=job.title,
+                        company=job.company,
+                        current_url=job.application_url,
+                        location=job.location,
+                    )
+                    clean_app_url = direct_apply_url if (direct_apply_url and not any(li in direct_apply_url.lower() for li in ("linkedin.com", "lnkd.in"))) else job.application_url
+
                     conn.execute(
                         """
                         INSERT INTO jobs (
@@ -321,7 +330,7 @@ class JobDiscoveryEngine:
                             job.discovered_at or now_iso,
                             job.source_updated_at or now_iso,
                             now_iso,
-                            job.application_url,
+                            clean_app_url,
                             json.dumps(job.raw_data),
                             fp,
                             now_iso,
