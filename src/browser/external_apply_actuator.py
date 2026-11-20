@@ -85,6 +85,7 @@ class ExternalApplyActuator:
         "lever.co",
         "ashbyhq.com",
         "myworkdayjobs.com",
+        "workday.com",
         "smartrecruiters.com",
         "workable.com",
         "bamboohr.com",
@@ -105,6 +106,12 @@ class ExternalApplyActuator:
         "personio.com",
         "recruitee.com",
         "applytojob.com",
+        "pinpointhq.com",
+        "jazzhr.com",
+        "dover.com",
+        "google.com",
+        "apple.com",
+        "microsoft.com",
     ]
 
     CHALLENGE_PATTERNS = [
@@ -180,6 +187,7 @@ class ExternalApplyActuator:
         Check page URL and content for anti-bot challenges, CAPTCHAs, or MFA walls.
         Halts immediately without attempting bypass.
         """
+        import asyncio
         page_url = str(getattr(page, "url", "") or "").lower()
         for pat in self.CHALLENGE_PATTERNS:
             if pat in page_url:
@@ -192,8 +200,23 @@ class ExternalApplyActuator:
             if inspect.isawaitable(raw_title):
                 raw_title = await raw_title
             title = str(raw_title or "").lower()
+
+            # Handle transient loading screens (e.g. Cloudflare / Workday "Just a moment..." during page hydration)
+            if "just a moment" in title:
+                for _ in range(5):
+                    await asyncio.sleep(1.0)
+                    raw_title = page.title() if callable(getattr(page, "title", None)) else getattr(page, "title", "")
+                    if inspect.isawaitable(raw_title):
+                        raw_title = await raw_title
+                    title = str(raw_title or "").lower()
+                    if "just a moment" not in title:
+                        break
+
             for text in self.CHALLENGE_TEXTS:
+                if text == "just a moment..." and "just a moment" not in title:
+                    continue
                 if text in title:
+                    # Verify if an actual challenge element is present or if title remained in challenge state
                     raise AntiBotChallengeDetected(
                         f"Anti-bot challenge gate detected in title '{title}'. Halting execution immediately."
                     )
@@ -204,6 +227,8 @@ class ExternalApplyActuator:
                     body_eval = await body_eval
                 body_str = str(body_eval or "").lower()
                 for text in self.CHALLENGE_TEXTS:
+                    if text == "just a moment..." and "just a moment" not in title:
+                        continue
                     if text in body_str:
                         raise AntiBotChallengeDetected(
                             "Anti-bot verification challenge detected on page. Halting execution immediately."
@@ -214,6 +239,7 @@ class ExternalApplyActuator:
                 captcha_elem = page.query_selector(
                     "iframe[title*='challenge' i], "
                     "iframe[src*='/bframe'], "
+                    "iframe[src*='challenges.cloudflare.com'], "
                     "#challenge-running, #challenge-stage"
                 )
                 if inspect.isawaitable(captcha_elem):
@@ -276,6 +302,11 @@ class ExternalApplyActuator:
         # If URL is a LinkedIn redirect or tracking link, attempt to extract the destination ATS URL
         if "linkedin.com" in target_url.lower() or "lnkd.in" in target_url.lower():
             resolved = self._resolve_external_apply_url(target_url)
+            if not resolved:
+                from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
+                res_portal = resolve_company_direct_apply_url(title=job.title, company=job.company, current_url=target_url)
+                if is_valid_direct_ats_url(res_portal)[0]:
+                    resolved = res_portal
             if resolved:
                 logger.info(f"[browser]Extracted destination external ATS URL: {resolved}[/browser]")
                 target_url = resolved
@@ -363,13 +394,22 @@ class ExternalApplyActuator:
                 return
 
             apply_triggers = [
+                "a[data-automation-id*='adventureButton']",
+                "a[data-automation-id*='applyManually']",
+                "button[data-automation-id*='apply']",
+                "a[href*='#application-form']",
                 "a[href*='#apply']",
                 "a[href*='/apply']",
+                "a[href*='#app']",
+                "#apply_button",
                 "button:has-text('Apply for this job')",
+                "button:has-text('Apply for this role')",
                 "button:has-text('Apply Now')",
-                "a:has-text('Apply for this job')",
-                "a:has-text('Apply Now')",
                 "button:has-text('Apply')",
+                "a:has-text('Apply for this job')",
+                "a:has-text('Apply for this role')",
+                "a:has-text('Apply Now')",
+                "a:has-text('Apply')",
                 "[data-testid*='apply-button']",
             ]
             for sel in apply_triggers:
@@ -454,7 +494,7 @@ class ExternalApplyActuator:
         """Fill common personal and contact fields."""
         candidate = getattr(self, "candidate_info", {}) or {}
 
-        # 1. Full name input (common on Ashby, Lever, Greenhouse)
+        # 1. Full name input (common on Ashby, Lever, Greenhouse, Workday)
         full_name_selectors = [
             "input[name='name']",
             "input[name='full_name']",
@@ -464,6 +504,7 @@ class ExternalApplyActuator:
             "input[placeholder*='Full name' i]",
             "input[placeholder*='Full Name' i]",
             "input[aria-label*='Full name' i]",
+            "input[data-automation-id*='fullName']",
         ]
         full_name_filled = False
         for sel in full_name_selectors:
@@ -491,14 +532,14 @@ class ExternalApplyActuator:
 
         # 2. Field mappings for first/last name and other contact items
         fields_map = [
-            ("input[name*='first'], input[placeholder*='First' i], #first_name, #firstname", "First Name", candidate.get("first_name", "Vanraj")),
-            ("input[name*='last'], input[placeholder*='Last' i], #last_name, #lastname", "Last Name", candidate.get("last_name", "Solanki")),
-            ("input[type='email'], input[name*='email'], input[placeholder*='email' i], #email", "Email Address", candidate.get("email", "vanrajsolanki2875@gmail.com")),
-            ("input[type='tel'], input[name*='phone'], input[placeholder*='phone' i], #phone", "Phone Number", candidate.get("phone", "+91-8320452875")),
-            ("input[name*='linkedin'], input[placeholder*='LinkedIn' i], input[id*='linkedin']", "LinkedIn Profile URL", candidate.get("linkedin", "https://linkedin.com/in/vanrajsinh")),
-            ("input[name*='github'], input[placeholder*='GitHub' i], input[id*='github']", "GitHub URL", candidate.get("github", "https://github.com/vanrajsinh650")),
+            ("input[name*='first'], input[placeholder*='First' i], input[data-automation-id*='legalNameSection_firstName'], #first_name, #firstname", "First Name", candidate.get("first_name", "Vanraj")),
+            ("input[name*='last'], input[placeholder*='Last' i], input[data-automation-id*='legalNameSection_lastName'], #last_name, #lastname", "Last Name", candidate.get("last_name", "Solanki")),
+            ("input[type='email'], input[name*='email'], input[placeholder*='email' i], input[data-automation-id*='email'], #email", "Email Address", candidate.get("email", "vanrajsolanki2875@gmail.com")),
+            ("input[type='tel'], input[name*='phone'], input[placeholder*='phone' i], input[data-automation-id*='phone'], #phone", "Phone Number", candidate.get("phone", "+91-8320452875")),
+            ("input[name*='linkedin'], input[placeholder*='LinkedIn' i], input[id*='linkedin'], input[data-automation-id*='linkedin']", "LinkedIn Profile URL", candidate.get("linkedin", "https://linkedin.com/in/vanrajsinh")),
+            ("input[name*='github'], input[placeholder*='GitHub' i], input[id*='github'], input[data-automation-id*='github']", "GitHub URL", candidate.get("github", "https://github.com/vanrajsinh650")),
             ("input[name*='website'], input[name*='portfolio'], input[placeholder*='portfolio' i], input[placeholder*='website' i]", "Portfolio URL", candidate.get("portfolio", "https://github.com/vanrajsinh650")),
-            ("input[name*='location'], input[placeholder*='location' i], input[placeholder*='city' i]", "Location", candidate.get("location", "India")),
+            ("input[name*='location'], input[placeholder*='location' i], input[placeholder*='city' i], input[data-automation-id*='addressSection_city']", "Location", candidate.get("location", "India")),
         ]
 
         for selector_group, question, default_val in fields_map:
@@ -575,7 +616,10 @@ class ExternalApplyActuator:
         submit_selectors = [
             "button[type='submit']",
             "input[type='submit']",
+            "button[data-automation-id='bottom-navigation-next-button']",
+            "button[data-automation-id='submit-button']",
             "button:has-text('Submit Application')",
+            "button:has-text('Submit application')",
             "button:has-text('Submit')",
             "button:has-text('Apply')",
             "button:has-text('Send Application')",

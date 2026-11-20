@@ -440,7 +440,7 @@ async def apply_to_portals(
                     _notify(
                         "success",
                         f"({idx}/{len(jobs_to_apply)}) ✅ Application to '{title}' @ '{company}' completed ({status})!",
-                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": status, "success": True},
+                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": status, "success": True, "title": title, "company": company},
                     )
                     results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True})
                 else:
@@ -448,7 +448,7 @@ async def apply_to_portals(
                     _notify(
                         "warning",
                         f"({idx}/{len(jobs_to_apply)}) ⚠ Application to '{title}' @ '{company}' requires manual completion.",
-                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "requires_manual", "success": False},
+                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "requires_manual", "success": False, "title": title, "company": company},
                     )
                     results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": "requires_manual", "success": False})
 

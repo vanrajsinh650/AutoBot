@@ -1520,6 +1520,41 @@
       btnDeleteAll.addEventListener("click", () => deleteAllPortals());
     }
 
+    // ── 1-Click Direct URL Apply Listeners ─────────────────────────
+    const inputDirectApply = document.getElementById("input-direct-apply-url");
+    const btnDirectApply = document.getElementById("btn-direct-apply-submit");
+    if (btnDirectApply && inputDirectApply) {
+      btnDirectApply.addEventListener("click", () => {
+        const dryRun = els.dryRunCheckbox ? els.dryRunCheckbox.checked : false;
+        executeDirectUrlApply(inputDirectApply.value, dryRun, btnDirectApply);
+      });
+      inputDirectApply.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const dryRun = els.dryRunCheckbox ? els.dryRunCheckbox.checked : false;
+          executeDirectUrlApply(inputDirectApply.value, dryRun, btnDirectApply);
+        }
+      });
+    }
+
+    const inputPortalDirect = document.getElementById("input-portal-direct-apply-url");
+    const btnPortalDirect = document.getElementById("btn-portal-direct-apply-submit");
+    if (btnPortalDirect && inputPortalDirect) {
+      btnPortalDirect.addEventListener("click", () => {
+        const dryRunCb = document.getElementById("portals-dryrun-checkbox");
+        const dryRun = dryRunCb ? dryRunCb.checked : false;
+        executeDirectUrlApply(inputPortalDirect.value, dryRun, btnPortalDirect);
+      });
+      inputPortalDirect.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const dryRunCb = document.getElementById("portals-dryrun-checkbox");
+          const dryRun = dryRunCb ? dryRunCb.checked : false;
+          executeDirectUrlApply(inputPortalDirect.value, dryRun, btnPortalDirect);
+        }
+      });
+    }
+
     // Job Description Modal Controls
     const modalCloseBtn = document.getElementById("modal-close-btn");
     const modalCancelBtn = document.getElementById("modal-cancel-btn");
@@ -2425,6 +2460,9 @@
       batchBtn.innerHTML = `<span class="spinner-inline"></span> Applying to ${jobIds.length}...`;
     }
 
+    const bgModeCheckbox = document.getElementById("bg-mode-checkbox");
+    const isBackground = bgModeCheckbox ? bgModeCheckbox.checked : true;
+
     try {
       showToast(`Launching Auto-Apply Bot for ${jobIds.length} job(s)...`, "info");
       const res = await authedFetch("/api/portals/apply", {
@@ -2433,6 +2471,7 @@
         body: JSON.stringify({
           job_ids: jobIds,
           dry_run: dryRun,
+          background: isBackground,
         }),
       });
 
@@ -2442,17 +2481,6 @@
       }
 
       showToast(`Apply Bot active! Auto-filling forms...`, "success");
-
-      // Auto-fallback: ensure badge updates if network/SSE has delay
-      setTimeout(() => {
-        jobIds.forEach((jid) => {
-          const card = document.querySelector(`.portal-card[data-id="${jid}"], .portal-card[data-stable-id="${jid}"]`);
-          const badge = card ? card.querySelector(".portal-status-badge") : null;
-          if (badge && badge.textContent === "applying") {
-            updatePortalCardStatus(jid, dryRun ? "dry_run" : "applied");
-          }
-        });
-      }, 2500);
 
     } catch (err) {
       console.error("Portal apply bot failed:", err);
@@ -2468,6 +2496,63 @@
     } finally {
       if (batchBtn) {
         updateBatchBarState();
+      }
+    }
+  }
+
+  async function executeDirectUrlApply(rawUrl, dryRun, triggerBtn) {
+    const url = (rawUrl || "").trim();
+    if (!url) {
+      showToast("Please enter a valid job URL to apply", "warning");
+      return;
+    }
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      showToast("URL must start with http:// or https://", "error");
+      return;
+    }
+
+    if (state.audioEnabled && sfx) sfx.click();
+
+    const bgModeCheckbox = document.getElementById("bg-mode-checkbox");
+    const isBackground = bgModeCheckbox ? bgModeCheckbox.checked : true;
+
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.innerHTML = `<span class="spinner-inline"></span> Applying...`;
+      triggerBtn.style.opacity = "0.75";
+    }
+
+    try {
+      showToast("⚡ Connecting to direct job link & launching bot...", "info");
+      const res = await authedFetch("/api/portals/apply-direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: url,
+          dry_run: dryRun,
+          background: isBackground,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+
+      showToast(`🚀 1-Click Apply active for ${data.title || "Job"} @ ${data.company || "Employer"}!`, "success");
+
+      // Reload portals to show new job card immediately
+      await loadApplyPortals();
+      await fetchFeaturedPortals();
+
+    } catch (err) {
+      console.error("Direct link apply error:", err);
+      showToast(`1-Click Apply error: ${err.message}`, "error");
+    } finally {
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> <span>1-Click Apply ⚡</span>`;
+        triggerBtn.style.opacity = "1";
       }
     }
   }
@@ -2493,8 +2578,7 @@
         const isSelected = portalsState.selectedIds.has(jobId);
         const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category);
         const rawApplyUrl = job.apply_url || job.source_url || "#";
-        const isDirectATS = rawApplyUrl && !rawApplyUrl.includes("linkedin.com") && !rawApplyUrl.includes("lnkd.in");
-        const openFormHref = isDirectATS ? rawApplyUrl : `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+        const openFormHref = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
         const descText = (job.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         const snippet = descText.length > 200 ? descText.slice(0, 200) + "..." : descText || "No description preview available.";
         const matchPct = Math.round((job.match_score || 0.60) * 100);
@@ -2623,10 +2707,8 @@
       modalDesc.textContent = cleanDesc || "No detailed job description captured.";
     }
     if (modalApply) {
-      const rawApplyUrl = job.apply_url || job.source_url || "#";
-      const isDirectATS = rawApplyUrl && !rawApplyUrl.includes("linkedin.com") && !rawApplyUrl.includes("lnkd.in");
       const stableId = job.stable_id || job.id || job.job_id || "";
-      modalApply.href = isDirectATS ? rawApplyUrl : `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+      modalApply.href = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
     }
 
     const modalDeleteBtn = document.getElementById("modal-delete-btn");
@@ -2782,8 +2864,7 @@
           const platformBadge = getPlatformBadgeHtml(job.platform, job.platform_category);
           const stableId = job.stable_id || job.id;
           const rawApplyUrl = job.apply_url || job.source_url || "#";
-          const isDirectATS = rawApplyUrl && !rawApplyUrl.includes("linkedin.com") && !rawApplyUrl.includes("lnkd.in");
-          const openFormHref = isDirectATS ? rawApplyUrl : `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+          const openFormHref = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
 
           return `
             <div class="featured-portal-card" data-idx="${idx}">

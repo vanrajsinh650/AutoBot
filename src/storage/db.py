@@ -331,15 +331,20 @@ def save_scraped_job(
     clean_desc = (description or f"Role: {clean_title} at {clean_company}. Location: {clean_location}.").strip()
     clean_url = (apply_url or "").strip()
     if not is_easy_apply:
-        from src.browser.company_careers_resolver import resolve_company_direct_apply_url
-        resolved_apply_url = resolve_company_direct_apply_url(
-            title=clean_title,
-            company=clean_company,
-            current_url=clean_url,
-            location=clean_location,
-        )
-        if resolved_apply_url and not any(li in resolved_apply_url.lower() for li in ("linkedin.com", "lnkd.in")):
-            clean_url = resolved_apply_url
+        from src.browser.company_careers_resolver import resolve_company_direct_apply_url, sanitize_ats_url, is_valid_direct_ats_url
+        is_valid, _ = is_valid_direct_ats_url(clean_url, title=clean_title)
+        if not is_valid:
+            resolved_apply_url = resolve_company_direct_apply_url(
+                title=clean_title,
+                company=clean_company,
+                current_url=clean_url,
+                location=clean_location,
+                auto_discover=True,
+            )
+            if resolved_apply_url:
+                clean_url = sanitize_ats_url(resolved_apply_url)
+        else:
+            clean_url = sanitize_ats_url(clean_url)
 
     fingerprint = hashlib.sha256(f"{clean_company.lower()}:{clean_title.lower()}:{clean_location.lower()}".encode()).hexdigest()
     stable_id = str(job_id).strip() if job_id else f"{source_name.lower().replace(' ', '_')}_{fingerprint[:12]}"
@@ -550,16 +555,21 @@ def get_apply_portals(
             or "easy apply" in src_name.lower()
         )
 
-        if not is_easy and any(li in app_url.lower() for li in ("linkedin.com", "lnkd.in")):
-            from src.browser.company_careers_resolver import resolve_company_direct_apply_url
-            resolved_portal = resolve_company_direct_apply_url(
-                title=title,
-                company=company,
-                current_url=app_url,
-                location=row_dict.get("location") or "Remote",
-            )
-            if resolved_portal:
-                app_url = resolved_portal
+        if not is_easy:
+            from src.browser.company_careers_resolver import resolve_company_direct_apply_url, sanitize_ats_url, is_valid_direct_ats_url
+            is_valid, _ = is_valid_direct_ats_url(app_url, title=title)
+            if not is_valid:
+                resolved_portal = resolve_company_direct_apply_url(
+                    title=title,
+                    company=company,
+                    current_url=app_url,
+                    location=row_dict.get("location") or "Remote",
+                    auto_discover=False,
+                )
+                if resolved_portal:
+                    app_url = sanitize_ats_url(resolved_portal)
+            else:
+                app_url = sanitize_ats_url(app_url)
 
         plat_name, plat_cat = detect_apply_platform(url=app_url, source_name=src_name, is_easy_apply=is_easy)
 
@@ -1519,3 +1529,8 @@ def validate_lease_fencing(
     except Exception:
         return False
     return True
+
+
+# Backward-compatible alias
+save_scraped_job_with_portal = save_scraped_job
+

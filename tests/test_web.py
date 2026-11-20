@@ -413,6 +413,40 @@ async def test_api_portals_apply_execution(client: TestClient, monkeypatch):
     assert data["dry_run"] is True
 
 
+@pytest.mark.asyncio
+async def test_api_portals_apply_direct_validation(client: TestClient):
+    """Verify /api/portals/apply-direct validates URL presence and scheme."""
+    resp = await client.post("/api/portals/apply-direct", json={})
+    assert resp.status == 400
+    data = await resp.json()
+    assert "error" in data
+
+    resp2 = await client.post("/api/portals/apply-direct", json={"url": "not-a-valid-url"})
+    assert resp2.status == 400
+
+
+@pytest.mark.asyncio
+async def test_api_portals_apply_direct_success(client: TestClient, monkeypatch):
+    """Verify 1-Click apply directly from arbitrary link parses job and launches bot."""
+    from unittest.mock import AsyncMock
+
+    mock_apply = AsyncMock(return_value={"success": True, "total": 1, "succeeded": 1, "failed": 0})
+    monkeypatch.setattr("src.browser.portal_applicator.apply_to_portals", mock_apply)
+
+    payload = {
+        "url": "https://jobs.lever.co/stripe/software-engineer-backend",
+        "dry_run": True,
+        "background": True,
+    }
+    resp = await client.post("/api/portals/apply-direct", json=payload)
+    assert resp.status == 200
+    data = await resp.json()
+    assert data["success"] is True
+    assert "job_id" in data
+    assert data["company"] == "Stripe"
+    assert data["dry_run"] is True
+
+
 def test_resolve_search_keywords_unit():
     """Verify resolve_search_keywords prioritizes user keywords and falls back to deep resume analysis."""
     from src.matching.keyword_expansion import resolve_search_keywords
@@ -570,6 +604,47 @@ async def test_api_open_job_form_and_resolve_apply_url(client: TestClient, monke
     resp_ds = await client.get("/api/jobs/dassault_4484942761/open-form", allow_redirects=False)
     assert resp_ds.status == 302
     assert "3ds.com/careers/jobs/multibody-dynamics-testing-engineer-550607" in resp_ds.headers.get("Location")
+
+    # 5. Test automatic healing of broken Workday roots & generic splash pages
+    save_scraped_job(
+        title="Instrumentation & Control Engineer",
+        company="Cyient",
+        location="Hyderabad, India",
+        description="Instrumentation role",
+        apply_url="https://cyient.wd3.myworkdayjobs.com/en-US/careers",
+        source_name="LinkedIn",
+        is_easy_apply=False,
+        job_id="cyient_broken_root",
+        user_id=1,
+        match_score=0.80,
+        db_path=str(db_file),
+    )
+    resp_cy = await client.get("/api/jobs/cyient_broken_root/open-form", allow_redirects=False)
+    assert resp_cy.status == 302
+    loc_cy = resp_cy.headers.get("Location")
+    assert "community.workday.com/maintenance-page" not in loc_cy
+    assert loc_cy.startswith("https://www.google.com/search?q=")
+
+    # 6. Test automatic healing of title-mismatched requisitions
+    save_scraped_job(
+        title="C#,.Net developer",
+        company="Dassault Systèmes",
+        location="Pune, India",
+        description="DotNet role",
+        apply_url="https://www.3ds.com/careers/jobs/multibody-dynamics-testing-engineer-550607",
+        source_name="LinkedIn",
+        is_easy_apply=False,
+        job_id="dassault_mismatched",
+        user_id=1,
+        match_score=0.85,
+        db_path=str(db_file),
+    )
+    resp_mm = await client.get("/api/jobs/dassault_mismatched/open-form", allow_redirects=False)
+    assert resp_mm.status == 302
+    loc_mm = resp_mm.headers.get("Location")
+    assert "multibody-dynamics-testing-engineer" not in loc_mm
+    assert loc_mm.startswith("https://www.google.com/search?q=")
+
 
 
 

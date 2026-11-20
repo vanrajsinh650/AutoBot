@@ -7,6 +7,7 @@ from aiohttp import web
 
 from src.web.routes import (
     add_source_handler,
+    apply_direct_link_handler,
     apply_portals_bot_handler,
     approve_application_pack_handler,
     auth_login_handler,
@@ -158,6 +159,8 @@ def create_app() -> web.Application:
     app.router.add_post("/api/apply-portals/delete", delete_portals_handler)
     app.router.add_delete("/api/apply-portals/delete", delete_portals_handler)
     app.router.add_post("/api/portals/apply", apply_portals_bot_handler)
+    app.router.add_post("/api/portals/apply-direct", apply_direct_link_handler)
+    app.router.add_post("/api/application/direct-apply", apply_direct_link_handler)
     app.router.add_get("/api/config", get_config_handler)
     app.router.add_post("/api/config", save_config_handler)
     app.router.add_get("/api/profile", get_profile_handler)
