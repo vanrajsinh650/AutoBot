@@ -59,7 +59,7 @@ async def run_direct_chrome_search(
     search_keywords, origin = resolve_search_keywords(
         user_provided=keywords,
         user_id=user_id,
-        db_path=getattr(cfg.storage, "db_path", None),
+        db_path=getattr(getattr(cfg, "storage", None), "db_path", None),
     )
     search_location = location or getattr(cfg.search, "location", "India")
     effective_job_types = job_types or getattr(cfg.search, "job_type", ["full-time", "internship"])
@@ -308,7 +308,7 @@ async def run_direct_google_keyword_search(
     resolved_kws, origin = resolve_search_keywords(
         user_provided=keyword,
         user_id=user_id,
-        db_path=getattr(cfg.storage, "db_path", None),
+        db_path=getattr(getattr(cfg, "storage", None), "db_path", None),
     )
     base_kw = resolved_kws[0] if resolved_kws else "Python Developer"
     query = base_kw
@@ -440,7 +440,7 @@ async def run_google_to_linkedin_job_search(
     resolved_kws, origin = resolve_search_keywords(
         user_provided=keyword,
         user_id=user_id,
-        db_path=getattr(cfg.storage, "db_path", None),
+        db_path=getattr(getattr(cfg, "storage", None), "db_path", None),
     )
     search_kw = resolved_kws[0] if resolved_kws else "Python Developer"
     search_loc = (location.strip() if location and location.strip() else getattr(cfg.search, "location", "India")) or "India"

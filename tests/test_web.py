@@ -460,6 +460,7 @@ async def test_api_search_live_keyword_resolution(client: TestClient, monkeypatc
     from unittest.mock import AsyncMock
 
     mock_search = AsyncMock(return_value=[])
+    monkeypatch.setattr("src.browser.live_search.run_direct_chrome_search", mock_search)
     monkeypatch.setattr("src.browser.live_search.run_google_to_linkedin_job_search", mock_search)
 
     # A: Empty payload -> triggers deep resume analysis
@@ -467,6 +468,9 @@ async def test_api_search_live_keyword_resolution(client: TestClient, monkeypatc
     assert resp1.status == 200
     data1 = await resp1.json()
     assert data1["success"] is True
+
+    from src.web.routes import execution_manager
+    execution_manager.is_running = False
 
     # B: Custom keyword provided
     resp2 = await client.post("/api/search/live", json={"target": "google", "keyword": "FastAPI Developer"})

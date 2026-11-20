@@ -16,6 +16,8 @@ search:
   job_type:
   - full-time
   - internship
+  - contract
+  - part-time
 apply:
   easy_apply: true
   external_apply: true
@@ -24,8 +26,8 @@ apply:
   min_match_score: 0.6
   answers:
     years_of_experience: '3'
-    expected_salary: 15 LPA
-    notice_period: 30 days
+    expected_salary: 7 LPA
+    notice_period: 0 days
     willing_to_relocate: 'Yes'
     work_authorization: 'Yes'
     sponsorship_required: 'No'
@@ -36,6 +38,8 @@ apply:
       forward to contributing to your team.
 
       '
+    years_experience: 1
+    visa_sponsorship: false
 blacklist:
   companies: []
   title_keywords:
