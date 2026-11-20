@@ -356,6 +356,18 @@ async def apply_to_portals(
                             except Exception:
                                 pass
 
+                # Fallback to direct company ATS resolver if not extracted from page
+                if not decoded_target:
+                    from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+                    resolved_ats = resolve_company_direct_apply_url(
+                        title=title,
+                        company=company,
+                        current_url=target_url,
+                        location=job.get("location") or "",
+                    )
+                    if resolved_ats and resolved_ats.startswith(("http://", "https://")) and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                        decoded_target = resolved_ats
+
                 if decoded_target:
                     _notify("success", f"🎯 Extracted direct form link for {company}: {decoded_target}")
                     target_url = decoded_target

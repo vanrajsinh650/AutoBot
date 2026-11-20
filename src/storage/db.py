@@ -512,9 +512,15 @@ def get_apply_portals(
     cached_profile = get_candidate_profile(user_id, db_path)
     cached_preferences = get_job_preferences(user_id, db_path)
     cached_evidence = get_resume_evidence(user_id, None, db_path)
+    seen_job_keys = set()
 
     for r in rows:
         row_dict = dict(r)
+        job_key = str(row_dict.get("stable_id") or row_dict.get("job_table_id") or "")
+        if job_key in seen_job_keys:
+            continue
+        seen_job_keys.add(job_key)
+
         title = (row_dict.get("title") or "Untitled Role").strip()
         company = (row_dict.get("company") or "Unknown Company").strip()
 

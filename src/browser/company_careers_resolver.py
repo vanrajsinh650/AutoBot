@@ -95,25 +95,31 @@ def resolve_company_direct_apply_url(
     Ensures that candidates are NEVER sent to LinkedIn's job view page or authwalls.
 
     Returns:
-        The direct destination ATS URL string.
+        The direct destination ATS URL string, or empty string if unresolvable.
     """
     clean_url = (current_url or "").strip()
 
-    # 1. If it's already an external ATS URL (not LinkedIn), return it directly
-    if clean_url and not any(li in clean_url.lower() for li in ("linkedin.com", "lnkd.in")):
+    # 1. If it's already a valid HTTP(S) external ATS URL (not LinkedIn), return it directly
+    if clean_url.startswith(("http://", "https://")) and not any(li in clean_url.lower() for li in ("linkedin.com", "lnkd.in")):
         return clean_url
 
     # 2. Check if the URL contains an embedded destination (e.g. externalApply?url=...)
     if clean_url:
         decoded = decode_linkedin_apply_url(clean_url)
-        if decoded and not any(li in decoded.lower() for li in ("linkedin.com", "lnkd.in")):
+        if decoded and decoded.startswith(("http://", "https://")) and not any(li in decoded.lower() for li in ("linkedin.com", "lnkd.in")):
             return decoded
 
     clean_comp = (company or "").lower().strip()
     clean_title = (title or "").strip()
     url_encoded_query = urllib.parse.quote_plus(clean_title)
 
-    # 3. Check for specific known job IDs / titles
+    # 3. Extract company name if missing from URL
+    if not clean_comp and clean_url:
+        match = re.search(r"-at-([a-z0-9\-]+)-(\d+)", clean_url.lower())
+        if match:
+            clean_comp = match.group(1).replace("-", " ")
+
+    # 4. Check for specific known job IDs / titles in the URL or inputs
     # Synechron Python Software Engineer (JR1044669 / 4475424818)
     if "4475424818" in clean_url or ("synechron" in clean_comp and ("python" in clean_title.lower() or "agile" in clean_title.lower())):
         return "https://synechron.wd1.myworkdayjobs.com/SynechronCareers/job/Bengaluru---Bellandur-GTP/Python-Software-Engineer---Application-Maintenance--Debugging---Agile-Development_JR1044669?source=LinkedIn"
@@ -126,20 +132,18 @@ def resolve_company_direct_apply_url(
     if "4490875675" in clean_url or ("kla" in clean_comp and "quality" in clean_title.lower()):
         return "https://kla.wd1.myworkdayjobs.com/Search/job/Chennai-India/Software-Quality-Engineer_2641380-1"
 
-    # 4. Match against known company ATS career portals
-    for comp_key, portal_template in KNOWN_COMPANY_ATS_PORTALS.items():
-        if comp_key in clean_comp or clean_comp in comp_key:
-            if "{query}" in portal_template:
-                return portal_template.format(query=url_encoded_query)
-            return portal_template
+    # 5. Match against known company ATS career portals
+    if clean_comp:
+        for comp_key, portal_template in KNOWN_COMPANY_ATS_PORTALS.items():
+            if comp_key in clean_comp or clean_comp in comp_key:
+                if "{query}" in portal_template:
+                    return portal_template.format(query=url_encoded_query)
+                return portal_template
 
-    # 5. Extract company name if missing from URL
-    if not clean_comp and clean_url:
-        match = re.search(r"-at-([a-z0-9\-]+)-(\d+)", clean_url.lower())
-        if match:
-            clean_comp = match.group(1).replace("-", " ")
+    # 6. If we have company or title, generate direct company careers search link (Google)
+    if clean_comp or clean_title:
+        comp_term = clean_comp or "company"
+        search_q = urllib.parse.quote_plus(f"{comp_term} {clean_title} careers apply")
+        return f"https://www.google.com/search?q={search_q}"
 
-    # 6. Generate direct company careers search link (Google) bypassing LinkedIn
-    comp_term = clean_comp or "company"
-    search_q = urllib.parse.quote_plus(f"{comp_term} {clean_title} careers apply")
-    return f"https://www.google.com/search?q={search_q}"
+    return ""

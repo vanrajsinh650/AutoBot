@@ -9,6 +9,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 from typing import Any, Dict, List, Optional, Set
 import urllib.parse
@@ -1830,13 +1831,25 @@ async def get_audit_logs_handler(request: web.Request) -> web.Response:
     return web.json_response({"audit_logs": [dict(r) for r in rows]})
 
 
+def sanitize_redirect_url(url: str) -> str:
+    """Ensure redirect location is a valid, properly escaped HTTP/HTTPS URL."""
+    url = (url or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return url
+    parts = urllib.parse.urlsplit(url)
+    path = urllib.parse.quote(parts.path, safe="/:@=+$,-._~")
+    query = urllib.parse.quote(parts.query, safe="=&?+-_~%[]")
+    fragment = urllib.parse.quote(parts.fragment, safe="")
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, path, query, fragment))
+
+
 async def open_job_form_handler(request: web.Request) -> web.Response:
     """
     Directly opens the company's real external application form (e.g. Workday, iCIMS, Greenhouse)
     behind a LinkedIn job posting. Resolves outbound redirects on the fly and returns an HTTP 302
     Redirect so that clicking 'Open Form ↗' in the browser takes the user directly to the ATS form.
     """
-    job_id = request.match_info.get("id") or request.query.get("id") or request.query.get("job_id")
+    job_id = request.match_info.get("id") or request.query.get("id") or request.query.get("job_id") or request.query.get("url")
     if not job_id:
         return web.json_response({"error": "Missing job identifier"}, status=400)
 
@@ -1847,18 +1860,34 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
     title = ""
     company = ""
     stable_identifier = str(job_id).strip()
+    digits = re.search(r"(\d{6,15})", stable_identifier)
+    extracted_id = digits.group(1) if digits else ""
+
     with get_db_connection() as conn:
-        row = conn.execute(
-            """
-            SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
-            FROM jobs j
-            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
-            WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ? OR j.application_url LIKE ?
-            ORDER BY CASE WHEN a.user_id = ? THEN 0 ELSE 1 END
-            LIMIT 1
-            """,
-            (user_id, stable_identifier, stable_identifier, f"%{job_id}%", user_id),
-        ).fetchone()
+        if extracted_id:
+            row = conn.execute(
+                """
+                SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
+                FROM jobs j
+                LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
+                WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ? OR j.stable_id = ? OR j.application_url LIKE ?
+                ORDER BY CASE WHEN a.user_id = ? THEN 0 ELSE 1 END
+                LIMIT 1
+                """,
+                (user_id, stable_identifier, stable_identifier, extracted_id, f"%{extracted_id}%", user_id),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
+                FROM jobs j
+                LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
+                WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ?
+                ORDER BY CASE WHEN a.user_id = ? THEN 0 ELSE 1 END
+                LIMIT 1
+                """,
+                (user_id, stable_identifier, stable_identifier, user_id),
+            ).fetchone()
 
         if row:
             r_dict = dict(row)
@@ -1877,17 +1906,17 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
             company="",
             current_url=stable_identifier,
         )
-        if resolved and not any(li in resolved.lower() for li in ("linkedin.com", "lnkd.in")):
-            raise web.HTTPFound(location=resolved)
+        if resolved and resolved.startswith(("http://", "https://")) and not any(li in resolved.lower() for li in ("linkedin.com", "lnkd.in")):
+            raise web.HTTPFound(location=sanitize_redirect_url(resolved))
         return web.json_response({"error": f"Job {job_id} not found"}, status=404)
 
     # 1. If URL is already a direct non-LinkedIn ATS link, redirect immediately!
-    if not any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in")):
-        raise web.HTTPFound(location=target_url)
+    if target_url.startswith(("http://", "https://")) and not any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in")):
+        raise web.HTTPFound(location=sanitize_redirect_url(target_url))
 
     # 2. Check if the URL has encoded target parameter
     decoded = decode_linkedin_apply_url(target_url)
-    if decoded and not any(li in decoded.lower() for li in ("linkedin.com", "lnkd.in")):
+    if decoded and decoded.startswith(("http://", "https://")) and not any(li in decoded.lower() for li in ("linkedin.com", "lnkd.in")):
         with get_db_connection() as conn:
             conn.execute(
                 "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
@@ -1898,7 +1927,7 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
                 (decoded, stable_identifier, stable_identifier),
             )
             conn.commit()
-        raise web.HTTPFound(location=decoded)
+        raise web.HTTPFound(location=sanitize_redirect_url(decoded))
 
     # 3. Resolve direct company application ATS career portal (Workday, iCIMS, Greenhouse, etc.)
     resolved_ats_url = resolve_company_direct_apply_url(
@@ -1906,7 +1935,7 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
         company=company,
         current_url=target_url,
     )
-    if resolved_ats_url and not any(li in resolved_ats_url.lower() for li in ("linkedin.com", "lnkd.in")):
+    if resolved_ats_url and resolved_ats_url.startswith(("http://", "https://")) and not any(li in resolved_ats_url.lower() for li in ("linkedin.com", "lnkd.in")):
         with get_db_connection() as conn:
             conn.execute(
                 "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
@@ -1917,7 +1946,7 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
                 (resolved_ats_url, stable_identifier, stable_identifier),
             )
             conn.commit()
-        raise web.HTTPFound(location=resolved_ats_url)
+        raise web.HTTPFound(location=sanitize_redirect_url(resolved_ats_url))
 
     # 4. Dynamic resolution: attempt to extract companyApplyUrl from the public page
     try:
@@ -1932,7 +1961,7 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
         with urllib.request.urlopen(req, timeout=3.5) as resp:
             html = resp.read().decode("utf-8", errors="ignore")
             extracted = extract_company_apply_url_from_html(html)
-            if extracted and not any(li in extracted.lower() for li in ("linkedin.com", "lnkd.in")):
+            if extracted and extracted.startswith(("http://", "https://")) and not any(li in extracted.lower() for li in ("linkedin.com", "lnkd.in")):
                 with get_db_connection() as conn:
                     conn.execute(
                         "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
@@ -1943,7 +1972,7 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
                         (extracted, stable_identifier, stable_identifier),
                     )
                     conn.commit()
-                raise web.HTTPFound(location=extracted)
+                raise web.HTTPFound(location=sanitize_redirect_url(extracted))
     except web.HTTPFound:
         raise
     except Exception as ex:
@@ -1952,7 +1981,7 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
     # Fallback: Redirect to company careers portal rather than LinkedIn authwall
     comp_name = urllib.parse.quote_plus(company or "careers")
     title_name = urllib.parse.quote_plus(title or "jobs")
-    raise web.HTTPFound(location=f"https://www.google.com/search?q={comp_name}+{title_name}+careers+apply")
+    raise web.HTTPFound(location=sanitize_redirect_url(f"https://www.google.com/search?q={comp_name}+{title_name}+careers+apply"))
 
 
 async def resolve_apply_url_handler(request: web.Request) -> web.Response:
@@ -1999,8 +2028,8 @@ async def resolve_apply_url_handler(request: web.Request) -> web.Response:
             company="",
             current_url=stable_identifier,
         )
-        if resolved and not any(li in resolved.lower() for li in ("linkedin.com", "lnkd.in")):
-            return web.json_response({"success": True, "apply_url": resolved, "is_external": True, "resolved": True})
+        if resolved and resolved.startswith(("http://", "https://")) and not any(li in resolved.lower() for li in ("linkedin.com", "lnkd.in")):
+            return web.json_response({"success": True, "apply_url": sanitize_redirect_url(resolved), "is_external": True, "resolved": True})
         return web.json_response({"error": f"Job {job_id} not found"}, status=404)
 
     is_external = not any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in"))
