@@ -43,7 +43,9 @@ from src.web.routes import (
     get_tracker_handler,
     import_job_handler,
     logout_handler,
+    open_job_form_handler,
     prepare_application_handler,
+    resolve_apply_url_handler,
     save_config_handler,
     search_live_handler,
     sse_logs_stream,
@@ -149,6 +151,9 @@ def create_app() -> web.Application:
     app.router.add_post("/api/browser/configure", configure_browser_handler)
     app.router.add_get("/api/stats", get_stats_handler)
     app.router.add_get("/api/jobs", get_jobs)
+    app.router.add_get("/api/jobs/{id}/open-form", open_job_form_handler)
+    app.router.add_get("/api/jobs/{id}/resolve-apply-url", resolve_apply_url_handler)
+    app.router.add_post("/api/jobs/{id}/resolve-apply-url", resolve_apply_url_handler)
     app.router.add_get("/api/apply-portals", get_apply_portals_handler)
     app.router.add_post("/api/apply-portals/delete", delete_portals_handler)
     app.router.add_delete("/api/apply-portals/delete", delete_portals_handler)

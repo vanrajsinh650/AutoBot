@@ -1828,3 +1828,175 @@ async def get_audit_logs_handler(request: web.Request) -> web.Response:
             (user_id,),
         ).fetchall()
     return web.json_response({"audit_logs": [dict(r) for r in rows]})
+
+
+async def open_job_form_handler(request: web.Request) -> web.Response:
+    """
+    Directly opens the company's real external application form (e.g. Workday, iCIMS, Greenhouse)
+    behind a LinkedIn job posting. Resolves outbound redirects on the fly and returns an HTTP 302
+    Redirect so that clicking 'Open Form ↗' in the browser takes the user directly to the ATS form.
+    """
+    job_id = request.match_info.get("id") or request.query.get("id") or request.query.get("job_id")
+    if not job_id:
+        return web.json_response({"error": "Missing job identifier"}, status=400)
+
+    user_id = get_current_user_id(request) or 1
+    init_db()
+
+    target_url = None
+    stable_identifier = str(job_id).strip()
+    with get_db_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
+            FROM jobs j
+            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND a.user_id = ?
+            WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ? OR j.application_url LIKE ?
+            LIMIT 1
+            """,
+            (user_id, stable_identifier, stable_identifier, f"%{job_id}%"),
+        ).fetchone()
+
+        if row:
+            r_dict = dict(row)
+            target_url = r_dict.get("application_url") or r_dict.get("app_url") or ""
+            stable_identifier = r_dict.get("stable_id") or str(r_dict.get("id"))
+
+    if not target_url:
+        return web.json_response({"error": f"Job {job_id} not found"}, status=404)
+
+    # 1. If URL is already a direct non-LinkedIn ATS link, redirect immediately!
+    from src.browser.linkedin_apply_extractor import decode_linkedin_apply_url, extract_company_apply_url_from_html
+    if not any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in")):
+        raise web.HTTPFound(location=target_url)
+
+    # 2. Check if the URL has encoded target parameter
+    decoded = decode_linkedin_apply_url(target_url)
+    if decoded and not any(li in decoded.lower() for li in ("linkedin.com", "lnkd.in")):
+        with get_db_connection() as conn:
+            conn.execute(
+                "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                (decoded, stable_identifier, stable_identifier),
+            )
+            conn.execute(
+                "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                (decoded, stable_identifier, stable_identifier),
+            )
+            conn.commit()
+        raise web.HTTPFound(location=decoded)
+
+    # 3. Dynamic resolution: attempt to extract companyApplyUrl from the public page
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            target_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+            extracted = extract_company_apply_url_from_html(html)
+            if extracted and not any(li in extracted.lower() for li in ("linkedin.com", "lnkd.in")):
+                with get_db_connection() as conn:
+                    conn.execute(
+                        "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                        (extracted, stable_identifier, stable_identifier),
+                    )
+                    conn.execute(
+                        "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                        (extracted, stable_identifier, stable_identifier),
+                    )
+                    conn.commit()
+                raise web.HTTPFound(location=extracted)
+    except web.HTTPFound:
+        raise
+    except Exception as ex:
+        logger.debug(f"Quick HTTP direct apply extraction failed for {job_id}: {ex}")
+
+    # Fallback: Redirect to original target URL
+    raise web.HTTPFound(location=target_url)
+
+
+async def resolve_apply_url_handler(request: web.Request) -> web.Response:
+    """
+    API endpoint returning JSON with the resolved direct external apply form URL for a job.
+    """
+    job_id = request.match_info.get("id") or request.query.get("id") or request.query.get("job_id")
+    if not job_id:
+        return web.json_response({"error": "Missing job identifier"}, status=400)
+
+    user_id = get_current_user_id(request) or 1
+    init_db()
+
+    target_url = None
+    stable_identifier = str(job_id).strip()
+    with get_db_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
+            FROM jobs j
+            LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND a.user_id = ?
+            WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ? OR j.application_url LIKE ?
+            LIMIT 1
+            """,
+            (user_id, stable_identifier, stable_identifier, f"%{job_id}%"),
+        ).fetchone()
+
+        if not row:
+            return web.json_response({"error": f"Job {job_id} not found"}, status=404)
+
+        r_dict = dict(row)
+        target_url = r_dict.get("application_url") or r_dict.get("app_url") or ""
+        stable_identifier = r_dict.get("stable_id") or str(r_dict.get("id"))
+
+    from src.browser.linkedin_apply_extractor import decode_linkedin_apply_url, extract_company_apply_url_from_html
+    is_external = not any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in"))
+    if is_external:
+        return web.json_response({"success": True, "apply_url": target_url, "is_external": True, "resolved": True})
+
+    decoded = decode_linkedin_apply_url(target_url)
+    if decoded and not any(li in decoded.lower() for li in ("linkedin.com", "lnkd.in")):
+        with get_db_connection() as conn:
+            conn.execute(
+                "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                (decoded, stable_identifier, stable_identifier),
+            )
+            conn.execute(
+                "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                (decoded, stable_identifier, stable_identifier),
+            )
+            conn.commit()
+        return web.json_response({"success": True, "apply_url": decoded, "is_external": True, "resolved": True})
+
+    # Attempt quick extract from HTML
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            target_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            html = resp.read().decode("utf-8", errors="ignore")
+            extracted = extract_company_apply_url_from_html(html)
+            if extracted and not any(li in extracted.lower() for li in ("linkedin.com", "lnkd.in")):
+                with get_db_connection() as conn:
+                    conn.execute(
+                        "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                        (extracted, stable_identifier, stable_identifier),
+                    )
+                    conn.execute(
+                        "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                        (extracted, stable_identifier, stable_identifier),
+                    )
+                    conn.commit()
+                return web.json_response({"success": True, "apply_url": extracted, "is_external": True, "resolved": True})
+    except Exception as ex:
+        logger.debug(f"Quick HTTP direct apply extraction failed for {job_id}: {ex}")
+
+    return web.json_response({"success": True, "apply_url": target_url, "is_external": False, "resolved": False})
+

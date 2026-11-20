@@ -2305,8 +2305,17 @@
       return `<span class="platform-badge platform-badge-linkedin">${iconSvg} LinkedIn (Easy Apply)</span>`;
     }
 
+    let atsName = "LinkedIn (External Form)";
+    if (p.includes("workday")) atsName = "Workday (External ATS)";
+    else if (p.includes("icims")) atsName = "iCIMS (External ATS)";
+    else if (p.includes("greenhouse")) atsName = "Greenhouse (External ATS)";
+    else if (p.includes("lever")) atsName = "Lever (External ATS)";
+    else if (p.includes("oracle")) atsName = "Oracle Cloud (External ATS)";
+    else if (p.includes("smartrecruiters")) atsName = "SmartRecruiters (External ATS)";
+    else if (p.includes("ashby")) atsName = "Ashby (External ATS)";
+
     const extSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
-    return `<span class="platform-badge platform-badge-linkedin-ext">${extSvg} LinkedIn (External Form)</span>`;
+    return `<span class="platform-badge platform-badge-linkedin-ext">${extSvg} ${escapeHtml(atsName)}</span>`;
   }
 
   function updateBatchBarState() {
@@ -2483,7 +2492,9 @@
         const stableId = String(job.stable_id || jobId);
         const isSelected = portalsState.selectedIds.has(jobId);
         const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category);
-        const applyUrl = job.apply_url || job.source_url || "#";
+        const rawApplyUrl = job.apply_url || job.source_url || "#";
+        const isDirectATS = rawApplyUrl && !rawApplyUrl.includes("linkedin.com") && !rawApplyUrl.includes("lnkd.in");
+        const openFormHref = isDirectATS ? rawApplyUrl : `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
         const descText = (job.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         const snippet = descText.length > 200 ? descText.slice(0, 200) + "..." : descText || "No description preview available.";
         const matchPct = Math.round((job.match_score || 0.60) * 100);
@@ -2528,7 +2539,7 @@
               <button class="btn btn-secondary btn-sm btn-view-desc" data-idx="${idx}" style="flex: 1; min-width: 80px; padding: 7px 8px; font-size: 11.5px;">
                 View Details
               </button>
-              <a href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 80px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;">
+              <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 80px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;">
                 Open Form ↗
               </a>
               <button class="btn btn-primary btn-sm btn-apply-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" style="flex: 1.3; min-width: 110px; padding: 7px 10px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 5px; font-weight: 700;">
@@ -2612,7 +2623,10 @@
       modalDesc.textContent = cleanDesc || "No detailed job description captured.";
     }
     if (modalApply) {
-      modalApply.href = job.apply_url || job.source_url || "#";
+      const rawApplyUrl = job.apply_url || job.source_url || "#";
+      const isDirectATS = rawApplyUrl && !rawApplyUrl.includes("linkedin.com") && !rawApplyUrl.includes("lnkd.in");
+      const stableId = job.stable_id || job.id || job.job_id || "";
+      modalApply.href = isDirectATS ? rawApplyUrl : `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
     }
 
     const modalDeleteBtn = document.getElementById("modal-delete-btn");
@@ -2766,8 +2780,10 @@
           if (matchPct >= 80) matchBadgeClass = "chip-emerald";
 
           const platformBadge = getPlatformBadgeHtml(job.platform, job.platform_category);
-          const applyUrl = job.apply_url || job.source_url || "#";
           const stableId = job.stable_id || job.id;
+          const rawApplyUrl = job.apply_url || job.source_url || "#";
+          const isDirectATS = rawApplyUrl && !rawApplyUrl.includes("linkedin.com") && !rawApplyUrl.includes("lnkd.in");
+          const openFormHref = isDirectATS ? rawApplyUrl : `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
 
           return `
             <div class="featured-portal-card" data-idx="${idx}">
@@ -2782,7 +2798,7 @@
                 <div class="portal-company-loc">${escapeHtml(job.company)} • ${escapeHtml(job.location || 'Remote')}</div>
               </div>
               <div class="portal-actions">
-                <a href="${escapeHtml(applyUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-xs" style="text-decoration: none;">
+                <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-xs" style="text-decoration: none;">
                   <span>Open Form ↗</span>
                 </a>
                 <button class="btn btn-secondary btn-xs btn-featured-view" data-idx="${idx}">

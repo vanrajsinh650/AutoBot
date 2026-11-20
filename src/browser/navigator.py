@@ -568,6 +568,17 @@ class LinkedInNavigator:
 
             job = await self._parse_job_card(card)
             if job:
+                # If this card was clicked/inspected and is an external apply role (not Easy Apply),
+                # resolve the direct outbound company ATS URL from the active right-hand details pane!
+                if not job.is_easy_apply and idx < 6:
+                    try:
+                        direct_url = await resolve_direct_apply_url_from_page(self.page, timeout_ms=2500)
+                        if direct_url and not any(li in direct_url.lower() for li in ("linkedin.com", "lnkd.in")):
+                            job.external_apply_url = direct_url
+                            job.apply_url = direct_url
+                            logger.info(f"[browser]🎯 Resolved direct external ATS apply URL for '{job.title}' @ '{job.company}': {direct_url}")
+                    except Exception as ex:
+                        logger.debug(f"Direct URL resolution error during search card inspection: {ex}")
                 job_postings.append(job)
 
         return job_postings

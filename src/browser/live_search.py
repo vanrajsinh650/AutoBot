@@ -142,6 +142,18 @@ async def run_direct_chrome_search(
                 # Resolve direct apply URL
                 final_apply_url = getattr(job, "external_apply_url", None) or getattr(job, "apply_url", None) or job.url
 
+                # If matching role is an external apply job and apply_url still points to LinkedIn,
+                # invoke fetch_job_details to extract the outbound direct ATS link (Workday, iCIMS, Greenhouse, etc.)
+                if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                    try:
+                        detailed_job = await nav.fetch_job_details(job)
+                        ext_url = getattr(detailed_job, "external_apply_url", None)
+                        if ext_url and not any(li in str(ext_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                            final_apply_url = ext_url
+                            logger.info(f"[{worker_tag}] 🎯 Extracted outbound direct ATS apply link for '{job.title}' @ '{job.company}': {final_apply_url}")
+                    except Exception as ex:
+                        logger.debug(f"[{worker_tag}] fetch_job_details fallback failed: {ex}")
+
                 try:
                     save_scraped_job(
                         title=job.title,

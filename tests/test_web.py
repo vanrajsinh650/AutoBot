@@ -479,3 +479,61 @@ async def test_api_search_live_keyword_resolution(client: TestClient, monkeypatc
     assert data2["success"] is True
 
 
+@pytest.mark.asyncio
+async def test_api_open_job_form_and_resolve_apply_url(client: TestClient, monkeypatch, tmp_path):
+    """Verify /api/jobs/{id}/open-form and /api/jobs/{id}/resolve-apply-url return direct ATS URLs."""
+    from src.storage.db import save_scraped_job
+
+    db_file = tmp_path / "test_open_form.db"
+    monkeypatch.setenv("AUTOBOT_DB_PATH", str(db_file))
+
+    workday_url = "https://synechron.wd1.myworkdayjobs.com/SynechronCareers/job/Bengaluru/Python-Dev_JR123"
+    save_scraped_job(
+        title="Python Software Engineer",
+        company="Synechron",
+        location="Bengaluru, India",
+        description="Python development and debugging role.",
+        apply_url=workday_url,
+        source_name="LinkedIn",
+        is_easy_apply=False,
+        job_id="synechron_4475424818",
+        user_id=1,
+        match_score=0.88,
+        db_path=str(db_file),
+    )
+
+    # 1. Test GET /api/jobs/{id}/open-form with direct ATS link -> 302 redirect
+    resp = await client.get("/api/jobs/synechron_4475424818/open-form", allow_redirects=False)
+    assert resp.status == 302
+    assert resp.headers.get("Location") == workday_url
+
+    # 2. Test GET /api/jobs/{id}/resolve-apply-url
+    resp_resolve = await client.get("/api/jobs/synechron_4475424818/resolve-apply-url")
+    assert resp_resolve.status == 200
+    data = await resp_resolve.json()
+    assert data["success"] is True
+    assert data["apply_url"] == workday_url
+    assert data["is_external"] is True
+
+    # 3. Test encoded externalApply URL resolution
+    encoded_url = "https://www.linkedin.com/jobs/view/externalApply/777/?url=https%3A%2F%2Fcareers.rws.com%2Fjob%2Fpython"
+    save_scraped_job(
+        title="Python Full Stack Developer",
+        company="RWS",
+        location="Bengaluru, India",
+        description="Full stack python role.",
+        apply_url=encoded_url,
+        source_name="LinkedIn",
+        is_easy_apply=False,
+        job_id="rws_777",
+        user_id=1,
+        match_score=0.85,
+        db_path=str(db_file),
+    )
+
+    resp_enc = await client.get("/api/jobs/rws_777/open-form", allow_redirects=False)
+    assert resp_enc.status == 302
+    assert resp_enc.headers.get("Location") == "https://careers.rws.com/job/python"
+
+
+
