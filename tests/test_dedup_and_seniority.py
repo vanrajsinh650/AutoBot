@@ -118,8 +118,59 @@ def test_filter_node_seniority_rejection(tmp_path):
     assert res5["current_job"].title == "Python Developer"
 
     # 6. Verify word boundary check: 'Israel' should NOT be rejected by 'sr'
-    res6 = node({"unprocessed_jobs": [JobPosting(job_id="6", title="Software Engineer (Israel)", company="GlobalCo")]})
+    res6 = node({"unprocessed_jobs": [JobPosting(job_id="6", title="Software Engineer (Israel)", company="GlobalCo", description="Python and PostgreSQL backend systems")]})
     assert res6["skip_reason"] is None
+
+
+def test_technology_mismatch_and_resume_alignment(tmp_path):
+    """Verify jobs requiring foreign unlisted tech stacks (Java, .NET, C++) or bare generic titles are rejected."""
+    from src.matching.evaluator import is_job_matching_resume
+    from src.storage.db import save_candidate_profile
+
+    db_file = str(tmp_path / "tech_test.db")
+    init_db(db_file)
+    save_candidate_profile(
+        user_id=1,
+        profile={
+            "full_name": "VANRAJ SOLANKI",
+            "technical_skills": ["Python", "FastAPI", "Django", "Playwright", "REST", "SQL", "Redis"],
+        },
+        db_path=db_file,
+    )
+
+    # 1. Reject Java job when no Java in resume
+    is_ok, reason = is_job_matching_resume("Backend Engineer– Java", "Java Spring Boot microservices", user_id=1, db_path=db_file)
+    assert not is_ok
+    assert "Java" in reason
+
+    # 2. Reject .NET / C# job
+    is_ok, reason = is_job_matching_resume("Dotnet Developer", "C# .NET Core API development", user_id=1, db_path=db_file)
+    assert not is_ok
+    assert ".NET" in reason
+
+    # 3. Reject C++ job
+    is_ok, reason = is_job_matching_resume("Software Engineer (C++ / Linux)", "C++ systems programming", user_id=1, db_path=db_file)
+    assert not is_ok
+    assert "C++" in reason
+
+    # 4. Reject Senior job (e.g. Software Engineer II or Senior)
+    is_ok, reason = is_job_matching_resume("Software Engineer II", "Python backend", user_id=1, db_path=db_file)
+    assert not is_ok
+    assert "Seniority conflict" in reason
+
+    # 5. Reject generic 'Software Engineer' when description has no resume skills
+    is_ok, reason = is_job_matching_resume("Software Engineer", "Banking mainframe and COBOL batch processing", user_id=1, db_path=db_file)
+    assert not is_ok
+
+    # 6. Accept Python Developer matching resume
+    is_ok, reason = is_job_matching_resume("Python Backend Developer", "FastAPI, PostgreSQL, Docker, REST", user_id=1, db_path=db_file)
+    assert is_ok
+    assert "Aligned" in reason
+
+    # 7. Accept generic 'Software Engineer' when description explicitly requires Python & FastAPI
+    is_ok, reason = is_job_matching_resume("Software Engineer", "Building high-performance Python and FastAPI web services", user_id=1, db_path=db_file)
+    assert is_ok
+    assert "Aligned" in reason
 
 
 def test_search_node_avoids_duplicate_jobs(tmp_path):

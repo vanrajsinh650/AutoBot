@@ -744,6 +744,43 @@ async def start_run(request: web.Request) -> web.Response:
 
     dry_run = body.get("dry_run", True)
     force_ingest = body.get("force_ingest", False)
+    job_types = body.get("job_types") or ["full-time", "internship"]
+    num_browsers = max(1, min(6, int(body.get("num_browsers", 2))))
+    min_score = float(body.get("min_score", 0.60))
+    answers = body.get("answers") or {}
+    save_settings = bool(body.get("save_settings", False))
+
+    if save_settings:
+        try:
+            cfg_path = _resolve_path("config.yaml")
+            if cfg_path.exists():
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    curr_yaml = yaml.safe_load(f) or {}
+                if "search" not in curr_yaml: curr_yaml["search"] = {}
+                if "apply" not in curr_yaml: curr_yaml["apply"] = {}
+                curr_yaml["search"]["job_type"] = job_types
+                curr_yaml["apply"]["min_match_score"] = min_score
+                if "answers" not in curr_yaml["apply"]: curr_yaml["apply"]["answers"] = {}
+                for k, v in answers.items():
+                    curr_yaml["apply"]["answers"][k] = v
+                with open(cfg_path, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(curr_yaml, f, default_flow_style=False, sort_keys=False)
+                from src.utils.config import get_config
+                get_config.cache_clear()
+        except Exception as ex:
+            logger.debug(f"Could not persist config.yaml: {ex}")
+
+        try:
+            from src.storage.db import save_job_preferences
+            save_job_preferences(
+                user_id=user_id,
+                preferences={
+                    "employment_types": job_types,
+                    "min_fit_score": int(min_score * 100),
+                }
+            )
+        except Exception as ex:
+            logger.debug(f"Could not persist preferences: {ex}")
 
     execution_manager.user_id = user_id
 
@@ -863,6 +900,44 @@ async def search_live_handler(request: web.Request) -> web.Response:
     raw_keywords = body.get("keywords")
     raw_keyword = body.get("keyword")
     user_input = raw_keywords if raw_keywords else raw_keyword
+    job_types = body.get("job_types") or ["full-time", "internship"]
+    num_browsers = max(1, min(6, int(body.get("num_browsers", 2))))
+    min_score = float(body.get("min_score", 0.60))
+    answers = body.get("answers") or {}
+    save_settings = bool(body.get("save_settings", False))
+
+    if save_settings:
+        # Save settings to config.yaml and candidate profile for future runs
+        try:
+            cfg_path = _resolve_path("config.yaml")
+            if cfg_path.exists():
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    curr_yaml = yaml.safe_load(f) or {}
+                if "search" not in curr_yaml: curr_yaml["search"] = {}
+                if "apply" not in curr_yaml: curr_yaml["apply"] = {}
+                curr_yaml["search"]["job_type"] = job_types
+                curr_yaml["apply"]["min_match_score"] = min_score
+                if "answers" not in curr_yaml["apply"]: curr_yaml["apply"]["answers"] = {}
+                for k, v in answers.items():
+                    curr_yaml["apply"]["answers"][k] = v
+                with open(cfg_path, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(curr_yaml, f, default_flow_style=False, sort_keys=False)
+                from src.utils.config import get_config
+                get_config.cache_clear()
+        except Exception as ex:
+            logger.debug(f"Could not persist config.yaml: {ex}")
+
+        try:
+            from src.storage.db import save_job_preferences
+            save_job_preferences(
+                user_id=user_id,
+                preferences={
+                    "employment_types": job_types,
+                    "min_fit_score": int(min_score * 100),
+                }
+            )
+        except Exception as ex:
+            logger.debug(f"Could not persist preferences: {ex}")
 
     from src.matching.keyword_expansion import resolve_search_keywords
     resolved_keywords, origin = resolve_search_keywords(
@@ -891,17 +966,17 @@ async def search_live_handler(request: web.Request) -> web.Response:
         execution_manager.broadcast("status", {"state": "running", "node": "search", "user_id": user_id})
         execution_manager.broadcast("log", {
             "level": "info",
-            "message": f"🔍 Search keywords resolved ({origin}): {', '.join(keywords)}",
+            "message": f"🔍 Search keywords resolved ({origin}): {', '.join(keywords)} [Browsers: {num_browsers}, Types: {', '.join(job_types)}]",
             "user_id": user_id,
         })
 
         try:
             if os.environ.get("AUTOBOT_FRONTEND_ONLY") == "1":
-                execution_manager.broadcast("log", {"level": "info", "message": f"⚡ Dynamic UI Mode: Simulating search for keywords: {', '.join(keywords)} ({origin}) in {location or 'India'}...", "user_id": user_id})
+                execution_manager.broadcast("log", {"level": "info", "message": f"⚡ Dynamic UI Mode: Simulating search for keywords: {', '.join(keywords)} ({origin}) in {location or 'India'} with {num_browsers} browsers...", "user_id": user_id})
                 await asyncio.sleep(0.7)
-                execution_manager.broadcast("log", {"level": "info", "message": f"🌐 Step 1: Querying '{keywords[0]} jobs {location or 'India'}'...", "user_id": user_id})
+                execution_manager.broadcast("log", {"level": "info", "message": f"🌐 Step 1: Querying primary keyword 'Python Developer' in {location or 'India'}...", "user_id": user_id})
                 await asyncio.sleep(0.7)
-                execution_manager.broadcast("log", {"level": "info", "message": f"🌐 Step 2: Extracting candidate job links and application portals...", "user_id": user_id})
+                execution_manager.broadcast("log", {"level": "info", "message": f"🌐 Step 2: Fanning out {len(keywords)-1} secondary keywords across {num_browsers} browsers...", "user_id": user_id})
                 await asyncio.sleep(0.7)
                 execution_manager.broadcast("log", {"level": "success", "message": f"✓ Discovered matching job roles. Application Portals updated with {origin} keywords.", "user_id": user_id})
                 return
@@ -915,16 +990,7 @@ async def search_live_handler(request: web.Request) -> web.Response:
             def cb(lvl: str, msg: str):
                 execution_manager.broadcast("log", {"level": lvl, "message": msg, "user_id": user_id})
 
-            if target == "linkedin":
-                await run_direct_chrome_search(
-                    keywords=keywords,
-                    location=location,
-                    headless=headless,
-                    progress_callback=cb,
-                    user_id=user_id,
-                    keep_open=not headless,
-                )
-            elif target == "google_only":
+            if target == "google_only":
                 await run_direct_google_keyword_search(
                     keyword=keyword,
                     location=location,
@@ -934,11 +1000,13 @@ async def search_live_handler(request: web.Request) -> web.Response:
                     keep_open=not headless,
                 )
             else:
-                # Default: Google search -> Navigate to LinkedIn job roles -> Open role
-                await run_google_to_linkedin_job_search(
-                    keyword=keyword,
+                # Direct Multi-Browser LinkedIn Search with strict 'Python Developer' priority
+                await run_direct_chrome_search(
+                    keywords=keywords,
                     location=location,
-                    open_first_role=True,
+                    job_types=job_types,
+                    num_browsers=num_browsers,
+                    min_score=min_score,
                     headless=headless,
                     progress_callback=cb,
                     user_id=user_id,
@@ -1292,7 +1360,19 @@ async def get_discovered_jobs_handler(request: web.Request) -> web.Response:
 
         rows = conn.execute(sql, params).fetchall()
 
-    return web.json_response({"jobs": [dict(r) for r in rows]})
+    from src.matching.evaluator import is_job_matching_resume
+    filtered_jobs = []
+    for r in rows:
+        row_dict = dict(r)
+        is_ok, _ = is_job_matching_resume(
+            title=row_dict.get("title", ""),
+            description=row_dict.get("description", ""),
+            user_id=user_id,
+        )
+        if is_ok:
+            filtered_jobs.append(row_dict)
+
+    return web.json_response({"jobs": filtered_jobs})
 
 
 async def get_sources_health_handler(request: web.Request) -> web.Response:

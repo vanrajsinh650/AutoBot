@@ -104,7 +104,19 @@ class FilterNode:
                     "status_message": skip_msg,
                 }
 
-        # ── Check 3: Blacklisted Title Keywords ───────────────────────
+        # ── Check 3: Seniority & Blacklisted Title Keywords ───────────────────────
+        from src.matching.evaluator import is_senior_or_blacklisted_title
+        is_sr, sr_term = is_senior_or_blacklisted_title(current_job.title, self.blacklist_keywords)
+        if is_sr:
+            skip_msg = f"Title '{current_job.title}' contains senior/blacklisted keyword '{sr_term}'"
+            logger.info(f"[agent]⏭ Skip: {current_job.title} @ {current_job.company} ({skip_msg})[/agent]")
+            return {
+                "unprocessed_jobs": unprocessed,
+                "current_job": current_job,
+                "skip_reason": skip_msg,
+                "status_message": skip_msg,
+            }
+
         for blk in self.blacklist_keywords:
             clean_blk = blk.strip().lower()
             if not clean_blk:
@@ -122,6 +134,23 @@ class FilterNode:
                     "skip_reason": skip_msg,
                     "status_message": skip_msg,
                 }
+
+        # ── Check 4: Resume Technology Alignment ──────────────────────
+        from src.matching.evaluator import check_resume_technology_alignment
+        is_aligned, align_reason = check_resume_technology_alignment(
+            title=current_job.title,
+            description=getattr(current_job, "description", "") or "",
+            db_path=self.db_path,
+        )
+        if not is_aligned:
+            skip_msg = f"Technology mismatch with resume: {align_reason}"
+            logger.info(f"[agent]⏭ Skip: {current_job.title} @ {current_job.company} ({skip_msg})[/agent]")
+            return {
+                "unprocessed_jobs": unprocessed,
+                "current_job": current_job,
+                "skip_reason": skip_msg,
+                "status_message": skip_msg,
+            }
 
         # Candidate job passed all deterministic filters!
         logger.info(

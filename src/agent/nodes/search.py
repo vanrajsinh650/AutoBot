@@ -80,7 +80,8 @@ class SearchNode:
                     pattern = f"%{keyword}%"
                     sql = """
                         SELECT j.* FROM jobs j
-                        WHERE j.status != 'expired' AND (j.title LIKE ? OR j.description LIKE ?)
+                        WHERE j.status NOT IN ('expired', 'rejected_seniority', 'purged_senior', 'skipped_seniority')
+                        AND (j.title LIKE ? OR j.description LIKE ?)
                         AND NOT EXISTS (
                             SELECT 1 FROM applications a
                             WHERE a.job_id = j.stable_id
@@ -93,7 +94,7 @@ class SearchNode:
                     if not rows:
                         rows = conn.execute("""
                             SELECT j.* FROM jobs j
-                            WHERE j.status != 'expired'
+                            WHERE j.status NOT IN ('expired', 'rejected_seniority', 'purged_senior', 'skipped_seniority')
                             AND NOT EXISTS (
                                 SELECT 1 FROM applications a
                                 WHERE a.job_id = j.stable_id
@@ -116,8 +117,17 @@ class SearchNode:
             except Exception as e:
                 logger.debug(f"Database job search fallback error: {e}")
 
+        from src.matching.evaluator import is_senior_or_blacklisted_title
+        clean_discovered_jobs: List[JobPosting] = []
+        for dj in discovered_jobs:
+            is_sr, sr_kw = is_senior_or_blacklisted_title(dj.title)
+            if is_sr:
+                logger.info(f"[agent]⏭ Filtered out senior role in search: '{dj.title}' @ '{dj.company}' ({sr_kw})")
+                continue
+            clean_discovered_jobs.append(dj)
+
         logger.info(
-            f"[agent]📋 Found {len(discovered_jobs)} job postings on page {page}.[/agent]"
+            f"[agent]📋 Found {len(clean_discovered_jobs)} eligible non-senior job postings on page {page}.[/agent]"
         )
 
         # Merge newly discovered jobs with any existing unprocessed jobs, deduplicating
@@ -126,7 +136,7 @@ class SearchNode:
             (j.job_id, (j.title or "").strip().lower(), (j.company or "").strip().lower())
             for j in existing_jobs
         }
-        for dj in discovered_jobs:
+        for dj in clean_discovered_jobs:
             key = (dj.job_id, (dj.title or "").strip().lower(), (dj.company or "").strip().lower())
             if key not in seen_keys:
                 seen_keys.add(key)
@@ -168,7 +178,8 @@ class SearchNode:
                     pattern = f"%{keyword}%"
                     sql = """
                         SELECT j.* FROM jobs j
-                        WHERE j.status != 'expired' AND (j.title LIKE ? OR j.description LIKE ?)
+                        WHERE j.status NOT IN ('expired', 'rejected_seniority', 'purged_senior', 'skipped_seniority')
+                        AND (j.title LIKE ? OR j.description LIKE ?)
                         AND NOT EXISTS (
                             SELECT 1 FROM applications a
                             WHERE a.job_id = j.stable_id
@@ -181,7 +192,7 @@ class SearchNode:
                     if not rows:
                         rows = conn.execute("""
                             SELECT j.* FROM jobs j
-                            WHERE j.status != 'expired'
+                            WHERE j.status NOT IN ('expired', 'rejected_seniority', 'purged_senior', 'skipped_seniority')
                             AND NOT EXISTS (
                                 SELECT 1 FROM applications a
                                 WHERE a.job_id = j.stable_id
@@ -204,8 +215,17 @@ class SearchNode:
             except Exception as e:
                 logger.debug(f"Database job search fallback error: {e}")
 
+        from src.matching.evaluator import is_senior_or_blacklisted_title
+        clean_discovered_jobs: List[JobPosting] = []
+        for dj in discovered_jobs:
+            is_sr, sr_kw = is_senior_or_blacklisted_title(dj.title)
+            if is_sr:
+                logger.info(f"[agent]⏭ Filtered out senior role in search: '{dj.title}' @ '{dj.company}' ({sr_kw})")
+                continue
+            clean_discovered_jobs.append(dj)
+
         logger.info(
-            f"[agent]📋 Found {len(discovered_jobs)} job postings on page {page}.[/agent]"
+            f"[agent]📋 Found {len(clean_discovered_jobs)} eligible non-senior job postings on page {page}.[/agent]"
         )
 
         # Merge newly discovered jobs with any existing unprocessed jobs, deduplicating
@@ -214,7 +234,7 @@ class SearchNode:
             (j.job_id, (j.title or "").strip().lower(), (j.company or "").strip().lower())
             for j in existing_jobs
         }
-        for dj in discovered_jobs:
+        for dj in clean_discovered_jobs:
             key = (dj.job_id, (dj.title or "").strip().lower(), (dj.company or "").strip().lower())
             if key not in seen_keys:
                 seen_keys.add(key)

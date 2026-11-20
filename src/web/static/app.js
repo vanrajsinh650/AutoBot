@@ -542,7 +542,7 @@
     }
   }
 
-  // ── Intelligent Chrome Search Modal ───────────────────────────────
+  // ── Autonomous LinkedIn Search & Application Setup Modal ─────────
   async function openChromeSearchModal() {
     if (state.audioEnabled && sfx) sfx.click();
     const overlay = document.getElementById("search-modal-overlay");
@@ -551,12 +551,105 @@
 
     const kwInput = document.getElementById("search-modal-keywords");
     const pillsContainer = document.getElementById("search-modal-suggested-pills");
-    const originLabel = document.getElementById("search-modal-suggested-origin");
     const bgCb = document.getElementById("search-modal-background");
+    const dryRunCb = document.getElementById("search-modal-dryrun");
 
     if (bgCb && els.bgModeCheckbox) {
       bgCb.checked = els.bgModeCheckbox.checked;
     }
+    if (dryRunCb && els.dryRunCheckbox) {
+      dryRunCb.checked = els.dryRunCheckbox.checked;
+    }
+
+    // Pre-populate candidate screening answers & config from backend
+    try {
+      const cfgRes = await authedFetch("/api/config");
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json();
+        const answers = cfg?.apply?.answers || {};
+        if (answers.expected_salary && document.getElementById("launch-exp-salary")) {
+          document.getElementById("launch-exp-salary").value = answers.expected_salary;
+        }
+        if (answers.years_experience !== undefined && document.getElementById("launch-years-exp")) {
+          document.getElementById("launch-years-exp").value = answers.years_experience;
+        }
+        if (answers.work_authorization && document.getElementById("launch-work-auth")) {
+          document.getElementById("launch-work-auth").value = answers.work_authorization;
+        }
+        if (answers.visa_sponsorship !== undefined && document.getElementById("launch-sponsorship")) {
+          document.getElementById("launch-sponsorship").value = String(answers.visa_sponsorship);
+        }
+        if (answers.notice_period && document.getElementById("launch-notice")) {
+          document.getElementById("launch-notice").value = answers.notice_period;
+        }
+
+        // Job types from config
+        const jobTypes = cfg?.search?.job_type || ["full-time", "internship"];
+        const ftCb = document.getElementById("search-modal-jt-fulltime");
+        const inCb = document.getElementById("search-modal-jt-internship");
+        const ctCb = document.getElementById("search-modal-jt-contract");
+        const ptCb = document.getElementById("search-modal-jt-parttime");
+        if (ftCb) ftCb.checked = jobTypes.includes("full-time");
+        if (inCb) inCb.checked = jobTypes.includes("internship");
+        if (ctCb) ctCb.checked = jobTypes.includes("contract");
+        if (ptCb) ptCb.checked = jobTypes.includes("part-time");
+
+        // Min score threshold from config
+        const minMatch = cfg?.apply?.min_match_score;
+        if (minMatch !== undefined) {
+          const pct = Math.round(minMatch * 100);
+          const tSlider = document.getElementById("search-modal-threshold");
+          const tDisplay = document.getElementById("search-modal-threshold-display");
+          if (tSlider) tSlider.value = pct;
+          if (tDisplay) tDisplay.textContent = `${pct}%`;
+        }
+      }
+    } catch (e) {
+      console.debug("Config prefill error:", e);
+    }
+
+    // Wire up browser count buttons
+    const browserBtns = document.querySelectorAll("#browser-count-buttons .btn-browser-count");
+    browserBtns.forEach((btn) => {
+      btn.onclick = () => {
+        if (state.audioEnabled && sfx) sfx.click();
+        browserBtns.forEach((b) => {
+          b.classList.remove("active", "btn-primary");
+          b.classList.add("btn-secondary");
+        });
+        btn.classList.add("active", "btn-primary");
+        btn.classList.remove("btn-secondary");
+        const count = btn.getAttribute("data-count") || "2";
+        const bInput = document.getElementById("search-modal-browsers");
+        if (bInput) bInput.value = count;
+        const bLabel = document.getElementById("search-modal-browsers-label");
+        if (bLabel) {
+          const labelText =
+            count === "1" ? "1 Browser (Sequential)" :
+            count === "2" ? "2 Browsers (Recommended ⚡)" :
+            count === "3" ? "3 Browsers (High-Speed)" :
+            "4 Browsers (Ultra-Fast 🚀)";
+          bLabel.textContent = labelText;
+        }
+      };
+    });
+
+    // Wire up threshold slider and presets
+    const thresholdSlider = document.getElementById("search-modal-threshold");
+    const thresholdDisplay = document.getElementById("search-modal-threshold-display");
+    if (thresholdSlider && thresholdDisplay) {
+      thresholdSlider.oninput = () => {
+        thresholdDisplay.textContent = `${thresholdSlider.value}%`;
+      };
+    }
+    document.querySelectorAll(".btn-preset-pct").forEach((btn) => {
+      btn.onclick = () => {
+        if (state.audioEnabled && sfx) sfx.click();
+        const val = btn.getAttribute("data-val");
+        if (thresholdSlider) thresholdSlider.value = val;
+        if (thresholdDisplay) thresholdDisplay.textContent = `${val}%`;
+      };
+    });
 
     if (pillsContainer) {
       pillsContainer.innerHTML = '<span style="font-size: 11px; color: var(--text-muted);">Analyzing candidate resume & skills...</span>';
@@ -564,10 +657,9 @@
         const res = await authedFetch("/api/candidate/suggested-keywords");
         if (res.ok) {
           const data = await res.json();
-          if (originLabel) originLabel.textContent = data.origin === "deep_resume_analysis" ? "Deep Resume Analysis" : data.origin;
           const kws = data.suggested_keywords || [];
           if (kws.length === 0) {
-            pillsContainer.innerHTML = '<span style="font-size: 11px; color: var(--text-muted);">No suggested keywords found in profile.</span>';
+            pillsContainer.innerHTML = '<span style="font-size: 11px; color: var(--text-muted);">No suggested secondary keywords found in profile.</span>';
           } else {
             pillsContainer.innerHTML = "";
             kws.forEach((kw) => {
@@ -575,7 +667,7 @@
               pill.className = "keyword-pill";
               pill.setAttribute("data-kw", kw);
               pill.textContent = `+ ${kw}`;
-              pill.title = "Click to add this keyword to search";
+              pill.title = "Click to add this secondary keyword to search";
               pill.addEventListener("click", () => {
                 if (state.audioEnabled && sfx) sfx.click();
                 if (!kwInput) return;
@@ -611,55 +703,80 @@
   }
 
   async function startChromeSearch(options = {}) {
-    sfx.launch();
+    if (state.audioEnabled && sfx) sfx.launch();
 
     const kwInput = document.getElementById("search-modal-keywords");
-    const locInput = document.getElementById("search-modal-location");
-    const targetSelect = document.getElementById("search-modal-target");
-    const bgCb = document.getElementById("search-modal-background");
+    const secondaryKeywords = (options.keywords !== undefined ? options.keywords : (kwInput ? kwInput.value.trim() : "")).trim();
 
-    const keywords = (options.keywords !== undefined ? options.keywords : (kwInput ? kwInput.value.trim() : "")).trim();
-    const location = (options.location !== undefined ? options.location : (locInput ? locInput.value.trim() : "India")).trim() || "India";
-    const target = options.target !== undefined ? options.target : (targetSelect ? targetSelect.value : "google");
-    const isBackground = options.background !== undefined ? Boolean(options.background) : (bgCb ? bgCb.checked : (els.bgModeCheckbox ? els.bgModeCheckbox.checked : true));
+    // Collect job types
+    const jobTypes = [];
+    if (document.getElementById("search-modal-jt-fulltime")?.checked) jobTypes.push("full-time");
+    if (document.getElementById("search-modal-jt-internship")?.checked) jobTypes.push("internship");
+    if (document.getElementById("search-modal-jt-contract")?.checked) jobTypes.push("contract");
+    if (document.getElementById("search-modal-jt-parttime")?.checked) jobTypes.push("part-time");
+
+    // Concurrency: Number of Chrome browsers
+    const numBrowsers = parseInt(document.getElementById("search-modal-browsers")?.value || "2", 10);
+
+    // Continuous 1-100% threshold
+    const thresholdPct = parseInt(document.getElementById("search-modal-threshold")?.value || "60", 10);
+    const minScore = thresholdPct / 100.0;
+
+    // Candidate screening answers
+    const answers = {
+      expected_salary: document.getElementById("launch-exp-salary")?.value?.trim() || "15 LPA",
+      years_experience: parseInt(document.getElementById("launch-years-exp")?.value || "2", 10),
+      work_authorization: document.getElementById("launch-work-auth")?.value || "Yes",
+      visa_sponsorship: document.getElementById("launch-sponsorship")?.value === "true",
+      notice_period: document.getElementById("launch-notice")?.value?.trim() || "30 days",
+    };
+
+    const saveSettings = Boolean(document.getElementById("search-modal-save-settings")?.checked);
+    const isDryRun = Boolean(document.getElementById("search-modal-dryrun")?.checked);
+    const isBackground = Boolean(document.getElementById("search-modal-background")?.checked);
 
     closeChromeSearchModal();
 
     try {
       setRunningState(true);
-      if (keywords) {
-        appendLog(
-          "info",
-          isBackground
-            ? `Searching custom keywords '${keywords}' silently in background (${target})...`
-            : `Opening real Google Chrome to search custom keywords '${keywords}' (${target})...`
-        );
-      } else {
-        appendLog(
-          "info",
-          isBackground
-            ? `Executing deep resume analysis for job search keywords silently in background (${target})...`
-            : `Opening real Google Chrome with deep resume analysis keywords (${target})...`
-        );
-      }
+      appendLog(
+        "info",
+        `🚀 Initiating Autonomous LinkedIn Application Loop:\n` +
+        `  • Priority #1: Python Developer (Searched 1st to completion)\n` +
+        (secondaryKeywords ? `  • Secondary Keywords: ${secondaryKeywords}\n` : "") +
+        `  • Parallel Workers: ${numBrowsers} Chrome instances\n` +
+        `  • LinkedIn Job Types: ${jobTypes.join(", ") || "All"}\n` +
+        `  • Resume Match Cutoff: ≥ ${thresholdPct}%\n` +
+        `  • Mode: ${isDryRun ? "Dry Run (Form Simulation)" : "Live Application Submission"}`
+      );
 
       const res = await authedFetch("/api/search/live", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          keywords: keywords || undefined,
-          keyword: keywords || undefined,
-          location: location,
-          target: target,
+          keyword: secondaryKeywords || undefined,
+          keywords: secondaryKeywords || undefined,
+          job_types: jobTypes,
+          num_browsers: numBrowsers,
+          min_score: minScore,
+          answers: answers,
+          save_settings: saveSettings,
+          dry_run: isDryRun,
           background: isBackground,
           headless: isBackground,
+          location: "India",
+          target: "linkedin",
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(isBackground ? "Background search running silently!" : "Direct Google Chrome search started!");
+        showToast(
+          isBackground
+            ? `Autonomous search running in background across ${numBrowsers} browsers!`
+            : `Autonomous search launched with ${numBrowsers} Chrome browsers!`
+        );
       } else {
-        showToast(data.error || "Failed to start Chrome search", "error");
+        showToast(data.error || "Failed to start autonomous search", "error");
         setRunningState(false);
       }
     } catch (err) {
@@ -1096,8 +1213,8 @@
       });
     }
 
-    // Run actions
-    els.btnStart.addEventListener("click", () => startAgentRun(false));
+    // Run actions - All trigger the Autonomous LinkedIn Setup modal so user can configure parallel browsers, job types, and match threshold
+    els.btnStart.addEventListener("click", () => openChromeSearchModal());
     if (els.btnSearchChrome) {
       els.btnSearchChrome.addEventListener("click", () => openChromeSearchModal());
     }
@@ -1105,7 +1222,7 @@
     els.btnStop.addEventListener("click", () => stopAgentRun());
 
     if (els.btnHeroLaunch) {
-      els.btnHeroLaunch.addEventListener("click", () => startAgentRun(false));
+      els.btnHeroLaunch.addEventListener("click", () => openChromeSearchModal());
     }
 
     // Terminal clear
@@ -1285,12 +1402,14 @@
       });
     }
 
-    // Resume Match Threshold selector
-    const thresholdSelect = document.getElementById("portal-threshold-select");
-    if (thresholdSelect) {
-      thresholdSelect.addEventListener("change", () => {
-        portalsState.minScore = thresholdSelect.value;
-        if (state.audioEnabled && sfx) sfx.click();
+    // Continuous 1-100% Resume Match Threshold Slider (Toolbar)
+    const portalSlider = document.getElementById("portal-threshold-slider");
+    const portalSliderVal = document.getElementById("portal-threshold-slider-val");
+    if (portalSlider) {
+      portalSlider.addEventListener("input", () => {
+        const val = portalSlider.value;
+        if (portalSliderVal) portalSliderVal.textContent = `≥ ${val}%`;
+        portalsState.minScore = (val / 100).toFixed(2);
         loadApplyPortals();
       });
     }
@@ -2064,28 +2183,13 @@
     const currentVal = portalsState.platform || "all";
     let html = "";
 
-    if (category === "external") {
-      if (wrap) {
-        wrap.style.display = "flex";
-        wrap.style.borderColor = "rgba(16, 185, 129, 0.45)";
-      }
-      html += `<option value="all" style="background: #0F172A; color: #FFFFFF;">All External Platforms (${extCount || 0})</option>`;
-      Object.entries(platforms || {}).forEach(([pName, cnt]) => {
-        if (!pName.toLowerCase().includes("easy apply")) {
-          html += `<option value="${escapeHtml(pName)}" style="background: #0F172A; color: #FFFFFF;">${escapeHtml(pName)} (${cnt})</option>`;
-        }
-      });
-    } else if (category === "linkedin_external" || category === "linkedin-external" || category === "external") {
+    if (category === "linkedin_external" || category === "linkedin-external" || category === "external") {
       if (wrap) {
         wrap.style.display = "flex";
         wrap.style.borderColor = "rgba(16, 185, 129, 0.45)";
       }
       html += `<option value="all" style="background: #0F172A; color: #FFFFFF;">All Direct External Forms (${liExtCount || extCount || 0})</option>`;
-      Object.entries(platforms || {}).forEach(([pName, cnt]) => {
-        if (!pName.toLowerCase().includes("easy apply")) {
-          html += `<option value="${escapeHtml(pName)}" style="background: #0F172A; color: #FFFFFF;">${escapeHtml(pName)} (${cnt})</option>`;
-        }
-      });
+      html += `<option value="LinkedIn (External Form)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (External Form) (${liExtCount || extCount || 0})</option>`;
     } else if (category === "linkedin_easy" || category === "linkedin-easy") {
       if (wrap) {
         wrap.style.display = "flex";
@@ -2098,10 +2202,13 @@
         wrap.style.display = "flex";
         wrap.style.borderColor = "var(--border)";
       }
-      html += `<option value="all" style="background: #0F172A; color: #FFFFFF;">All Platforms (${total || 0})</option>`;
-      Object.entries(platforms || {}).forEach(([pName, cnt]) => {
-        html += `<option value="${escapeHtml(pName)}" style="background: #0F172A; color: #FFFFFF;">${escapeHtml(pName)} (${cnt})</option>`;
-      });
+      html += `<option value="all" style="background: #0F172A; color: #FFFFFF;">All Opportunities (${total || 0})</option>`;
+      if ((liExtCount || extCount || 0) > 0) {
+        html += `<option value="LinkedIn (External Form)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (External Form) (${liExtCount || extCount || 0})</option>`;
+      }
+      if ((liEasyCount || 0) > 0) {
+        html += `<option value="LinkedIn (Easy Apply)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (Easy Apply) (${liEasyCount || 0})</option>`;
+      }
     }
 
     select.innerHTML = html;
@@ -2191,30 +2298,15 @@
 
   function getPlatformBadgeHtml(platform, category) {
     const p = (platform || "").toLowerCase();
-    let badgeClass = "platform-badge-external";
-    let iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+    const isEasy = (category === "linkedin" || p.includes("easy apply") || p.includes("easy_apply"));
 
-    if (p.includes("external form") || p.includes("linkedin (external")) {
-      badgeClass = "platform-badge-linkedin-ext";
-      iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
-    } else if (category === "linkedin" || p.includes("easy apply")) {
-      badgeClass = "platform-badge-linkedin";
-      iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>`;
-    } else if (p.includes("greenhouse")) {
-      badgeClass = "platform-badge-greenhouse";
-    } else if (p.includes("lever")) {
-      badgeClass = "platform-badge-lever";
-    } else if (p.includes("ashby")) {
-      badgeClass = "platform-badge-ashby";
-    } else if (p.includes("workday")) {
-      badgeClass = "platform-badge-workday";
-    } else if (p.includes("oracle")) {
-      badgeClass = "platform-badge-oracle";
-    } else if (p.includes("amazon")) {
-      badgeClass = "platform-badge-amazon";
+    if (isEasy) {
+      const iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>`;
+      return `<span class="platform-badge platform-badge-linkedin">${iconSvg} LinkedIn (Easy Apply)</span>`;
     }
 
-    return `<span class="platform-badge ${badgeClass}">${iconSvg} ${escapeHtml(platform || "Direct")}</span>`;
+    const extSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+    return `<span class="platform-badge platform-badge-linkedin-ext">${extSvg} LinkedIn (External Form)</span>`;
   }
 
   function updateBatchBarState() {

@@ -391,6 +391,8 @@ def resolve_search_keywords(
       (keywords_list, origin_description)
       where origin_description is either 'user_provided' or 'deep_resume_analysis'.
     """
+    from src.matching.evaluator import is_senior_or_blacklisted_title
+
     # ── 1. Check User-Provided Keywords ──
     if user_provided:
         if isinstance(user_provided, str):
@@ -400,10 +402,30 @@ def resolve_search_keywords(
         else:
             parts = []
 
-        # Filter out empty or placeholder strings
-        cleaned = [p for p in parts if p and p.lower() not in {"none", "null", "all"}]
-        if cleaned:
-            return cleaned[:max_keywords], "user_provided"
+        # Filter out empty, placeholder, or senior/blacklisted keywords
+        BARE_GENERIC_TITLES = {
+            "software engineer",
+            "backend developer",
+            "full stack developer",
+            "software developer",
+            "developer",
+            "engineer",
+        }
+        cleaned = []
+        for p in parts:
+            if not p or p.lower() in {"none", "null", "all"}:
+                continue
+            is_sr, _ = is_senior_or_blacklisted_title(p)
+            if is_sr:
+                logger.info(f"[keyword-expansion] Purging blacklisted/senior keyword: '{p}'")
+                continue
+            cleaned.append(p)
+
+        # If user_provided consists only of bare generic titles without tech qualifiers,
+        # prioritize deep resume analysis to extract actual skills from the resume
+        cleaned_non_generic = [p for p in cleaned if p.lower() not in BARE_GENERIC_TITLES]
+        if cleaned_non_generic:
+            return cleaned_non_generic[:max_keywords], "user_provided"
 
     # ── 2. Deep Resume & Profile Analysis ──
     try:
@@ -497,28 +519,34 @@ def resolve_search_keywords(
         top_lang = primary_tech[0]
         add_phrase(f"{top_lang} Developer")
 
-        # Strategy B: Target Roles combined with Primary Language (e.g. 'Software Engineer Python', 'Backend Developer Python')
+        # Strategy B: Target Roles strictly qualified by Primary Language / Tech (e.g. 'Python Backend Developer')
         for r in clean_inferred_roles:
             if top_lang.lower() not in r.lower():
-                add_phrase(f"{r} {top_lang}")
+                add_phrase(f"{top_lang} {r}")
             else:
                 add_phrase(r)
 
-        # Strategy C: Core Frameworks (e.g. 'FastAPI Developer', 'Django Developer')
-        for tech in primary_tech[1:4]:
-            if tech.lower() not in {"git", "rest", "sql", "mysql", "sqlite"}:
+        # Strategy C: Core Frameworks from Resume (e.g. 'FastAPI Developer', 'Django Developer', 'AI Engineer')
+        for tech in primary_tech[1:5]:
+            if tech.lower() not in {"git", "rest", "sql", "mysql", "sqlite", "selenium"}:
                 add_phrase(f"{tech} Developer")
     else:
         for r in clean_inferred_roles:
-            add_phrase(r)
+            add_phrase(f"Junior {r}")
 
-    # Strategy D: Raw clean target roles
-    for r in clean_inferred_roles:
-        add_phrase(r)
-
-    # Strategy E: Fallback if everything is empty
+    # Fallback if empty: high-precision entry roles strictly qualified with tech
     if not composite_phrases:
-        composite_phrases = ["Python Developer", "Software Engineer", "Backend Developer"]
+        composite_phrases = ["Python Developer", "FastAPI Developer", "AI Engineer", "Python Backend Developer"]
 
-    return composite_phrases[:max_keywords], "deep_resume_analysis"
+    # Final filter: absolutely NO senior terms or bare generic queries
+    final_phrases: List[str] = []
+    for cp in composite_phrases:
+        is_sr, _ = is_senior_or_blacklisted_title(cp)
+        if not is_sr and cp.lower() not in {"software engineer", "software developer", "backend developer", "engineer"}:
+            final_phrases.append(cp)
+
+    if not final_phrases:
+        final_phrases = ["Python Developer", "FastAPI Developer", "AI Engineer"]
+
+    return final_phrases[:max_keywords], "deep_resume_analysis"
 

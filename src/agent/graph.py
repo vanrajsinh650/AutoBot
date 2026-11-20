@@ -57,11 +57,12 @@ def create_initial_state(
     from src.matching.keyword_expansion import resolve_search_keywords
     configured_kws = list(cfg.search.keywords) if cfg.search.keywords else []
     resolved_kws, kw_origin = resolve_search_keywords(
-        user_provided=configured_kws if configured_kws and configured_kws != ["Software Engineer"] else None,
+        user_provided=configured_kws or None,
         user_id=1,
     )
-    keywords = resolved_kws or ["Software Engineer"]
-    first_keyword = keywords[0] if keywords else "Software Engineer"
+    keywords = resolved_kws or ["Python Developer", "FastAPI Developer", "AI Engineer"]
+    first_keyword = keywords[0] if keywords else "Python Developer"
+    logger.info(f"[agent]🔍 Search keywords strictly anchored to candidate resume ({kw_origin}): {keywords}")
 
     return {
         "keywords": keywords,

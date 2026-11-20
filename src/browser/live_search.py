@@ -27,6 +27,9 @@ from src.utils.logger import logger
 async def run_direct_chrome_search(
     keywords: Optional[List[str]] = None,
     location: Optional[str] = None,
+    job_types: Optional[List[str]] = None,
+    num_browsers: int = 1,
+    min_score: Optional[float] = None,
     max_pages: int = 1,
     headless: bool = False,
     progress_callback: Optional[Callable[[str, str], None]] = None,
@@ -35,18 +38,10 @@ async def run_direct_chrome_search(
 ) -> List[JobPosting]:
     """
     Launch real Google Chrome and execute keyword search directly on LinkedIn.
-
-    Args:
-        keywords: List of search keywords. Defaults to config keywords or resume keywords.
-        location: Target location (e.g. 'India', 'Remote').
-        max_pages: Number of result pages to scroll and scrape per keyword.
-        headless: Whether to run headlessly. Defaults to False (see Chrome window).
-        progress_callback: Optional callback(level, message) for real-time telemetry.
-        user_id: User ID for database records.
-        keep_open: Whether to leave Chrome open after searching.
-
-    Returns:
-        List of discovered JobPosting objects.
+    Enforces strict search sequence:
+      1. Primary keyword 'Python Developer' is searched FIRST.
+      2. After 'Python Developer' completes, secondary resume keywords are searched.
+      3. If num_browsers > 1, secondary keywords run in parallel across concurrent Chrome browsers.
     """
     cfg = get_config()
     env = get_env()
@@ -59,7 +54,7 @@ async def run_direct_chrome_search(
             except Exception:
                 pass
 
-    # 1. Resolve keywords (User Provided OR Deep Resume Analysis) and location
+    # 1. Resolve keywords and establish strict 'Python Developer' priority
     from src.matching.keyword_expansion import resolve_search_keywords
     search_keywords, origin = resolve_search_keywords(
         user_provided=keywords,
@@ -67,136 +62,207 @@ async def run_direct_chrome_search(
         db_path=getattr(cfg.storage, "db_path", None),
     )
     search_location = location or getattr(cfg.search, "location", "India")
+    effective_job_types = job_types or getattr(cfg.search, "job_type", ["full-time", "internship"])
 
-    _notify("info", f"Starting direct Google Chrome search for: {', '.join(search_keywords)} ({origin}) in {search_location}")
+    primary_kw = "Python Developer"
+    secondary_kws = [k.strip() for k in search_keywords if k.strip().lower() != primary_kw.lower() and k.strip()]
+    ordered_keywords = [primary_kw] + secondary_kws
 
-    # 2. Instantiate and launch BrowserManager with real Chrome
-    manager = BrowserManager(
-        cfg=cfg,
-        env=env,
-        headless=headless,
-        user_id=user_id,
+    min_score_threshold = float(min_score) if min_score is not None else float(getattr(getattr(cfg, "apply", None), "min_match_score", 0.60))
+
+    _notify(
+        "info",
+        f"Configured LinkedIn search: Primary='{primary_kw}' (Priority #1), Secondary=[{', '.join(secondary_kws)}], "
+        f"Types={effective_job_types}, Threshold={int(min_score_threshold*100)}%, Browsers={num_browsers}"
     )
+
+    # Prepare blacklist & seniority filters
+    init_db()
+    exp_levels = getattr(cfg.search, "experience_level", ["entry", "associate"])
+    blacklist_keywords = [
+        k.lower() for k in getattr(cfg.blacklist, "title_keywords", []) if k
+    ]
+    is_senior_target = any(e.lower() in ("mid-senior", "director", "executive") for e in exp_levels)
+    if not is_senior_target:
+        senior_defaults = ["senior", "sr.", "sr", "lead", "principal", "staff", "director", "vp", "architect", "head of", "manager"]
+        for sp in senior_defaults:
+            if sp not in blacklist_keywords:
+                blacklist_keywords.append(sp)
+
+    async def _scrape_single_keyword(
+        nav: LinkedInNavigator,
+        kw: str,
+        loc: str,
+        j_types: List[str],
+        worker_tag: str,
+    ) -> List[JobPosting]:
+        found_jobs: List[JobPosting] = []
+        for page_num in range(1, max_pages + 1):
+            _notify("info", f"[{worker_tag}] 🔍 Searching '{kw}' (page {page_num}) in {loc} [Types: {', '.join(j_types)}]...")
+            try:
+                jobs = await nav.search_jobs(keyword=kw, location=loc, page=page_num, job_types=j_types)
+            except Exception as ex:
+                logger.error(f"[{worker_tag}] Error querying '{kw}': {ex}")
+                jobs = []
+
+            _notify("info", f"[{worker_tag}] Found {len(jobs)} jobs for '{kw}' (page {page_num}).")
+
+            for job in jobs:
+                # Check seniority
+                from src.matching.evaluator import is_senior_or_blacklisted_title
+                is_senior, blk_term = is_senior_or_blacklisted_title(job.title, blacklist_keywords)
+                if is_senior:
+                    logger.info(f"[{worker_tag}] ⏭ Skipping senior role: '{job.title}' @ '{job.company}' ({blk_term})")
+                    continue
+
+                # Check duplicate
+                if is_job_processed(job_id=job.job_id, url=job.url, title=job.title, company=job.company, user_id=user_id):
+                    logger.info(f"[{worker_tag}] ⏭ Skipping duplicate job: '{job.title}' @ '{job.company}'")
+                    continue
+
+                # Evaluate resume match fit
+                from src.matching.evaluator import evaluate_scraped_job_fit
+                eval_res = evaluate_scraped_job_fit(
+                    title=job.title,
+                    company=job.company,
+                    description=job.description or f"Role: {job.title} at {job.company}.",
+                    user_id=user_id,
+                )
+                match_score = eval_res["match_score"]
+                match_pct = eval_res["match_percentage"]
+
+                if match_score >= min_score_threshold:
+                    found_jobs.append(job)
+                    status_label = "discovered"
+                    _notify("info", f"[{worker_tag}] 🎯 Matched: '{job.title}' @ '{job.company}' ({match_pct}% fit >= {int(min_score_threshold*100)}% threshold)")
+                else:
+                    status_label = "skipped_low_fit"
+                    logger.info(f"[{worker_tag}] ⏭ Filtered low-fit role: '{job.title}' ({match_pct}% < {int(min_score_threshold*100)}%)")
+
+                # Resolve direct apply URL
+                final_apply_url = getattr(job, "external_apply_url", None) or getattr(job, "apply_url", None) or job.url
+
+                try:
+                    save_scraped_job(
+                        title=job.title,
+                        company=job.company,
+                        location=job.location,
+                        description=job.description or f"Role: {job.title} at {job.company}.",
+                        apply_url=final_apply_url,
+                        source_name="LinkedIn",
+                        is_easy_apply=job.is_easy_apply,
+                        job_id=job.job_id,
+                        user_id=user_id,
+                        raw_data={"search_keyword": kw, "source_url": job.url, "match_percentage": match_pct},
+                        match_score=match_score,
+                        status=status_label,
+                    )
+                except Exception as ex:
+                    logger.debug(f"Could not save job: {ex}")
+
+            await asyncio.sleep(1.0)
+        return found_jobs
 
     all_discovered_jobs: List[JobPosting] = []
 
+    # ── Phase 1: Search Primary Keyword 'Python Developer' in Browser 1 ──
+    _notify("info", f"🚀 Phase 1: Launching Primary Chrome Browser for '{primary_kw}'...")
+    manager1 = BrowserManager(cfg=cfg, env=env, headless=headless, user_id=user_id)
+
     try:
-        _notify("info", "Launching Google Chrome with persistent profile and stealth evasion...")
-        await manager.start()
-
-        navigator = LinkedInNavigator(manager=manager, cfg=cfg, env=env)
-
-        # 3. Verify Authentication
-        _notify("info", "Checking LinkedIn login session...")
-        is_auth = await navigator.ensure_logged_in()
+        await manager1.start()
+        nav1 = LinkedInNavigator(manager=manager1, cfg=cfg, env=env)
+        _notify("info", "Checking LinkedIn authentication session...")
+        is_auth = await nav1.ensure_logged_in()
         if not is_auth:
-            _notify("warning", "LinkedIn authentication required. Please log in within the open Chrome browser.")
-            return []
+            _notify("warning", "LinkedIn authentication required. Proceeding in public stealth search mode.")
 
-        _notify("success", "LinkedIn authenticated. Navigating to Jobs section...")
+        p1_jobs = await _scrape_single_keyword(
+            nav=nav1,
+            kw=primary_kw,
+            loc=search_location,
+            j_types=effective_job_types,
+            worker_tag="Browser 1 (Primary)",
+        )
+        all_discovered_jobs.extend(p1_jobs)
+        _notify("success", f"✓ Phase 1 complete: Finished search for '{primary_kw}'. Discovered {len(p1_jobs)} matching roles.")
 
-        # 4. Execute search for each keyword
-        init_db()
-        exp_levels = getattr(cfg.search, "experience_level", ["entry", "associate"])
-        blacklist_keywords = [
-            k.lower() for k in getattr(cfg.blacklist, "title_keywords", []) if k
-        ]
-        is_senior_target = any(e.lower() in ("mid-senior", "director", "executive") for e in exp_levels)
-        if not is_senior_target:
-            senior_defaults = ["senior", "sr.", "sr", "lead", "principal", "staff", "director", "vp", "architect", "head of", "manager"]
-            for sp in senior_defaults:
-                if sp not in blacklist_keywords:
-                    blacklist_keywords.append(sp)
-
-        for kw in search_keywords:
-            kw = kw.strip()
-            if not kw:
-                continue
-
-            for page_num in range(1, max_pages + 1):
-                _notify("info", f"Searching keyword '{kw}' (page {page_num}) in {search_location}...")
-                jobs = await navigator.search_jobs(keyword=kw, location=search_location, page=page_num)
-
-                _notify("info", f"Found {len(jobs)} jobs for '{kw}' (page {page_num}).")
-
-                for job in jobs:
-                    # Check seniority
-                    is_senior = False
-                    for blk in blacklist_keywords:
-                        clean_blk = blk.strip().lower()
-                        if not clean_blk:
-                            continue
-                        if clean_blk.isalnum():
-                            if re.search(rf"\b{re.escape(clean_blk)}\b", job.title.lower()):
-                                is_senior = True
-                                break
-                        elif clean_blk in job.title.lower():
-                            is_senior = True
-                            break
-                    if is_senior:
-                        logger.info(f"[live-search]⏭ Skipping senior role: '{job.title}' @ '{job.company}'")
-                        continue
-
-                    # Check already processed
-                    if is_job_processed(job_id=job.job_id, url=job.url, title=job.title, company=job.company, user_id=user_id):
-                        logger.info(f"[live-search]⏭ Skipping duplicate already processed job: '{job.title}' @ '{job.company}'")
-                        continue
-
-                    # Evaluate resume match fit
-                    from src.matching.evaluator import evaluate_scraped_job_fit
-
-                    eval_res = evaluate_scraped_job_fit(
-                        title=job.title,
-                        company=job.company,
-                        description=job.description or f"Role: {job.title} at {job.company}.",
-                        user_id=user_id,
+        # ── Phase 2: Search Secondary Keywords ───────────────────────
+        if secondary_kws:
+            if num_browsers <= 1:
+                # Sequential scraping in Browser 1
+                _notify("info", f"Phase 2: Continuing with {len(secondary_kws)} secondary keywords in Browser 1...")
+                for s_kw in secondary_kws:
+                    s_jobs = await _scrape_single_keyword(
+                        nav=nav1,
+                        kw=s_kw,
+                        loc=search_location,
+                        j_types=effective_job_types,
+                        worker_tag="Browser 1",
                     )
-                    match_score = eval_res["match_score"]
-                    match_pct = eval_res["match_percentage"]
-                    min_score_threshold = float(getattr(getattr(cfg, "apply", None), "min_match_score", 0.60))
+                    all_discovered_jobs.extend(s_jobs)
+            else:
+                # Parallel scraping across multiple concurrent Chrome browsers
+                active_workers = min(num_browsers, len(secondary_kws))
+                _notify("info", f"⚡ Phase 2: Launching {active_workers} parallel Chrome browsers for {len(secondary_kws)} keywords: {', '.join(secondary_kws)}...")
 
-                    if match_score >= min_score_threshold:
-                        all_discovered_jobs.append(job)
-                        status_label = "discovered"
-                        _notify("info", f"🎯 Matched: '{job.title}' @ '{job.company}' ({match_pct}% fit >= {int(min_score_threshold*100)}% threshold)")
-                    else:
-                        status_label = "skipped_low_fit"
-                        logger.info(f"[live-search]⏭ Filtered low-fit role: '{job.title}' ({match_pct}% < {int(min_score_threshold*100)}%)")
+                session_dir = manager1.session_dir
+                sem = asyncio.Semaphore(active_workers)
 
-                    # Persist to database so it appears in Mission Control & Apply Portals section
-                    try:
-                        save_scraped_job(
-                            title=job.title,
-                            company=job.company,
-                            location=job.location,
-                            description=job.description or f"Role: {job.title} at {job.company}.",
-                            apply_url=job.url,
-                            source_name="LinkedIn",
-                            is_easy_apply=job.is_easy_apply,
-                            job_id=job.job_id,
+                async def _worker_task(kw_item: str, worker_id: int):
+                    async with sem:
+                        worker_data_dir = session_dir / f"user_data_worker_{worker_id}"
+                        worker_mgr = BrowserManager(
+                            cfg=cfg,
+                            env=env,
+                            user_data_dir=worker_data_dir,
+                            headless=headless,
                             user_id=user_id,
-                            raw_data={"search_keyword": kw, "source_url": job.url, "match_percentage": match_pct},
-                            match_score=match_score,
-                            status=status_label,
                         )
-                    except Exception as ex:
-                        logger.debug(f"Could not save application record: {ex}")
+                        try:
+                            _notify("info", f"🌐 [Browser {worker_id}] Launching parallel Chrome instance for '{kw_item}'...")
+                            await worker_mgr.start()
+                            w_nav = LinkedInNavigator(manager=worker_mgr, cfg=cfg, env=env)
+                            await w_nav.ensure_logged_in(require_login=False)
+                            w_jobs = await _scrape_single_keyword(
+                                nav=w_nav,
+                                kw=kw_item,
+                                loc=search_location,
+                                j_types=effective_job_types,
+                                worker_tag=f"Browser {worker_id}",
+                            )
+                            return w_jobs
+                        except Exception as w_err:
+                            logger.error(f"[Browser {worker_id}] Parallel search error: {w_err}")
+                            return []
+                        finally:
+                            try:
+                                await worker_mgr.close()
+                            except Exception:
+                                pass
 
-                await asyncio.sleep(1.5)
+                tasks = [
+                    _worker_task(kw, (idx % active_workers) + 2)
+                    for idx, kw in enumerate(secondary_kws)
+                ]
+                parallel_results = await asyncio.gather(*tasks, return_exceptions=True)
+                for pr in parallel_results:
+                    if isinstance(pr, list):
+                        all_discovered_jobs.extend(pr)
 
-        _notify("success", f"Direct Chrome search complete. Total {len(all_discovered_jobs)} matching jobs discovered!")
+        _notify("success", f"🎉 Autonomous search complete! Total {len(all_discovered_jobs)} matching opportunities discovered.")
 
         if keep_open:
-            _notify("info", "Chrome browser is ready. Keeping window open for you to view results...")
+            _notify("info", "Chrome browser is ready. Keeping primary window open for you to view results...")
             return all_discovered_jobs
 
     except Exception as e:
-        _notify("error", f"Direct Chrome search encountered an error: {e}")
+        _notify("error", f"Search encountered an error: {e}")
         logger.error(f"Error in direct Chrome search: {e}", exc_info=True)
     finally:
         if not keep_open:
             try:
-                await manager.close()
+                await manager1.close()
             except Exception:
                 pass
 
@@ -332,6 +398,8 @@ async def run_direct_google_keyword_search(
 async def run_google_to_linkedin_job_search(
     keyword: str,
     location: Optional[str] = None,
+    job_types: Optional[List[str]] = None,
+    min_score: Optional[float] = None,
     open_first_role: bool = True,
     headless: bool = False,
     progress_callback: Optional[Callable[[str, str], None]] = None,
@@ -437,9 +505,15 @@ async def run_google_to_linkedin_job_search(
         exp_codes = [exp_map[e.lower()] for e in exp_levels if e.lower() in exp_map]
         exp_filter = f"&f_E={'%2C'.join(exp_codes)}" if exp_codes else "&f_E=1%2C2%2C3"
 
+        # Translate job types (Full-time: F, Internship: I, Contract: C, Part-time: P)
+        target_jts = job_types or getattr(cfg.search, "job_type", ["full-time", "internship"])
+        jt_map = {"full-time": "F", "full_time": "F", "internship": "I", "intern": "I", "contract": "C", "part-time": "P", "part_time": "P"}
+        jt_codes = [jt_map[j.lower()] for j in target_jts if j.lower() in jt_map]
+        jt_filter = f"&f_JT={'%2C'.join(jt_codes)}" if jt_codes else ""
+
         linkedin_url = (
             f"https://www.linkedin.com/jobs/search/?keywords={quote_plus(search_kw)}"
-            f"&location={quote_plus(search_loc)}&f_TPR=r86400{exp_filter}"
+            f"&location={quote_plus(search_loc)}&f_TPR=r86400{exp_filter}{jt_filter}"
         )
         _notify("info", f"Step 2: Navigating to LinkedIn page showing non-senior job roles for '{search_kw}'...")
         await page.goto(linkedin_url, wait_until="domcontentloaded", timeout=25000)
@@ -513,18 +587,11 @@ async def run_google_to_linkedin_job_search(
                 is_easy = r.get("is_easy_apply", False)
 
             # Check seniority / title blacklist
-            is_blacklisted = False
-            for blk in blacklist_keywords:
-                clean_blk = blk.strip().lower()
-                if not clean_blk:
-                    continue
-                if clean_blk.isalnum():
-                    if re.search(rf"\b{re.escape(clean_blk)}\b", title_lower):
-                        is_blacklisted = True
-                        break
-                elif clean_blk in title_lower:
-                    is_blacklisted = True
-                    break
+            from src.matching.evaluator import is_senior_or_blacklisted_title
+            is_blacklisted, blk_term = is_senior_or_blacklisted_title(title, blacklist_keywords)
+            if is_blacklisted:
+                logger.info(f"[live-search]⏭ Filtered out senior role: '{title}' @ '{company}' ({blk_term})")
+                continue
 
             # Check if this job has already been fetched, evaluated, skipped, or applied to
             already_processed = is_job_processed(
@@ -533,10 +600,6 @@ async def run_google_to_linkedin_job_search(
                 company=company,
                 user_id=user_id,
             )
-
-            if is_blacklisted:
-                logger.info(f"[live-search]⏭ Filtered out senior role: '{title}' @ '{company}'")
-                continue
 
             if already_processed:
                 logger.info(f"[live-search]⏭ Filtered out duplicate job already in database: '{title}' @ '{company}'")

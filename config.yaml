@@ -4,9 +4,9 @@ profile:
   portfolio_url: ''
 search:
   keywords:
-  - Software Engineer
-  - Backend Developer
   - Python Developer
+  - Python Backend Developer
+  - FastAPI Developer
   location: India
   remote: true
   date_posted: week
@@ -15,6 +15,7 @@ search:
   - associate
   job_type:
   - full-time
+  - internship
 apply:
   easy_apply: true
   external_apply: true

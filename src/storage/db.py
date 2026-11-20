@@ -275,12 +275,10 @@ def detect_apply_platform(
     is_easy_apply: bool = False,
 ) -> Tuple[str, str]:
     """
-    Detect the specific ATS or job platform and its platform category.
-
-    Returns:
-        (platform_name, platform_category)
-        where platform_category is either 'linkedin' (for in-app Easy Apply) or 'external'
-        (for external forms including Oracle Cloud, Workday, Greenhouse, Lever, Ashby, etc.).
+    Detect the opportunity type for LinkedIn.
+    AutoBot is strictly focused on LinkedIn:
+    - 'LinkedIn (Easy Apply)' (in-app 1-click apply) with category 'linkedin'
+    - 'LinkedIn (External Form)' (direct external form behind LinkedIn Apply) with category 'external'
     """
     u = (url or "").lower().strip()
     s = (source_name or "").lower().strip()
@@ -294,60 +292,8 @@ def detect_apply_platform(
     except Exception:
         pass
 
-    # 1. Direct ATS platform match (even if found via LinkedIn search)
-    if "greenhouse.io" in u or "greenhouse" in s:
-        return ("Greenhouse", "external")
-    if "lever.co" in u or "lever" in s:
-        return ("Lever", "external")
-    if "ashbyhq.com" in u or "ashby" in s:
-        return ("Ashby", "external")
-    if "myworkdayjobs.com" in u or "workday" in u or "workday" in s:
-        return ("Workday", "external")
-    if "oraclecloud.com" in u or "oracle" in u or "fa.oraclecloud" in u:
-        return ("Oracle Cloud", "external")
-    if "amazon.jobs" in u or "amazon" in u:
-        return ("Amazon Jobs", "external")
-    if "jobs.apple.com" in u or "apple.com/careers" in u:
-        return ("Apple Jobs", "external")
-    if "careers.microsoft.com" in u:
-        return ("Microsoft Careers", "external")
-    if "careers.google.com" in u:
-        return ("Google Careers", "external")
-    if "successfactors.com" in u or "jobs2web.com" in u:
-        return ("SuccessFactors", "external")
-    if "eightfold.ai" in u:
-        return ("Eightfold", "external")
-    if "smartrecruiters.com" in u or "smartrecruiters" in s:
-        return ("SmartRecruiters", "external")
-    if "taleo.net" in u or "taleo" in s:
-        return ("Taleo", "external")
-    if "icims.com" in u or "icims" in s:
-        return ("iCIMS", "external")
-    if "jobvite.com" in u or "jobvite" in s:
-        return ("Jobvite", "external")
-    if "bamboohr.com" in u or "bamboohr" in s:
-        return ("BambooHR", "external")
-    if "workable.com" in u or "workable" in s:
-        return ("Workable", "external")
-    if "rippling.com" in u or "rippling" in s:
-        return ("Rippling", "external")
-    if "csod.com" in u:
-        return ("CornerStone", "external")
-    if "phenom.com" in u or "phenompeople.com" in u:
-        return ("Phenom", "external")
-
-    # 2. LinkedIn platforms: Distinctly separate native Easy Apply from External Company Forms
     if is_easy_apply or "easy_apply" in u or "easy_apply" in s or "easy apply" in s:
         return ("LinkedIn (Easy Apply)", "linkedin")
-
-    if "linkedin.com" in u or "lnkd.in" in u or s == "linkedin":
-        return ("LinkedIn (External Form)", "external")
-
-    # 3. Generic career portals
-    if s and s not in ("linkedin", "manual"):
-        return (source_name.title(), "external")
-    if u and not ("linkedin.com" in u or "lnkd.in" in u):
-        return ("Company Career Portal", "external")
 
     return ("LinkedIn (External Form)", "external")
 
@@ -399,13 +345,18 @@ def save_scraped_job(
         "is_easy_apply": is_easy_apply,
     })
 
-    # Evaluate seniority and match score
-    from src.matching.evaluator import evaluate_scraped_job_fit, is_senior_or_blacklisted_title
+    # Evaluate seniority, technology alignment, and match score
+    from src.matching.evaluator import evaluate_scraped_job_fit, is_senior_or_blacklisted_title, check_resume_technology_alignment
 
     is_senior, senior_kw = is_senior_or_blacklisted_title(clean_title)
+    is_aligned, align_reason = check_resume_technology_alignment(clean_title, clean_desc, user_id=user_id, db_path=db_path)
+
     if is_senior:
         final_match_score = 0.0
         final_status = "rejected_seniority"
+    elif not is_aligned:
+        final_match_score = 0.0
+        final_status = "rejected_tech_mismatch"
     elif match_score is not None:
         final_match_score = float(match_score)
         final_status = status or "discovered"
@@ -419,7 +370,7 @@ def save_scraped_job(
                 db_path=db_path,
             )
             final_match_score = eval_res["match_score"]
-            final_status = status or "discovered"
+            final_status = status or ("discovered" if final_match_score >= 0.60 else "skipped_low_fit")
         except Exception:
             final_match_score = 0.70
             final_status = status or "discovered"
@@ -502,7 +453,7 @@ def get_apply_portals(
 ) -> Dict[str, Any]:
     """
     Retrieve all scraped job postings with their direct apply form links,
-    categorized by platform (LinkedIn vs External platforms like Greenhouse, Lever, etc.).
+    categorized by LinkedIn opportunity type (LinkedIn Easy Apply vs LinkedIn External Forms).
     Filters out senior-level roles and low match score jobs (< min_match_score).
     """
     init_db(db_path)
@@ -557,9 +508,15 @@ def get_apply_portals(
         title = (row_dict.get("title") or "Untitled Role").strip()
         company = (row_dict.get("company") or "Unknown Company").strip()
 
-        # 1. Reject blacklisted senior roles
-        is_senior, _ = is_senior_or_blacklisted_title(title)
-        if is_senior:
+        # 1. Master resume alignment gate (Reject senior roles & foreign tech stacks not in resume)
+        from src.matching.evaluator import is_job_matching_resume
+        is_matched, reject_reason = is_job_matching_resume(
+            title=title,
+            description=row_dict.get("description") or "",
+            user_id=user_id,
+            db_path=db_path,
+        )
+        if not is_matched:
             continue
 
         raw = {}
@@ -613,16 +570,18 @@ def get_apply_portals(
             or plat_name.startswith("LinkedIn")
             or is_li_easy
         )
-        is_li_ext = is_from_linkedin and (not is_li_easy)
+        # AutoBot is strictly LinkedIn only. Exclude any non-LinkedIn platform jobs.
+        if not is_from_linkedin:
+            continue
+
+        is_li_ext = not is_li_easy
 
         if is_li_easy:
             linkedin_easy_count += 1
             linkedin_count += 1
-        elif is_li_ext:
+        else:
             linkedin_ext_count += 1
             linkedin_count += 1
-            external_count += 1
-        else:
             external_count += 1
 
         platform_breakdown[plat_name] = platform_breakdown.get(plat_name, 0) + 1
@@ -645,7 +604,7 @@ def get_apply_portals(
             elif req_cat not in ("linkedin", "external") and req_cat not in plat_name.lower():
                 continue
 
-        # 2. Specific Platform Name filter (e.g. Greenhouse, Ashby, Lever, Workday, Company Career Portal, LinkedIn)
+        # 2. Specific Platform Name filter (e.g. LinkedIn (Easy Apply), LinkedIn (External Form))
         if platform_name and platform_name.lower() != "all":
             req_plat = platform_name.lower().strip()
             if req_plat in ("linkedin (easy apply)", "linkedin easy apply", "easy apply"):

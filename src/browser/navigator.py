@@ -352,6 +352,7 @@ class LinkedInNavigator:
         keyword: str,
         location: str = "India",
         page: int = 1,
+        job_types: Optional[List[str]] = None,
     ) -> str:
         """Construct the search URL with query filters and pagination offset."""
         params = {
@@ -378,8 +379,8 @@ class LinkedInNavigator:
         params["f_TPR"] = date_map.get(date_opt, "r604800")
 
         # Job type filter (Full-time: F, Part-time: P, Contract: C, Temporary: T, Internship: I, Volunteer: V)
-        job_types = getattr(self.cfg.search, "job_type", [])
-        if job_types:
+        target_jts = job_types if job_types is not None else getattr(self.cfg.search, "job_type", [])
+        if target_jts:
             jt_map = {
                 "full-time": "F",
                 "full_time": "F",
@@ -388,10 +389,11 @@ class LinkedInNavigator:
                 "contract": "C",
                 "temporary": "T",
                 "internship": "I",
+                "intern": "I",
                 "volunteer": "V",
                 "other": "O",
             }
-            jt_codes = [jt_map[j.lower()] for j in job_types if j.lower() in jt_map]
+            jt_codes = [jt_map[j.lower()] for j in target_jts if j.lower() in jt_map]
             if jt_codes:
                 params["f_JT"] = "%2C".join(jt_codes)
 
@@ -407,21 +409,17 @@ class LinkedInNavigator:
         if getattr(self.cfg.search, "remote", True):
             params["f_WT"] = "2"
 
-        # Experience level filter: defaults to non-senior (internship, entry, associate)
-        exp_levels = getattr(self.cfg.search, "experience_level", ["entry", "associate"])
+        # Experience level filter: strictly enforce non-senior (internship and entry level)
+        exp_levels = getattr(self.cfg.search, "experience_level", ["entry", "internship"])
         exp_map = {
             "internship": "1",
             "entry": "2",
-            "associate": "3",
-            "mid-senior": "4",
-            "director": "5",
-            "executive": "6",
         }
         codes = [exp_map[e.lower()] for e in exp_levels if e.lower() in exp_map]
         if codes:
             params["f_E"] = "%2C".join(codes)
         else:
-            params["f_E"] = "1%2C2%2C3"
+            params["f_E"] = "1%2C2"
 
         query_string = "&".join(f"{k}={v}" for k, v in params.items())
         return f"{self.JOBS_URL}?{query_string}"
@@ -431,6 +429,7 @@ class LinkedInNavigator:
         keyword: str,
         location: str = "India",
         page: int = 1,
+        job_types: Optional[List[str]] = None,
     ) -> List[JobPosting]:
         """Navigate to search results and extract JobPosting models with visual cursor presence."""
         # 1. First ensure we are in the Jobs section
@@ -515,21 +514,19 @@ class LinkedInNavigator:
             except Exception as ex:
                 logger.debug(f"Visual search input error: {ex}")
 
-        # If specific filters or pagination require explicit URL query parameters:
-        url = self.build_search_url(keyword, location, page)
-        needs_url_nav = not used_visual_search or page > 1 or getattr(self.cfg.search, "easy_apply_only", False)
-        if needs_url_nav:
-            logger.info(f"[browser]🔍 Searching: '{keyword}' in '{location}' (page {page})...[/browser]")
-            try:
-                await update_visual_cursor(self.page, action_text=f"Searching: {keyword} ({location})...")
-            except Exception:
-                pass
+        # Always navigate to the filtered search URL to guarantee non-senior (f_E=1%2C2) results
+        url = self.build_search_url(keyword, location, page, job_types=job_types)
+        logger.info(f"[browser]🔍 Searching: '{keyword}' in '{location}' with strict entry-level filters (page {page})...[/browser]")
+        try:
+            await update_visual_cursor(self.page, action_text=f"Searching: {keyword} ({location})...")
+        except Exception:
+            pass
 
-            try:
-                await self.page.goto(url, wait_until="domcontentloaded", timeout=25000)
-                await human_delay(1500, 2500)
-            except Exception as e:
-                logger.warning(f"Search navigation warning: {e}")
+        try:
+            await self.page.goto(url, wait_until="domcontentloaded", timeout=25000)
+            await human_delay(1500, 2500)
+        except Exception as e:
+            logger.warning(f"Search navigation warning: {e}")
 
         # Intelligently detect and click close icon ('X') on contextual sign-in or guest popups
         await dismiss_sign_in_popup(self.page)
@@ -685,7 +682,7 @@ class LinkedInNavigator:
             if decoded_direct:
                 is_easy_apply = False
 
-            # Save discovered role to database for tracker & Apply Portals section
+            # Save discovered role to database for tracker & Apply Portals section (evaluated against resume)
             try:
                 save_scraped_job(
                     title=title,
@@ -701,6 +698,13 @@ class LinkedInNavigator:
             except Exception:
                 pass
 
+            # Filter out: check resume alignment before returning to agent application queue
+            from src.matching.evaluator import is_job_matching_resume
+            is_matched, reject_reason = is_job_matching_resume(title=title, description=desc, user_id=1)
+            if not is_matched:
+                logger.info(f"[browser]⏭ Filtered out unaligned job: '{title}' @ '{company}' ({reject_reason})")
+                return None
+
             return JobPosting(
                 job_id=job_id,
                 title=title,
@@ -715,6 +719,13 @@ class LinkedInNavigator:
 
     async def fetch_job_details(self, job: JobPosting) -> JobPosting:
         """Navigate to the job details page and scrape the full description text and direct external apply form link."""
+        # Strictly verify resume alignment before opening details in browser
+        from src.matching.evaluator import is_job_matching_resume
+        is_matched, match_reason = is_job_matching_resume(job.title, getattr(job, "description", "") or "", user_id=1)
+        if not is_matched:
+            logger.info(f"[browser]🚫 Skipping details navigation for unaligned role: '{job.title}' ({match_reason})")
+            return job
+
         # 1. First check if details are already rendered in the right-hand panel
         try:
             desc_el = await self.page.query_selector(

@@ -42,11 +42,7 @@ class JobDiscoveryEngine:
     freshness tracking, sync run auditing, and authoritative expiration gating.
     """
 
-    DEFAULT_SOURCES = [
-        JobSourceConfig(name="Stripe", source_type=SourceType.GREENHOUSE, board_token_or_slug="stripe"),
-        JobSourceConfig(name="Figma", source_type=SourceType.LEVER, board_token_or_slug="figma"),
-        JobSourceConfig(name="OpenAI", source_type=SourceType.ASHBY, board_token_or_slug="openai"),
-    ]
+    DEFAULT_SOURCES = []
 
     def __init__(self, db_path: Optional[str] = None):
         self.db_path = db_path or get_db_path()

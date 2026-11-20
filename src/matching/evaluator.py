@@ -282,9 +282,49 @@ DEFAULT_BLACKLIST_KEYWORDS = [
     "staff",
     "director",
     "vp",
+    "avp",
+    "head of",
+    "head",
+    "architect",
+    "manager",
+    "mgr",
+    "chief",
+    "ii",
+    "iii",
+    "iv",
+    "v",
+    "sde 2",
+    "sde-2",
+    "sde ii",
+    "sde-ii",
+    "sde 3",
+    "sde-3",
+    "sde iii",
+    "sde-iii",
+    "sde2",
+    "sde3",
+    "level 2",
+    "level ii",
+    "l4",
+    "l5",
+    "l6",
+    "3+ years",
+    "4+ years",
+    "5+ years",
+    "6+ years",
+    "7+ years",
+    "8+ years",
     "10+ years",
     "15+ years",
-    "head of",
+]
+
+SENIOR_REGEX_PATTERNS = [
+    r"\b(senior|sr\.?|lead|principal|staff|director|vp|avp|head of|head|architect|manager|mgr|chief)\b",
+    r"\b(ii|iii|iv|v)\b",
+    r"\b(l[3-6]|level\s*[2-6]|sde[- ]?[2-4]|sde[2-4]|swe[- ]?[2-4])\b",
+    r"\b(engineer|developer|sde|swe|consultant|analyst)\s*[-_]?\s*(2|3|4)\b",
+    r"\b([3-9]|1[0-9])\+\s*(years?|yrs?|y)\b",
+    r"\b([3-9]|1[0-9])\s*[-–to]+\s*([0-9]+)\s*(years?|yrs?|y)\b",
 ]
 
 
@@ -292,14 +332,21 @@ def is_senior_or_blacklisted_title(
     title: str, blacklist_keywords: Optional[List[str]] = None
 ) -> Tuple[bool, str]:
     """
-    Check if a job title contains senior-level keywords or blacklisted terms.
-    Uses regex word boundaries for alphanumeric keywords like 'sr' to avoid
-    false positive substring matches (e.g., 'Israel' matching 'sr').
+    Check if a job title contains senior-level keywords, level indicators (II/III/IV/L4/SDE2),
+    or user-configured blacklisted terms.
+    Uses regex word boundaries for accurate matching without false positives.
     """
     if not title:
         return False, ""
     title_lower = title.lower()
 
+    # 1. Structural regex detection for senior/level indicators
+    for pat in SENIOR_REGEX_PATTERNS:
+        match = re.search(pat, title_lower)
+        if match:
+            return True, match.group(0)
+
+    # 2. Check explicit configured blacklist keywords
     keywords = blacklist_keywords
     if keywords is None:
         try:
@@ -319,6 +366,115 @@ def is_senior_or_blacklisted_title(
             if clean_kw in title_lower:
                 return True, kw
     return False, ""
+
+
+MAJOR_FOREIGN_TECH_STACKS = {
+    "Java / Spring": [r"\bjava\b", r"\bspring\b", r"\bspring ?boot\b", r"\bhibernate\b", r"\bj2ee\b", r"\bjvm\b"],
+    ".NET / C#": [r"\b\.net\b", r"(?:\bdotnet\b|\.net(?!\w))", r"(?:\bcsharp\b|\bc#(?!\w))", r"\basp\.net\b", r"\bblazor\b", r"\bwpf\b"],
+    "C++": [r"(?:\bcpp\b|\bc\+\+(?!\w))"],
+    "PHP": [r"\bphp\b", r"\blaravel\b", r"\bsymfony\b", r"\bcodeigniter\b"],
+    "Ruby": [r"\bruby\b", r"\brails\b", r"\bruby on rails\b"],
+    "Golang": [r"\bgolang\b", r"\bgo developer\b", r"\bgo engineer\b"],
+    "Rust": [r"\brust developer\b", r"\brust engineer\b"],
+    "iOS / Swift": [r"\bswift\b", r"\bios developer\b", r"\bswiftui\b"],
+    "Android / Kotlin": [r"\bkotlin\b", r"\bandroid developer\b"],
+    "Angular": [r"\bangular\b", r"\bangularjs\b"],
+    "Salesforce": [r"\bsalesforce\b", r"\bapex\b"],
+    "SAP": [r"\bsap\b", r"\babap\b"],
+    "Mainframe / COBOL": [r"\bcobol\b", r"\bmainframe\b"],
+}
+
+
+def check_resume_technology_alignment(
+    title: str,
+    description: str = "",
+    candidate_skills: Optional[List[str]] = None,
+    user_id: int = 1,
+    db_path: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """
+    Ensure the job strictly aligns with technologies explicitly present in the candidate's resume.
+    1. If the job requires a foreign tech stack (e.g. Java, .NET, C#, PHP, C++) that the
+       candidate does NOT have in their resume, reject it.
+    2. If the title is generic (e.g. 'Software Engineer', 'Backend Developer') without explicit tech in title,
+       the description MUST explicitly require at least one primary skill from candidate's resume
+       (e.g. Python, FastAPI, Django, AI, Playwright, React, etc.). Otherwise, reject it.
+    """
+    if candidate_skills is None:
+        try:
+            from src.storage.db import get_candidate_profile, get_job_preferences
+            prof = get_candidate_profile(user_id, db_path) or {}
+            prefs = get_job_preferences(user_id, db_path) or {}
+            candidate_skills = [
+                s.lower().strip()
+                for s in (
+                    (prof.get("technical_skills") or [])
+                    + (prof.get("primary_skills") or [])
+                    + (prefs.get("primary_skills") or [])
+                )
+                if s and str(s).strip()
+            ]
+        except Exception:
+            candidate_skills = []
+
+    if not candidate_skills:
+        candidate_skills = ["python", "fastapi", "django", "playwright", "rest", "sql", "redis", "typescript", "javascript", "ai"]
+
+    candidate_skills_lower = [s.lower().strip() for s in candidate_skills]
+    t_low = (title or "").lower()
+    d_low = (description or "").lower()
+
+    # 1. Foreign Tech Stack Rejection
+    for stack_name, patterns in MAJOR_FOREIGN_TECH_STACKS.items():
+        has_skill_in_resume = any(
+            any(re.search(pat, s) for pat in patterns)
+            for s in candidate_skills_lower
+        )
+        if not has_skill_in_resume:
+            if any(re.search(pat, t_low) for pat in patterns):
+                return False, f"Incompatible tech stack: Job requires {stack_name}, which is not in candidate resume"
+            candidate_primary = [s for s in candidate_skills_lower if s in {"python", "fastapi", "django", "playwright", "ai", "react", "typescript", "javascript", "golang", "rust"}]
+            if any(re.search(pat, d_low) for pat in patterns):
+                has_any_primary = any(re.search(r"\b" + re.escape(p) + r"\b", d_low) for p in candidate_primary)
+                if not has_any_primary:
+                    return False, f"Incompatible tech stack: Job description requires {stack_name}, not in candidate resume"
+
+    # 2. Generic Title Positive Match Requirement
+    generic_titles = {"software engineer", "backend developer", "full stack developer", "software developer", "developer", "engineer", "systems engineer", "cloud developer"}
+    clean_title = re.sub(r"[^a-z\s]", "", t_low).strip()
+    if clean_title in generic_titles:
+        candidate_primary = [s for s in candidate_skills_lower if s in {"python", "fastapi", "django", "playwright", "ai", "react", "typescript", "javascript", "node", "redis", "sql", "postgres", "docker", "selenium"}]
+        has_primary = any(
+            re.search(r"\b" + re.escape(p) + r"\b", d_low) or re.search(r"\b" + re.escape(p) + r"\b", t_low)
+            for p in candidate_primary
+        )
+        if not has_primary:
+            return False, "Generic role without any candidate resume skills (Python, FastAPI, AI, etc.) in job details"
+
+    return True, "Aligned with candidate resume"
+
+
+def is_job_matching_resume(
+    title: str,
+    description: str = "",
+    candidate_skills: Optional[List[str]] = None,
+    user_id: int = 1,
+    db_path: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """
+    Master gate: combines seniority check and technology alignment with the candidate's resume.
+    """
+    is_senior, senior_kw = is_senior_or_blacklisted_title(title)
+    if is_senior:
+        return False, f"Seniority conflict: '{senior_kw}'"
+
+    return check_resume_technology_alignment(
+        title=title,
+        description=description,
+        candidate_skills=candidate_skills,
+        user_id=user_id,
+        db_path=db_path,
+    )
 
 
 def evaluate_scraped_job_fit(
@@ -346,6 +502,24 @@ def evaluate_scraped_job_fit(
             "matched_requirements": [],
             "missing_requirements": [f"Seniority conflict: Title contains '{kw}'"],
             "explanation": f"Rejected by blacklist / seniority filter: '{title}' contains '{kw}'",
+        }
+
+    # 1.5 Technology Alignment Check
+    is_aligned, align_reason = check_resume_technology_alignment(
+        title=title,
+        description=description,
+        user_id=user_id,
+        db_path=db_path,
+    )
+    if not is_aligned:
+        return {
+            "match_score": 0.0,
+            "match_percentage": 0,
+            "is_senior": False,
+            "eligibility_status": "ineligible_tech_mismatch",
+            "matched_requirements": [],
+            "missing_requirements": [align_reason],
+            "explanation": f"Rejected: {align_reason}",
         }
 
     # 2. Candidate profile & preferences (use preloaded if provided)

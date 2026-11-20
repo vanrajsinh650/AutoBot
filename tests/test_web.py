@@ -265,16 +265,16 @@ async def test_api_apply_portals_endpoint(client: TestClient, monkeypatch, tmp_p
         db_path=str(db_file),
     )
 
-    # Save an external Greenhouse job with full description and direct Greenhouse apply form link
+    # Save an external form job discovered via LinkedIn with direct apply form link
     save_scraped_job(
         title="Backend Engineer (Data)",
         company="Stripe",
         location="Remote",
-        description="Join Stripe data infrastructure team building petabyte-scale event pipelines.",
+        description="Join Stripe data infrastructure team building petabyte-scale event pipelines with Python.",
         apply_url="https://boards.greenhouse.io/stripe/jobs/1234567",
-        source_name="Greenhouse",
+        source_name="LinkedIn",
         is_easy_apply=False,
-        job_id="gh_stripe_123",
+        job_id="li_stripe_123",
         user_id=1,
         match_score=0.85,
         db_path=str(db_file),
@@ -286,33 +286,34 @@ async def test_api_apply_portals_endpoint(client: TestClient, monkeypatch, tmp_p
     data = await resp.json()
 
     assert data["total"] == 2
-    assert data["linkedin_count"] == 1
-    assert data["external_count"] == 1
+    assert data["linkedin_count"] == 2
+    assert data["linkedin_easy_count"] == 1
+    assert data["linkedin_external_count"] == 1
     assert "LinkedIn (Easy Apply)" in data["platforms"]
-    assert "Greenhouse" in data["platforms"]
+    assert "LinkedIn (External Form)" in data["platforms"]
 
-    # 2. Filter LinkedIn only
-    li_resp = await client.get("/api/apply-portals?platform=linkedin")
+    # 2. Filter LinkedIn Easy Apply only
+    li_resp = await client.get("/api/apply-portals?category=linkedin_easy")
     assert li_resp.status == 200
     li_data = await li_resp.json()
     assert len(li_data["jobs"]) == 1
     assert li_data["jobs"][0]["platform_category"] == "linkedin"
     assert "linkedin.com" in li_data["jobs"][0]["apply_url"]
 
-    # 3. Filter External only
-    ext_resp = await client.get("/api/apply-portals?platform=external")
+    # 3. Filter External Forms only
+    ext_resp = await client.get("/api/apply-portals?category=linkedin_external")
     assert ext_resp.status == 200
     ext_data = await ext_resp.json()
     assert len(ext_data["jobs"]) == 1
-    assert ext_data["jobs"][0]["platform_category"] == "external"
+    assert ext_data["jobs"][0]["platform"] == "LinkedIn (External Form)"
     assert "greenhouse.io" in ext_data["jobs"][0]["apply_url"]
 
     # 3b. Save an External Form job from LinkedIn (is_easy_apply=False)
     save_scraped_job(
-        title="Software Engineer II",
+        title="Backend Developer (AWS Platform)",
         company="Amazon",
         location="Remote",
-        description="Amazon AWS backend services team.",
+        description="Amazon AWS backend services team with Python and FastAPI.",
         apply_url="https://in.linkedin.com/jobs/view/4490760961",
         source_name="LinkedIn",
         is_easy_apply=False,
@@ -325,9 +326,8 @@ async def test_api_apply_portals_endpoint(client: TestClient, monkeypatch, tmp_p
     li_ext_resp = await client.get("/api/apply-portals?category=linkedin_external")
     assert li_ext_resp.status == 200
     li_ext_data = await li_ext_resp.json()
-    assert len(li_ext_data["jobs"]) == 1
-    assert li_ext_data["jobs"][0]["platform"] == "LinkedIn (External Form)"
-    assert li_ext_data["jobs"][0]["company"] == "Amazon"
+    assert len(li_ext_data["jobs"]) == 2
+    assert any(j["company"] == "Amazon" for j in li_ext_data["jobs"])
 
     # Verify linkedin_easy category does NOT include external form jobs
     li_easy_resp = await client.get("/api/apply-portals?category=linkedin_easy")
@@ -358,35 +358,29 @@ async def test_api_apply_portals_endpoint(client: TestClient, monkeypatch, tmp_p
     # 5. Verify threshold filtering
     # Save a low-match non-senior job (score 0.40)
     save_scraped_job(
-        title="Cobol Programmer",
+        title="Python Scripting Assistant",
         company="Legacy Systems",
         location="Remote",
-        description="Cobol mainframe maintenance.",
-        apply_url="https://boards.greenhouse.io/legacy/jobs/555",
-        source_name="Greenhouse",
+        description="Python basic automation and data maintenance.",
+        apply_url="https://in.linkedin.com/jobs/view/55555555",
+        source_name="LinkedIn",
         match_score=0.40,
-        job_id="gh_legacy_555",
+        job_id="li_legacy_555",
         user_id=1,
         db_path=str(db_file),
     )
-    # With min_score=0.60, Cobol Programmer should be excluded
+    # With min_score=0.60, Python Scripting Assistant should be excluded
     t60_resp = await client.get("/api/apply-portals?min_score=0.60")
     t60_data = await t60_resp.json()
     t60_titles = [j["title"] for j in t60_data["jobs"]]
-    assert "Cobol Programmer" not in t60_titles
+    assert "Python Scripting Assistant" not in t60_titles
     assert "Python Developer" in t60_titles
 
-    # With min_score=0.30, Cobol Programmer should be included
+    # With min_score=0.30, Python Scripting Assistant should be included
     t30_resp = await client.get("/api/apply-portals?min_score=0.30")
     t30_data = await t30_resp.json()
     t30_titles = [j["title"] for j in t30_data["jobs"]]
-    assert "Cobol Programmer" in t30_titles
-
-    # 6. Specific Platform Name filtering (e.g. Greenhouse)
-    gh_resp = await client.get("/api/apply-portals?category=external&platform=Greenhouse")
-    assert gh_resp.status == 200
-    gh_data = await gh_resp.json()
-    assert all("greenhouse.io" in j["apply_url"] for j in gh_data["jobs"])
+    assert "Python Scripting Assistant" in t30_titles
 
 
 @pytest.mark.asyncio
