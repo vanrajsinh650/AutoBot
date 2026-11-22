@@ -31,6 +31,16 @@ from src.utils.human_behavior import human_delay, update_visual_cursor, visual_c
 from src.utils.logger import logger
 
 
+async def _eval_maybe_async(val_or_callable: Any) -> Any:
+    """Safely evaluate a property, method, or coroutine without double execution or unawaited warnings."""
+    if val_or_callable is None:
+        return None
+    val = val_or_callable() if callable(val_or_callable) else val_or_callable
+    if inspect.isawaitable(val):
+        return await val
+    return val
+
+
 def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, str]:
     """Extract candidate contact details from resume PDF or application configuration."""
     config = cfg or get_config()
@@ -40,10 +50,29 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
         "last_name": "Solanki",
         "email": "vanrajsolanki2875@gmail.com",
         "phone": "+91-8320452875",
+        "phone_clean": "8320452875",
+        "country_code": "+91",
         "linkedin": "https://linkedin.com/in/vanrajsinh",
         "github": "https://github.com/vanrajsinh650",
         "portfolio": "https://github.com/vanrajsinh650",
         "location": getattr(config.search, "location", "India"),
+        "city": "Ahmedabad",
+        "state": "Gujarat",
+        "country": "India",
+        "postal_code": "380015",
+        "street_address": "132 Feet Ring Road",
+        "current_company": "Software Engineer",
+        "current_title": "Software & Automation Engineer",
+        "years_of_experience": "3",
+        "notice_period": "Immediate",
+        "notice_period_days": "15",
+        "education_level": "Bachelor's Degree",
+        "degree": "Bachelor of Engineering (B.E.)",
+        "university": "Gujarat Technological University",
+        "major": "Computer Engineering",
+        "gender": "Male",
+        "veteran": "No",
+        "disability": "No",
         "work_authorization": "Yes",
         "sponsorship_required": "No",
     }
@@ -63,12 +92,15 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
                 info["email"] = profile_dict["email"]
             if profile_dict.get("phone"):
                 info["phone"] = profile_dict["phone"]
+                info["phone_clean"] = re.sub(r"[^\d]", "", profile_dict["phone"])[-10:]
             if profile_dict.get("linkedin_url"):
                 info["linkedin"] = profile_dict["linkedin_url"]
             if profile_dict.get("github_url"):
                 info["github"] = profile_dict["github_url"]
             if profile_dict.get("portfolio_url"):
                 info["portfolio"] = profile_dict["portfolio_url"]
+            if profile_dict.get("location"):
+                info["location"] = profile_dict["location"]
         except Exception as e:
             logger.debug(f"Could not parse candidate info from resume: {e}")
     return info
@@ -375,26 +407,62 @@ class ExternalApplyActuator:
             # Re-dismiss cookie banners in case opening the form spawned a consent dialog
             await dismiss_cookie_banners(tab, policy=cookie_pol)
 
-            # 1. Upload Resume
-            resume_uploaded = await self._upload_resume(tab)
+            # --- Multi-Step / Multi-Page Form Progression Loop ---
+            # Universally handles single-page forms AND multi-step ATS flows
+            # (Workday, Phenom People, SuccessFactors, Taleo, Greenhouse, Lever, Ashby, etc.)
+            max_form_steps = 6
+            total_filled_fields = 0
+            resume_uploaded = False
 
-            # 2. Fill Standard Contact Fields (enhanced with Phenom People & Groq AI field mapper)
-            fields_filled_count = await self._fill_contact_fields(tab)
+            for step_num in range(1, max_form_steps + 1):
+                logger.info(f"[browser]📝 Processing application form step {step_num}...[/browser]")
+                await dismiss_cookie_banners(tab, policy=cookie_pol)
 
-            # 3. Fill Standard Questions (work authorization, sponsorship)
-            await self._fill_standard_questions(tab)
+                # 1. Upload Resume if not yet uploaded
+                if not resume_uploaded:
+                    resume_uploaded = await self._upload_resume(tab)
 
-            # 4. Fill Cover Letter if textarea present
-            if cover_letter:
-                await self._fill_cover_letter(tab, cover_letter)
+                # 2. Fill Contact and Personal Fields
+                step_filled = await self._fill_contact_fields(tab)
+                total_filled_fields += step_filled
 
-            # Re-check challenges before submission
-            await self.check_security_challenges(tab)
+                # 3. Fill Dropdowns (<select> and custom comboboxes)
+                await self._fill_select_dropdowns(tab)
+
+                # 4. Fill Radio Groups (Work Auth, Visa, Screening questions)
+                await self._fill_radio_groups(tab)
+
+                # 5. Fill Required Consent & Privacy Checkboxes
+                await self._fill_checkboxes(tab)
+
+                # 6. Fill Cover Letter if textarea present
+                if cover_letter:
+                    await self._fill_cover_letter(tab, cover_letter)
+
+                # 7. AI Fallback: Map and fill any remaining empty required inputs
+                ai_filled = await self._fill_all_unrecognized_with_ai(tab)
+                total_filled_fields += ai_filled
+
+                # Re-check challenges during form filling
+                await self.check_security_challenges(tab)
+
+                if dry_run:
+                    break
+
+                # Check if submit button is present on this step
+                if await self._is_submit_button_present(tab):
+                    break
+
+                # Advance to next step if a Next/Continue button is present
+                advanced = await self._click_next_or_continue(tab)
+                if not advanced:
+                    break
+                await human_delay(2000, 3500)
 
             from src.browser.proof_audit import capture_proof_screenshot, verify_submission_status
 
             # Strict Form Verification: Verify form was actually opened and populated
-            if fields_filled_count == 0 and not resume_uploaded:
+            if total_filled_fields == 0 and not resume_uploaded:
                 logger.warning(f"[browser]⚠ Application form was not opened or fields missing on {job.company} portal.")
                 blocker_path = await capture_proof_screenshot(
                     tab, job.job_id, job.company, job.title,
@@ -416,7 +484,7 @@ class ExternalApplyActuator:
             if dry_run:
                 logger.info(
                     f"[browser]🔍 [Dry-Run] Application form for '{job.title}' @ '{job.company}' "
-                    f"filled successfully ({fields_filled_count} fields, resume={resume_uploaded}) - simulation mode.[/browser]"
+                    f"filled successfully ({total_filled_fields} fields, resume={resume_uploaded}) - simulation mode.[/browser]"
                 )
                 proof_path = await capture_proof_screenshot(
                     tab, job.job_id, job.company, job.title,
@@ -427,7 +495,7 @@ class ExternalApplyActuator:
                     "success": True,
                     "status": "dry_run",
                     "reason_code": "DRY_RUN",
-                    "description": f"Form fields populated with candidate profile ({fields_filled_count} inputs). Submit withheld by user setting.",
+                    "description": f"Form fields populated with candidate profile ({total_filled_fields} inputs). Submit withheld by user setting.",
                     "proof_screenshot": proof_path or "",
                 }
                 await human_delay(3000, 5000)
@@ -608,10 +676,34 @@ class ExternalApplyActuator:
         except Exception:
             pass
 
+    def _get_interactive_contexts(self, page: Any) -> List[Any]:
+        """
+        Return the main page plus all active child frames/iframes.
+        Enables seamless form finding inside embedded ATS iframes (Greenhouse, Workday, iCIMS, Lever, Phenom).
+        """
+        contexts: List[Any] = [page]
+        try:
+            raw_frames = getattr(page, "frames", None)
+            if isinstance(raw_frames, list):
+                for frame in raw_frames:
+                    main_f = getattr(page, "main_frame", None)
+                    if frame != main_f:
+                        is_detached = getattr(frame, "is_detached", None)
+                        if callable(is_detached):
+                            try:
+                                if is_detached():
+                                    continue
+                            except Exception:
+                                pass
+                        contexts.append(frame)
+        except Exception:
+            pass
+        return contexts
+
     ALLOWED_RESUME_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt"}
 
-    async def _upload_resume(self, page: Page) -> bool:
-        """Upload resume document to any file input element present on page with CDP fallback."""
+    async def _upload_resume(self, page: Any) -> bool:
+        """Upload resume document to any file input element present on page with dropzone and CDP fallback."""
         if not self.resume_path.exists():
             logger.warning(f"[browser]Resume file not found on disk: {self.resume_path}")
             return False
@@ -622,63 +714,93 @@ class ExternalApplyActuator:
             )
             return False
 
+        resume_full_path = str(self.resume_path.resolve())
+        contexts = self._get_interactive_contexts(page)
         uploaded_any = False
-        try:
-            file_inputs = await page.query_selector_all(
-                "input[type='file'][accept*='pdf'], "
-                "input[type='file'][name*='resume'], "
-                "input[type='file'][name*='cv'], "
-                "input[type='file']"
-            )
-            resume_full_path = str(self.resume_path.resolve())
-            for inp in file_inputs:
-                uploaded = False
-                try:
-                    await inp.set_input_files(resume_full_path)
-                    uploaded = True
-                except Exception as ex:
-                    # CDP fallback for headless engines lacking DOM DataTransfer bindings
+
+        for ctx in contexts:
+            try:
+                # 1. Search for standard file inputs
+                if hasattr(ctx, "query_selector_all") and callable(ctx.query_selector_all):
+                    raw_inputs = ctx.query_selector_all(
+                        "input[type='file'][accept*='pdf'], "
+                        "input[type='file'][name*='resume' i], "
+                        "input[type='file'][name*='cv' i], "
+                        "input[type='file']"
+                    )
+                    file_inputs = await raw_inputs if inspect.isawaitable(raw_inputs) else raw_inputs
+                    if isinstance(file_inputs, list):
+                        for inp in file_inputs:
+                            try:
+                                if hasattr(inp, "set_input_files"):
+                                    res = inp.set_input_files(resume_full_path)
+                                    if inspect.isawaitable(res):
+                                        await res
+                                    uploaded_any = True
+                                    logger.info("[browser]📎 Resume attached via file input element[/browser]")
+                                    break
+                            except Exception:
+                                continue
+
+                # 2. If not uploaded yet, check for interactive dropzones / upload buttons
+                if not uploaded_any and hasattr(ctx, "query_selector"):
+                    dropzone_selectors = [
+                        "button:has-text('Upload Resume')",
+                        "button:has-text('Upload CV')",
+                        "button:has-text('Attach Resume')",
+                        "[data-ph-at-id*='upload']",
+                        ".dropzone",
+                        "[aria-label*='upload resume' i]",
+                        "label[for*='resume']",
+                    ]
+                    for sel in dropzone_selectors:
+                        try:
+                            btn = ctx.query_selector(sel) if hasattr(ctx, "query_selector") else None
+                            if inspect.isawaitable(btn):
+                                btn = await btn
+                            if btn and callable(getattr(btn, "is_visible", None)):
+                                is_vis = await btn.is_visible() if inspect.isawaitable(btn.is_visible()) else btn.is_visible()
+                                if is_vis and hasattr(page, "expect_file_chooser"):
+                                    try:
+                                        async with page.expect_file_chooser(timeout=2500) as fc_info:
+                                            await btn.click()
+                                        fc = await fc_info.value
+                                        await fc.set_files(resume_full_path)
+                                        uploaded_any = True
+                                        logger.info("[browser]📎 Resume attached via file chooser dropzone[/browser]")
+                                        break
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            continue
+
+                if uploaded_any:
                     try:
-                        cdp = await page.context.new_cdp_session(page)
-                        root = await cdp.send("DOM.getDocument")
-                        # Find nodeId of this input element
-                        box = await inp.bounding_box()
-                        node = await cdp.send("DOM.querySelector", {
-                            "nodeId": root["root"]["nodeId"],
-                            "selector": "input[type='file']"
-                        })
-                        node_id = node.get("nodeId")
-                        if node_id:
-                            await cdp.send("DOM.setFileInputFiles", {
-                                "files": [resume_full_path],
-                                "nodeId": node_id
-                            })
-                            await page.evaluate("""() => {
-                                const el = document.querySelector("input[type='file']");
-                                if (el) {
+                        if hasattr(ctx, "evaluate"):
+                            ev = ctx.evaluate("""() => {
+                                document.querySelectorAll("input[type='file']").forEach(el => {
                                     el.dispatchEvent(new Event('change', { bubbles: true }));
                                     el.dispatchEvent(new Event('input', { bubbles: true }));
-                                }
+                                });
                             }""")
-                            uploaded = True
+                            if inspect.isawaitable(ev):
+                                await ev
                     except Exception:
                         pass
+                    await human_delay(1200, 2000)
+                    return True
+            except Exception:
+                continue
 
-                if uploaded:
-                    await human_delay(1500, 2500)
-                    logger.info("[browser]📎 Resume uploaded to external portal[/browser]")
-                    uploaded_any = True
-                    break
-        except Exception:
-            pass
         return uploaded_any
 
-    async def _fill_contact_fields(self, page: Page) -> int:
-        """Fill common personal and contact fields. Returns count of fields successfully filled."""
+    async def _fill_contact_fields(self, page: Any) -> int:
+        """Fill common personal and contact fields across all interactive contexts. Returns count of fields filled."""
         candidate = getattr(self, "candidate_info", {}) or {}
         filled_count = 0
+        contexts = self._get_interactive_contexts(page)
 
-        # 1. Full name input (common on Ashby, Lever, Greenhouse, Workday)
+        # 1. Full name input
         full_name_selectors = [
             "input[name='name']",
             "input[name='full_name']",
@@ -690,70 +812,102 @@ class ExternalApplyActuator:
             "input[aria-label*='Full name' i]",
             "input[data-automation-id*='fullName']",
         ]
+
         full_name_filled = False
-        for sel in full_name_selectors:
-            try:
-                el = await page.query_selector(sel)
-                if el and await el.is_visible() and await el.is_enabled():
-                    val = await el.input_value()
-                    if not val.strip():
-                        val_to_fill = ""
-                        if self.form_rag:
-                            try:
-                                ans = self.form_rag.answer_question("Full Name", field_type=FieldType.TEXT)
-                                val_to_fill = ans.answer
-                            except Exception:
-                                pass
-                        if not val_to_fill:
-                            val_to_fill = candidate.get("full_name", "Vanraj Solanki")
-                        if val_to_fill:
-                            await el.fill(val_to_fill)
-                            await human_delay(200, 400)
-                            filled_count += 1
-                    full_name_filled = True
-                    break
-            except Exception:
-                continue
-
-        # 2. Field mappings for first/last name and other contact items (including Phenom People)
-        fields_map = [
-            ("input[name*='first'], input[placeholder*='First' i], input[data-automation-id*='legalNameSection_firstName'], input[data-ph-id*='firstName'], input[name='firstName'], #first_name, #firstname", "First Name", candidate.get("first_name", "Vanraj")),
-            ("input[name*='last'], input[placeholder*='Last' i], input[data-automation-id*='legalNameSection_lastName'], input[data-ph-id*='lastName'], input[name='lastName'], #last_name, #lastname", "Last Name", candidate.get("last_name", "Solanki")),
-            ("input[type='email'], input[name*='email'], input[placeholder*='email' i], input[data-automation-id*='email'], input[data-ph-id*='email'], input[name='email'], #email", "Email Address", candidate.get("email", "vanrajsolanki2875@gmail.com")),
-            ("input[type='tel'], input[name*='phone'], input[placeholder*='phone' i], input[data-automation-id*='phone'], input[data-ph-id*='phone'], input[name='phone'], #phone", "Phone Number", candidate.get("phone", "+91-8320452875")),
-            ("input[name*='linkedin'], input[placeholder*='LinkedIn' i], input[id*='linkedin'], input[data-automation-id*='linkedin']", "LinkedIn Profile URL", candidate.get("linkedin", "https://linkedin.com/in/vanrajsinh")),
-            ("input[name*='github'], input[placeholder*='GitHub' i], input[id*='github'], input[data-automation-id*='github']", "GitHub URL", candidate.get("github", "https://github.com/vanrajsinh650")),
-            ("input[name*='website'], input[name*='portfolio'], input[placeholder*='portfolio' i], input[placeholder*='website' i]", "Portfolio URL", candidate.get("portfolio", "https://github.com/vanrajsinh650")),
-            ("input[name*='location'], input[placeholder*='location' i], input[placeholder*='city' i], input[data-automation-id*='addressSection_city'], input[data-ph-id*='city']", "Location", candidate.get("location", "India")),
-        ]
-
-        for selector_group, question, default_val in fields_map:
-            # Skip first/last name if full name already filled
-            if full_name_filled and question in ("First Name", "Last Name"):
-                continue
-
-            for sel in selector_group.split(", "):
+        for ctx in contexts:
+            for sel in full_name_selectors:
                 try:
-                    el = await page.query_selector(sel.strip())
-                    if el and await el.is_visible() and await el.is_enabled():
-                        val = await el.input_value()
-                        if not val.strip():
-                            val_to_fill = ""
-                            if self.form_rag:
-                                try:
-                                    ans = self.form_rag.answer_question(question, field_type=FieldType.TEXT)
-                                    val_to_fill = ans.answer
-                                except Exception:
-                                    pass
-                            if not val_to_fill:
-                                val_to_fill = default_val
-                            if val_to_fill:
-                                await el.fill(val_to_fill)
-                                await human_delay(200, 400)
-                                filled_count += 1
-                        break
+                    el = ctx.query_selector(sel) if hasattr(ctx, "query_selector") else None
+                    if inspect.isawaitable(el):
+                        el = await el
+                    if el:
+                        is_vis = await _eval_maybe_async(getattr(el, "is_visible", None))
+                        if is_vis:
+                            val = await _eval_maybe_async(getattr(el, "input_value", None))
+                            if not str(val or "").strip():
+                                val_to_fill = ""
+                                if self.form_rag:
+                                    try:
+                                        ans = self.form_rag.answer_question("Full Name", field_type=FieldType.TEXT)
+                                        val_to_fill = ans.answer
+                                    except Exception:
+                                        pass
+                                if not val_to_fill:
+                                    val_to_fill = candidate.get("full_name", "Vanraj Solanki")
+                                if val_to_fill:
+                                    await el.fill(val_to_fill)
+                                    if hasattr(ctx, "evaluate"):
+                                        try:
+                                            ev = ctx.evaluate("(el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }", el)
+                                            if inspect.isawaitable(ev):
+                                                await ev
+                                        except Exception:
+                                            pass
+                                    await human_delay(150, 300)
+                                    filled_count += 1
+                            full_name_filled = True
+                            break
                 except Exception:
                     continue
+            if full_name_filled:
+                break
+
+        # 2. Comprehensive fields map (supporting Workday, Phenom, Greenhouse, Lever, Ashby, Taleo)
+        fields_map = [
+            ("input[name*='first' i], input[placeholder*='First' i], input[data-automation-id*='firstName'], input[data-ph-id*='firstName'], input[name='firstName'], #first_name, #firstname", "First Name", candidate.get("first_name", "Vanraj")),
+            ("input[name*='last' i], input[placeholder*='Last' i], input[data-automation-id*='lastName'], input[data-ph-id*='lastName'], input[name='lastName'], #last_name, #lastname", "Last Name", candidate.get("last_name", "Solanki")),
+            ("input[type='email'], input[name*='email' i], input[placeholder*='email' i], input[data-automation-id*='email'], input[data-ph-id*='email'], input[name='email'], #email", "Email Address", candidate.get("email", "vanrajsolanki2875@gmail.com")),
+            ("input[type='tel'], input[name*='phone' i], input[placeholder*='phone' i], input[data-automation-id*='phone'], input[data-ph-id*='phone'], input[name='phone'], #phone", "Phone Number", candidate.get("phone", "+91-8320452875")),
+            ("input[name*='linkedin' i], input[placeholder*='LinkedIn' i], input[id*='linkedin' i], input[data-automation-id*='linkedin']", "LinkedIn Profile URL", candidate.get("linkedin", "https://linkedin.com/in/vanrajsinh")),
+            ("input[name*='github' i], input[placeholder*='GitHub' i], input[id*='github' i], input[data-automation-id*='github']", "GitHub URL", candidate.get("github", "https://github.com/vanrajsinh650")),
+            ("input[name*='website' i], input[name*='portfolio' i], input[placeholder*='portfolio' i], input[placeholder*='website' i]", "Portfolio URL", candidate.get("portfolio", "https://github.com/vanrajsinh650")),
+            ("input[name*='city' i], input[placeholder*='city' i], input[data-automation-id*='addressSection_city'], input[data-ph-id*='city']", "City", candidate.get("city", "Ahmedabad")),
+            ("input[name*='location' i], input[placeholder*='location' i]", "Location", candidate.get("location", "India")),
+            ("input[name*='postal' i], input[name*='zip' i], input[placeholder*='postal' i], input[placeholder*='zip' i], input[data-automation-id*='postalCode']", "Postal Code", candidate.get("postal_code", "380015")),
+            ("input[name*='address' i], input[placeholder*='address' i], input[data-automation-id*='addressSection_addressLine1']", "Address", candidate.get("street_address", "132 Feet Ring Road")),
+            ("input[name*='company' i], input[placeholder*='current company' i], input[name='org']", "Current Company", candidate.get("current_company", "Route Mobile Limited")),
+            ("input[name*='title' i], input[placeholder*='current title' i]", "Current Title", candidate.get("current_title", "Software & Automation Engineer")),
+            ("input[name*='notice' i], input[placeholder*='notice period' i]", "Notice Period", candidate.get("notice_period", "Immediate")),
+        ]
+
+        for ctx in contexts:
+            for selector_group, question, default_val in fields_map:
+                if full_name_filled and question in ("First Name", "Last Name"):
+                    continue
+
+                for sel in selector_group.split(", "):
+                    try:
+                        el = ctx.query_selector(sel.strip()) if hasattr(ctx, "query_selector") else None
+                        if inspect.isawaitable(el):
+                            el = await el
+                        if el:
+                            is_vis = await _eval_maybe_async(getattr(el, "is_visible", None))
+                            if is_vis:
+                                val = await _eval_maybe_async(getattr(el, "input_value", None))
+                                if not str(val or "").strip():
+                                    val_to_fill = ""
+                                    if self.form_rag:
+                                        try:
+                                            ans = self.form_rag.answer_question(question, field_type=FieldType.TEXT)
+                                            val_to_fill = ans.answer
+                                        except Exception:
+                                            pass
+                                    if not val_to_fill:
+                                        val_to_fill = default_val
+                                    if val_to_fill:
+                                        await el.fill(val_to_fill)
+                                        if hasattr(ctx, "evaluate"):
+                                            try:
+                                                ev = ctx.evaluate("(el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }", el)
+                                                if inspect.isawaitable(ev):
+                                                    await ev
+                                            except Exception:
+                                                pass
+                                        await human_delay(120, 220)
+                                        filled_count += 1
+                                break
+                    except Exception:
+                        continue
 
         # 3. If standard selectors found fewer than 2 fields, invoke Groq AI field mapper
         if filled_count < 2:
@@ -764,42 +918,433 @@ class ExternalApplyActuator:
                     target_id = m.get("id")
                     val = m.get("fill_value")
                     if target_id and val:
-                        inp = await page.query_selector(f"#{target_id}, [name='{target_id}']")
-                        if inp and await inp.is_visible() and await inp.is_enabled():
-                            curr = await inp.input_value()
-                            if not curr.strip():
-                                await inp.fill(val)
-                                filled_count += 1
+                        inp = await page.query_selector(f"#{target_id}, [name='{target_id}']") if hasattr(page, "query_selector") else None
+                        if inspect.isawaitable(inp):
+                            inp = await inp
+                        if inp and callable(getattr(inp, "is_visible", None)):
+                            is_vis = await inp.is_visible() if inspect.isawaitable(inp.is_visible()) else inp.is_visible()
+                            if is_vis:
+                                curr = await inp.input_value() if inspect.isawaitable(inp.input_value()) else inp.input_value()
+                                if not str(curr).strip():
+                                    await inp.fill(val)
+                                    filled_count += 1
             except Exception as g_err:
                 logger.debug(f"[browser]Groq AI field mapper skipped: {g_err}")
 
         return filled_count
 
-    async def _fill_standard_questions(self, page: Page) -> None:
-        """Fill common standard ATS screening and compliance questions."""
-        # 1. Work Authorization & Sponsorship Radio Buttons
-        try:
-            auth_radios = await page.query_selector_all("input[type='radio'][value*='yes' i], input[type='radio'][value='1']")
-            for r in auth_radios:
-                try:
-                    name = (await r.get_attribute("name") or "").lower()
-                    if any(k in name for k in ("authoriz", "legal", "eligible", "work_auth")):
-                        if not await r.is_checked():
-                            await r.check()
-                except Exception:
-                    pass
+    async def _fill_select_dropdowns(self, page: Any) -> int:
+        """Fill HTML select dropdowns and ARIA comboboxes using candidate info and Groq AI."""
+        filled = 0
+        candidate = getattr(self, "candidate_info", {}) or {}
+        contexts = self._get_interactive_contexts(page)
 
-            spons_radios = await page.query_selector_all("input[type='radio'][value*='no' i], input[type='radio'][value='0']")
-            for r in spons_radios:
+        for ctx in contexts:
+            try:
+                if not hasattr(ctx, "query_selector_all"):
+                    continue
+                raw_selects = ctx.query_selector_all("select")
+                selects = await raw_selects if inspect.isawaitable(raw_selects) else raw_selects
+                if not isinstance(selects, list):
+                    continue
+
+                for sel in selects:
+                    try:
+                        is_vis = await _eval_maybe_async(getattr(sel, "is_visible", None))
+                        if not is_vis:
+                            continue
+
+                        # Extract label and options
+                        label_data = ctx.evaluate("""(el) => {
+                            let label = '';
+                            if (el.id) {
+                                const l = document.querySelector(`label[for="${el.id}"]`);
+                                if (l) label = l.innerText || '';
+                            }
+                            if (!label && el.closest('label')) label = el.closest('label').innerText || '';
+                            if (!label) label = el.getAttribute('aria-label') || el.name || el.id || '';
+                            
+                            const options = Array.from(el.options || []).map(o => ({
+                                text: (o.text || '').trim(),
+                                value: o.value || ''
+                            })).filter(o => o.text && !o.text.toLowerCase().startsWith('select') && !o.text.toLowerCase().startsWith('choose') && !o.text.toLowerCase().startsWith('--'));
+                            
+                            return { label: label.trim(), options: options, currentValue: el.value || '' };
+                        }""", sel) if hasattr(ctx, "evaluate") else None
+                        if inspect.isawaitable(label_data):
+                            label_data = await label_data
+
+                        if not label_data or not isinstance(label_data, dict):
+                            continue
+
+                        opts = label_data.get("options", [])
+                        if not opts:
+                            continue
+
+                        # If already has a selected non-empty value, skip
+                        curr_val = str(label_data.get("currentValue", "")).strip()
+                        if curr_val and curr_val != "0" and curr_val != "-1":
+                            curr_opt = next((o for o in opts if o.get("value") == curr_val), None)
+                            if curr_opt:
+                                continue
+
+                        question_text = label_data.get("label") or "Dropdown Option"
+                        option_texts = [o["text"] for o in opts]
+
+                        from src.browser.groq_form_assistant import answer_question_with_groq
+                        best_answer = answer_question_with_groq(
+                            question=question_text,
+                            options=option_texts,
+                            field_type="select",
+                            candidate_info=candidate,
+                        )
+
+                        if best_answer:
+                            matched = next((o for o in opts if o["text"].lower() == best_answer.lower() or best_answer.lower() in o["text"].lower()), None)
+                            target_val = matched["value"] if matched else opts[0]["value"]
+                            res = sel.select_option(value=target_val) if hasattr(sel, "select_option") else None
+                            if inspect.isawaitable(res):
+                                await res
+                            if hasattr(ctx, "evaluate"):
+                                ev = ctx.evaluate("""(el) => {
+                                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                                }""", sel)
+                                if inspect.isawaitable(ev):
+                                    await ev
+                            filled += 1
+                            await human_delay(150, 250)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        return filled
+
+    async def _fill_radio_groups(self, page: Any) -> int:
+        """Fill radio button question groups across all contexts using Groq AI heuristics."""
+        filled = 0
+        candidate = getattr(self, "candidate_info", {}) or {}
+        contexts = self._get_interactive_contexts(page)
+
+        for ctx in contexts:
+            try:
+                if not hasattr(ctx, "evaluate"):
+                    continue
+                groups_data = ctx.evaluate("""() => {
+                    const groups = {};
+                    const radios = Array.from(document.querySelectorAll('input[type="radio"]'));
+                    for (const r of radios) {
+                        if (r.offsetWidth === 0 && r.offsetHeight === 0 && !r.offsetParent) continue;
+                        const name = r.name || r.getAttribute('data-automation-id') || 'group_' + (r.id || '');
+                        if (!groups[name]) groups[name] = [];
+                        
+                        let label = '';
+                        if (r.id) {
+                            const l = document.querySelector(`label[for="${r.id}"]`);
+                            if (l) label = l.innerText || '';
+                        }
+                        if (!label && r.closest('label')) label = r.closest('label').innerText || '';
+                        if (!label) label = r.value || '';
+                        
+                        let question = '';
+                        const fieldset = r.closest('fieldset, [role="radiogroup"], .form-group, .radio-group');
+                        if (fieldset) {
+                            const leg = fieldset.querySelector('legend, label, .question-label, h3, h4');
+                            if (leg) question = leg.innerText || '';
+                        }
+                        
+                        groups[name].push({
+                            id: r.id || '',
+                            name: name,
+                            value: r.value || '',
+                            checked: r.checked,
+                            label: label.trim(),
+                            question: question.trim(),
+                        });
+                    }
+                    return groups;
+                }""")
+                if inspect.isawaitable(groups_data):
+                    groups_data = await groups_data
+
+                if not isinstance(groups_data, dict):
+                    continue
+
+                for group_name, items in groups_data.items():
+                    try:
+                        if not items or any(item.get("checked") for item in items):
+                            continue
+
+                        question = items[0].get("question") or group_name
+                        options = [it.get("label") or it.get("value") for it in items]
+                        if not any(options):
+                            continue
+
+                        from src.browser.groq_form_assistant import answer_question_with_groq
+                        best_pick = answer_question_with_groq(
+                            question=question,
+                            options=options,
+                            field_type="radio",
+                            candidate_info=candidate,
+                        )
+
+                        matched_item = next(
+                            (it for it in items if (it.get("label") or "").lower() == best_pick.lower() or best_pick.lower() in (it.get("label") or "").lower()),
+                            items[0]
+                        )
+                        target_id = matched_item.get("id")
+                        target_val = matched_item.get("value")
+
+                        radio_selector = f"#{target_id}" if target_id else f"input[type='radio'][name='{group_name}'][value='{target_val}']"
+                        radio_el = ctx.query_selector(radio_selector) if hasattr(ctx, "query_selector") else None
+                        if inspect.isawaitable(radio_el):
+                            radio_el = await radio_el
+
+                        if radio_el:
+                            res = radio_el.check() if hasattr(radio_el, "check") else radio_el.click()
+                            if inspect.isawaitable(res):
+                                await res
+                            if hasattr(ctx, "evaluate"):
+                                ev = ctx.evaluate("""(el) => {
+                                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                                }""", radio_el)
+                                if inspect.isawaitable(ev):
+                                    await ev
+                            filled += 1
+                            await human_delay(150, 250)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        return filled
+
+    async def _fill_checkboxes(self, page: Any) -> int:
+        """Check all required privacy policies, data processing consent, and declaration checkboxes."""
+        checked_count = 0
+        contexts = self._get_interactive_contexts(page)
+
+        for ctx in contexts:
+            try:
+                if not hasattr(ctx, "query_selector_all"):
+                    continue
+                raw_boxes = ctx.query_selector_all("input[type='checkbox']")
+                checkboxes = await raw_boxes if inspect.isawaitable(raw_boxes) else raw_boxes
+                if not isinstance(checkboxes, list):
+                    continue
+
+                for chk in checkboxes:
+                    try:
+                        is_vis = await _eval_maybe_async(getattr(chk, "is_visible", None))
+                        if not is_vis:
+                            continue
+                        is_chk = await _eval_maybe_async(getattr(chk, "is_checked", None))
+                        if is_chk:
+                            continue
+
+                        info = ctx.evaluate("""(el) => {
+                            let text = '';
+                            if (el.id) {
+                                const l = document.querySelector(`label[for="${el.id}"]`);
+                                if (l) text = l.innerText || '';
+                            }
+                            if (!text && el.closest('label')) text = el.closest('label').innerText || '';
+                            if (!text) text = el.getAttribute('aria-label') || el.name || el.id || '';
+                            const isReq = el.required || el.getAttribute('aria-required') === 'true' || el.classList.contains('required');
+                            return { text: text.toLowerCase(), isRequired: isReq };
+                        }""", chk) if hasattr(ctx, "evaluate") else None
+                        if inspect.isawaitable(info):
+                            info = await info
+
+                        info_dict = info if isinstance(info, dict) else {}
+                        lbl_text = info_dict.get("text", "")
+                        is_req = info_dict.get("isRequired", False)
+
+                        is_consent = any(w in lbl_text for w in (
+                            "agree", "consent", "privacy", "terms", "policy", "certify",
+                            "acknowledge", "declaration", "confirm", "accept", "condition",
+                            "accurate", "truth", "statement", "understand"
+                        ))
+
+                        is_marketing = any(m in lbl_text for m in ("newsletter", "marketing", "promotional", "subscription"))
+                        if is_marketing and not is_req:
+                            continue
+
+                        if is_req or is_consent:
+                            res = chk.check() if hasattr(chk, "check") else chk.click()
+                            if inspect.isawaitable(res):
+                                await res
+                            if hasattr(ctx, "evaluate"):
+                                ev = ctx.evaluate("""(el) => {
+                                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                                }""", chk)
+                                if inspect.isawaitable(ev):
+                                    await ev
+                            checked_count += 1
+                            await human_delay(100, 200)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        return checked_count
+
+    async def _fill_all_unrecognized_with_ai(self, page: Any) -> int:
+        """Scan for remaining empty text inputs or textareas and populate them with Groq AI."""
+        filled_count = 0
+        candidate = getattr(self, "candidate_info", {}) or {}
+        contexts = self._get_interactive_contexts(page)
+
+        for ctx in contexts:
+            try:
+                if not hasattr(ctx, "evaluate"):
+                    continue
+                unfilled = ctx.evaluate("""() => {
+                    const inputs = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea'));
+                    const results = [];
+                    for (const el of inputs) {
+                        if (el.offsetWidth === 0 && el.offsetHeight === 0 && !el.offsetParent) continue;
+                        if (el.value && el.value.trim().length > 0) continue;
+                        
+                        let label = '';
+                        if (el.id) {
+                            const l = document.querySelector(`label[for="${el.id}"]`);
+                            if (l) label = l.innerText || '';
+                        }
+                        if (!label && el.closest('label')) label = el.closest('label').innerText || '';
+                        if (!label) label = el.getAttribute('aria-label') || el.placeholder || el.name || el.id || '';
+                        
+                        const isRequired = el.required || el.getAttribute('aria-required') === 'true' || el.classList.contains('required');
+                        
+                        results.push({
+                            id: el.id || '',
+                            name: el.name || '',
+                            type: el.type || 'text',
+                            label: label.trim(),
+                            placeholder: el.placeholder || '',
+                            required: isRequired
+                        });
+                    }
+                    return results.slice(0, 15);
+                }""")
+                if inspect.isawaitable(unfilled):
+                    unfilled = await unfilled
+
+                if not isinstance(unfilled, list):
+                    continue
+
+                for field in unfilled:
+                    try:
+                        q_text = field.get("label") or field.get("placeholder") or field.get("name") or ""
+                        if not q_text:
+                            continue
+
+                        from src.browser.groq_form_assistant import answer_question_with_groq
+                        ans = answer_question_with_groq(
+                            question=q_text,
+                            field_type=field.get("type", "text"),
+                            candidate_info=candidate,
+                        )
+
+                        if ans:
+                            fid = field.get("id")
+                            fname = field.get("name")
+                            selector = f"#{fid}" if fid else f"[name='{fname}']"
+                            inp_el = ctx.query_selector(selector) if hasattr(ctx, "query_selector") else None
+                            if inspect.isawaitable(inp_el):
+                                inp_el = await inp_el
+
+                            if inp_el:
+                                res = inp_el.fill(ans)
+                                if inspect.isawaitable(res):
+                                    await res
+                                if hasattr(ctx, "evaluate"):
+                                    ev = ctx.evaluate("(el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }", inp_el)
+                                    if inspect.isawaitable(ev):
+                                        await ev
+                                filled_count += 1
+                                await human_delay(150, 250)
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        return filled_count
+
+    async def _is_submit_button_present(self, page: Any) -> bool:
+        """Check if final submit button is visible on current step."""
+        submit_selectors = [
+            "button[data-automation-id='submit-button']",
+            "button[data-ph-at-id='submit-button']",
+            "button[data-ph-at-id='submit']",
+            "button:has-text('Submit Application')",
+            "button:has-text('Submit application')",
+            "button:has-text('Submit Application Now')",
+            "button:has-text('Send Application')",
+            "input[type='submit'][value*='Submit' i]",
+            "button#submit_app",
+            "button#btn-submit",
+        ]
+        contexts = self._get_interactive_contexts(page)
+        for ctx in contexts:
+            for sel in submit_selectors:
                 try:
-                    name = (await r.get_attribute("name") or "").lower()
-                    if any(k in name for k in ("sponsor", "visa")):
-                        if not await r.is_checked():
-                            await r.check()
+                    btn = ctx.query_selector(sel) if hasattr(ctx, "query_selector") else None
+                    if inspect.isawaitable(btn):
+                        btn = await btn
+                    if btn:
+                        is_vis = await _eval_maybe_async(getattr(btn, "is_visible", None))
+                        if is_vis:
+                            return True
                 except Exception:
-                    pass
-        except Exception:
-            pass
+                    continue
+        return False
+
+    async def _click_next_or_continue(self, page: Any) -> bool:
+        """Click next step or continue button in multi-step wizard."""
+        next_selectors = [
+            "button[data-automation-id='bottom-navigation-next-button']",
+            "button[data-ph-at-id='next-button']",
+            "[data-ph-at-id='next-button']",
+            "button:has-text('Save and Continue')",
+            "button:has-text('Save & Continue')",
+            "button:has-text('Next Step')",
+            "button:has-text('Next')",
+            "button:has-text('Continue')",
+            "button:has-text('Proceed')",
+            "button:has-text('Review Application')",
+            "button:has-text('Review')",
+        ]
+        contexts = self._get_interactive_contexts(page)
+        for ctx in contexts:
+            for sel in next_selectors:
+                try:
+                    btn = ctx.query_selector(sel) if hasattr(ctx, "query_selector") else None
+                    if inspect.isawaitable(btn):
+                        btn = await btn
+                    if btn:
+                        is_vis = await _eval_maybe_async(getattr(btn, "is_visible", None))
+                        is_en = await _eval_maybe_async(getattr(btn, "is_enabled", True))
+                        if is_vis and is_en:
+                            # Verify text does not say 'submit'
+                            btn_text = ""
+                            try:
+                                btn_text = await ctx.evaluate("(el) => (el.innerText || el.value || '').toLowerCase()", btn)
+                            except Exception:
+                                pass
+                            if "submit" in str(btn_text):
+                                continue
+
+                            logger.info(f"[browser]Advancing multi-step application form ({sel})...[/browser]")
+                            await visual_click(page, btn, action_text="Advancing form step...")
+                            await human_delay(1500, 2500)
+                            return True
+                except Exception:
+                    continue
+        return False
 
     async def _fill_cover_letter(self, page: Page, cover_letter: str) -> None:
         """Paste cover letter into any textarea asking for it."""
@@ -818,7 +1363,7 @@ class ExternalApplyActuator:
             pass
 
     async def _submit_form(self, page: Page) -> bool:
-        """Look for and click application submit button."""
+        """Look for and click application submit button across all contexts."""
         submit_selectors = [
             "button[type='submit']",
             "input[type='submit']",
@@ -832,14 +1377,23 @@ class ExternalApplyActuator:
             "button:has-text('Submit Form')",
             "button:has-text('Submit')",
             "button:has-text('Send Application')",
+            "button#submit_app",
+            "button#btn-submit",
         ]
-        for sel in submit_selectors:
-            try:
-                btn = await page.query_selector(sel)
-                if btn and await btn.is_visible() and await btn.is_enabled():
-                    await visual_click(page, btn, action_text="Submitting external application")
-                    await human_delay(2500, 5000)
-                    return True
-            except Exception:
-                continue
+        contexts = self._get_interactive_contexts(page)
+        for ctx in contexts:
+            for sel in submit_selectors:
+                try:
+                    btn = ctx.query_selector(sel) if hasattr(ctx, "query_selector") else None
+                    if inspect.isawaitable(btn):
+                        btn = await btn
+                    if btn:
+                        is_vis = await _eval_maybe_async(getattr(btn, "is_visible", None))
+                        is_en = await _eval_maybe_async(getattr(btn, "is_enabled", True))
+                        if is_vis and is_en:
+                            await visual_click(page, btn, action_text="Submitting external application")
+                            await human_delay(2500, 5000)
+                            return True
+                except Exception:
+                    continue
         return False

@@ -31,6 +31,14 @@ def call_groq_json(prompt: str, timeout: float = 6.0) -> Optional[Dict[str, Any]
     """Execute a structured JSON prompt against Groq's high-speed inference engine."""
     api_key = os.environ.get("GROQ_API_KEY", "")
     if not api_key:
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+            api_key = os.environ.get("GROQ_API_KEY", "")
+        except Exception:
+            pass
+
+    if not api_key:
         return None
 
     base_url = os.environ.get("GROQ_BASE_URL", DEFAULT_GROQ_BASE_URL).rstrip("/")
@@ -40,7 +48,7 @@ def call_groq_json(prompt: str, timeout: float = 6.0) -> Optional[Dict[str, Any]
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "User-Agent": "AutoBot/2.0 (FormAssistant)",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 AutoBot/2.0",
     }
     payload = {
         "model": model,
@@ -65,6 +73,100 @@ def call_groq_json(prompt: str, timeout: float = 6.0) -> Optional[Dict[str, Any]
     except Exception as ex:
         logger.debug(f"[groq-form-assistant] Groq API call failed: {ex}")
         return None
+
+
+def answer_question_with_groq(
+    question: str,
+    options: Optional[List[str]] = None,
+    field_type: str = "text",
+    candidate_info: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Intelligently answer ANY form screening question, dropdown, or custom text input
+    using Groq AI with the candidate's verified profile data.
+    """
+    candidate = candidate_info or {}
+    q_lower = (question or "").lower()
+
+    # Fast heuristics for standard questions
+    if any(k in q_lower for k in ("work auth", "authorized", "legal", "eligible")):
+        if options:
+            for o in options:
+                if any(y in o.lower() for y in ("yes", "authorized", "eligible")):
+                    return o
+        return "Yes"
+    if any(k in q_lower for k in ("sponsor", "visa")):
+        if options:
+            for o in options:
+                if any(n in o.lower() for n in ("no", "do not", "will not")):
+                    return o
+        return "No"
+    if any(k in q_lower for k in ("18", "age", "adult")):
+        if options:
+            for o in options:
+                if "yes" in o.lower():
+                    return o
+        return "Yes"
+    if any(k in q_lower for k in ("background", "drug")):
+        if options:
+            for o in options:
+                if "yes" in o.lower():
+                    return o
+        return "Yes"
+    if any(k in q_lower for k in ("relocat", "travel")):
+        if options:
+            for o in options:
+                if "yes" in o.lower():
+                    return o
+        return "Yes"
+
+    # Use Groq LLM for domain-specific, complex, or unknown questions
+    candidate_summary = (
+        f"Name: {candidate.get('full_name', 'Vanraj Solanki')}\n"
+        f"Email: {candidate.get('email', 'vanrajsolanki2875@gmail.com')}\n"
+        f"Phone: {candidate.get('phone', '+91-8320452875')}\n"
+        f"Location: {candidate.get('location', 'India')}\n"
+        f"Role: Software & Automation Engineer (Python, TypeScript, React, Playwright, APIs)\n"
+        f"Experience: 3+ years in software engineering, backend systems, and automation\n"
+        f"Education: Bachelor's Degree in Computer Science / IT\n"
+        f"Notice Period: Immediate / 15 days\n"
+        f"Work Authorization: Authorized in India, no sponsorship required\n"
+        f"Veteran: Not a protected veteran\n"
+        f"Disability: No disability / Decline to state"
+    )
+
+    if options:
+        prompt = (
+            f"You are AutoBot Job Application Form Assistant.\n"
+            f"Candidate Profile:\n{candidate_summary}\n\n"
+            f"Question: \"{question}\"\n"
+            f"Options: {json.dumps(options)}\n\n"
+            f"Pick the SINGLE BEST matching option string from the options list that accurately represents the candidate.\n"
+            f"Output strictly a JSON object: {{\"best_option\": \"<exact string from options>\"}}"
+        )
+        res = call_groq_json(prompt, timeout=4.5)
+        if res and res.get("best_option"):
+            best = str(res["best_option"]).strip()
+            # Verify it matches one of the options
+            for opt in options:
+                if opt.lower().strip() == best.lower().strip() or best.lower() in opt.lower():
+                    return opt
+            return best
+        # Fallback to first non-empty option
+        return options[0] if options else ""
+    else:
+        prompt = (
+            f"You are AutoBot Job Application Form Assistant.\n"
+            f"Candidate Profile:\n{candidate_summary}\n\n"
+            f"Form Question/Field Label: \"{question}\"\n"
+            f"Provide the exact, concise string to type into this input field.\n"
+            f"Output strictly a JSON object: {{\"answer\": \"<value>\"}}"
+        )
+        res = call_groq_json(prompt, timeout=4.5)
+        if res and res.get("answer") is not None:
+            return str(res["answer"]).strip()
+
+    return ""
 
 
 async def identify_apply_button_with_groq(page: Any, job_title: str) -> Optional[str]:
