@@ -126,6 +126,8 @@ KNOWN_COMPANY_ATS_PORTALS: Dict[str, str] = KNOWN_COMPANY_SEARCH_PORTALS
 
 # Exact verified job requisitions indexed strictly by specific Job ID or Req ID
 KNOWN_EXACT_REQUISITIONS: Dict[str, str] = {
+    # MSD Associate Specialist, Manufacturing Automation (4493294199)
+    "4493294199": "https://jobs.msd.com/gb/en/job/R339798/Associate-Specialist-Manufacturing-Automation",
     # GE Vernova Engineer - Platform NPI (4489740962 / R5058359)
     "4489740962": "https://careers.gevernova.com/engineer-platform-npi/job/R5058359",
     "r5058359": "https://careers.gevernova.com/engineer-platform-npi/job/R5058359",
