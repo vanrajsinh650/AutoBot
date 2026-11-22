@@ -19,6 +19,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from src.browser.freehire_ats_resolver import extract_requisition_ids_from_text, resolve_freehire_ats_url
 from src.browser.linkedin_apply_extractor import decode_linkedin_apply_url
 from src.utils.logger import logger
 
@@ -420,14 +421,28 @@ def resolve_company_direct_apply_url(
             if is_valid:
                 return sanitize_ats_url(decoded)
 
-    # 3. Check exact requisition by ID from URL or title
-    if clean_url:
-        digits = re.findall(r"(\d{4,15})", clean_url)
-        for d in digits:
-            if d in KNOWN_EXACT_REQUISITIONS:
-                return sanitize_ats_url(KNOWN_EXACT_REQUISITIONS[d])
+    # 3. Check exact requisition by ID from URL or title (PushCV Requisition Engine)
+    combined_context = f"{clean_url} {clean_title}"
+    req_tokens = extract_requisition_ids_from_text(combined_context)
+    # Also extract raw digit sequences
+    digits = re.findall(r"(\d{4,15})", clean_url)
+    all_req_candidates = req_tokens + [d for d in digits if d not in req_tokens]
+    for req in all_req_candidates:
+        req_lower = req.lower()
+        if req_lower in KNOWN_EXACT_REQUISITIONS:
+            return sanitize_ats_url(KNOWN_EXACT_REQUISITIONS[req_lower])
+        if req in KNOWN_EXACT_REQUISITIONS:
+            return sanitize_ats_url(KNOWN_EXACT_REQUISITIONS[req])
 
-    # 4. Check verified enterprise search portal templates with {query} or direct portal URLs
+    # 4. FreeHire Direct ATS Engine: Query public Greenhouse, Lever, Ashby, SmartRecruiters REST APIs
+    if auto_discover and clean_comp and clean_title:
+        freehire_url = resolve_freehire_ats_url(company=clean_comp, target_title=clean_title)
+        if freehire_url:
+            is_val, _ = is_valid_direct_ats_url(freehire_url, title=clean_title)
+            if is_val:
+                return sanitize_ats_url(freehire_url)
+
+    # 5. Check verified enterprise search portal templates with {query} or direct portal URLs
     # Strict gate: Only return if it is a valid direct requisition, not a search page
     clean_comp_lower = clean_comp.lower()
     url_encoded_query = urllib.parse.quote_plus(clean_title)
@@ -439,7 +454,7 @@ def resolve_company_direct_apply_url(
                 if is_val:
                     return sanitize_ats_url(candidate_portal)
 
-    # 5. Dynamic live discovery if enabled
+    # 6. Dynamic live discovery if enabled
     if auto_discover and clean_comp and clean_title:
         discovered = discover_direct_job_ats_url(company=clean_comp, title=clean_title, location=location)
         if discovered:
@@ -447,7 +462,7 @@ def resolve_company_direct_apply_url(
             if is_valid:
                 return sanitize_ats_url(discovered)
 
-    # 6. Requisition Equalizer for generic /careers/ directories
+    # 7. Requisition Equalizer for generic /careers/ directories
     from src.browser.career_page_equalizer import is_generic_career_hub_url, resolve_career_hub_requisition_offline
     if clean_url and is_generic_career_hub_url(clean_url) and clean_title:
         try:
