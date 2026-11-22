@@ -32,24 +32,45 @@ async def capture_proof_screenshot(
     title: str,
     is_success: bool = True,
     reason: Optional[str] = None,
+    status: str = "applied",
 ) -> Optional[str]:
     """
     Capture a verified screenshot with an embedded audit banner and return relative file path.
+    Truthfully stamps:
+    - '✅ AutoBot Application Submitted & Verified' for real submissions verified on confirmation pages.
+    - '🔍 AutoBot Simulation (Dry Run)' for simulation runs (form filled with candidate info).
+    - '⚠️ AutoBot Blocker Audit' for gated/blocked/failed submissions.
     """
     try:
         proof_dir = ensure_proof_dir()
         clean_id = re.sub(r"[^\w\-]", "_", str(job_id))
-        suffix = "confirmed" if is_success else "blocked"
+        
+        is_dry_run = (status == "dry_run")
+        if is_dry_run:
+            suffix = "dry_run"
+            banner_title = "🔍 AutoBot Simulation (Dry Run) — Form Filled"
+            banner_bg = "#1E3A8A"
+            banner_border = "#3B82F6"
+        elif is_success:
+            suffix = "confirmed"
+            banner_title = "✅ AutoBot Application Submitted & Verified"
+            banner_bg = "#064E3B"
+            banner_border = "#10B981"
+        else:
+            suffix = "blocked"
+            banner_title = "⚠️ AutoBot Blocker Audit"
+            banner_bg = "#7F1D1D"
+            banner_border = "#EF4444"
+
         filename = f"{clean_id}_{suffix}.png"
         filepath = proof_dir / filename
 
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-        banner_title = "✅ AutoBot Application Verified" if is_success else "⚠️ AutoBot Blocker Audit"
-        banner_bg = "#064E3B" if is_success else "#7F1D1D"
-        banner_border = "#10B981" if is_success else "#EF4444"
         subtext = f"Role: {title} • Company: {company} • {now_str}"
-        if not is_success and reason:
-            subtext += f"<br>Reason: {reason}"
+        if is_dry_run:
+            subtext += "<br>Simulation Mode: Form fields filled with candidate profile. Submit button withheld by setting."
+        elif not is_success and reason:
+            subtext += f"<br>Blocker: {reason}"
 
         # Inject audit badge onto page before screenshot
         try:
@@ -82,7 +103,7 @@ async def capture_proof_screenshot(
 
         # Capture screenshot
         await page.screenshot(path=str(filepath), full_page=False)
-        logger.info(f"[proof-audit] 📸 Captured {'confirmation' if is_success else 'blocker'} screenshot: {filepath}")
+        logger.info(f"[proof-audit] 📸 Captured {suffix} proof screenshot: {filepath}")
         return f"logs/proofs/{filename}"
     except Exception as ex:
         logger.warning(f"[proof-audit] Failed to capture screenshot: {ex}")
@@ -115,6 +136,10 @@ async def verify_submission_status(page: Any, timeout_ms: int = 5000) -> Dict[st
 
         # 1. Check positive confirmation signals
         confirmation_keywords = [
+            "you have successfully applied for",
+            "successfully applied for",
+            "successfully applied",
+            "you have successfully applied",
             "thank you for applying",
             "thank you for your application",
             "application submitted",
@@ -139,9 +164,20 @@ async def verify_submission_status(page: Any, timeout_ms: int = 5000) -> Dict[st
         content_lower = str(page_content or "").lower()
 
         has_confirm_keyword = any(kw in content_lower for kw in confirmation_keywords)
-        has_confirm_url = any(u in current_url for u in ("/confirmation", "/thank-you", "/thank_you", "/submitted", "/success", "/applied"))
+        has_confirm_url = any(u in current_url for u in (
+            "/applythankyou",
+            "/confirmation",
+            "/thank-you",
+            "/thank_you",
+            "/thankyou",
+            "/submitted",
+            "status=success",
+        ))
 
-        if has_confirm_keyword or has_confirm_url:
+        # Check for false positives: If page still has an 'Apply Now' or 'Submit Application' button and no real confirmation
+        is_still_form = ("apply now" in content_lower or "submit application" in content_lower) and not has_confirm_keyword
+
+        if (has_confirm_keyword or has_confirm_url) and not is_still_form:
             # Extract possible confirmation / reference code
             conf_code = None
             code_match = re.search(r"(?:confirmation|reference|application|req|requisition)\s*(?:#|number|id|code|reference)?\s*[:#]\s*([a-z0-9\-]{3,30})", content_lower, re.IGNORECASE)

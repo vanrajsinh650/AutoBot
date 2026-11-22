@@ -64,4 +64,3 @@ browser:
   slow_mo: 50
   viewport_width: 1280
   viewport_height: 800
-  cookie_policy: auto_accept

@@ -369,16 +369,17 @@ class ExternalApplyActuator:
                 logger.debug(f"[browser]Requisition Equalizer bypassed: {eq_ex}")
 
             # Ensure application form section is expanded/visible (clicks 'Apply for this job' if needed)
+            self._current_job_title = job.title
             await self._ensure_application_form_visible(tab)
 
             # Re-dismiss cookie banners in case opening the form spawned a consent dialog
             await dismiss_cookie_banners(tab, policy=cookie_pol)
 
             # 1. Upload Resume
-            await self._upload_resume(tab)
+            resume_uploaded = await self._upload_resume(tab)
 
-            # 2. Fill Standard Contact Fields
-            await self._fill_contact_fields(tab)
+            # 2. Fill Standard Contact Fields (enhanced with Phenom People & Groq AI field mapper)
+            fields_filled_count = await self._fill_contact_fields(tab)
 
             # 3. Fill Standard Questions (work authorization, sponsorship)
             await self._fill_standard_questions(tab)
@@ -392,18 +393,41 @@ class ExternalApplyActuator:
 
             from src.browser.proof_audit import capture_proof_screenshot, verify_submission_status
 
+            # Strict Form Verification: Verify form was actually opened and populated
+            if fields_filled_count == 0 and not resume_uploaded:
+                logger.warning(f"[browser]⚠ Application form was not opened or fields missing on {job.company} portal.")
+                blocker_path = await capture_proof_screenshot(
+                    tab, job.job_id, job.company, job.title,
+                    is_success=False,
+                    reason="Application form could not be opened or required fields were not found.",
+                    status="requires_manual",
+                )
+                self.last_outcome = {
+                    "success": False,
+                    "status": "requires_manual",
+                    "reason_code": "FORM_NOT_OPENED",
+                    "description": "Application form was not opened or required contact fields could not be found.",
+                    "proof_screenshot": blocker_path or "",
+                }
+                await human_delay(2000, 3500)
+                return False
+
             # 5. Attempt Submit or Dry-Run Simulation
             if dry_run:
                 logger.info(
                     f"[browser]🔍 [Dry-Run] Application form for '{job.title}' @ '{job.company}' "
-                    f"completed successfully (simulation mode - not submitted).[/browser]"
+                    f"filled successfully ({fields_filled_count} fields, resume={resume_uploaded}) - simulation mode.[/browser]"
                 )
-                proof_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=True)
+                proof_path = await capture_proof_screenshot(
+                    tab, job.job_id, job.company, job.title,
+                    is_success=True,
+                    status="dry_run",
+                )
                 self.last_outcome = {
                     "success": True,
                     "status": "dry_run",
                     "reason_code": "DRY_RUN",
-                    "description": "Form auto-filled and validated in simulation mode.",
+                    "description": f"Form fields populated with candidate profile ({fields_filled_count} inputs). Submit withheld by user setting.",
                     "proof_screenshot": proof_path or "",
                 }
                 await human_delay(3000, 5000)
@@ -411,11 +435,17 @@ class ExternalApplyActuator:
 
             submitted = await self._submit_form(tab)
             if submitted:
+                # Wait for post-submission transition / AJAX navigation
+                await human_delay(3000, 6000)
                 # Strictly verify post-submit confirmation on the page!
                 verification = await verify_submission_status(tab)
                 if verification["is_submitted"]:
                     logger.info(f"[browser]✅ Verified external application submission for {job.company}!")
-                    proof_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=True)
+                    proof_path = await capture_proof_screenshot(
+                        tab, job.job_id, job.company, job.title,
+                        is_success=True,
+                        status="applied",
+                    )
                     self.last_outcome = {
                         "success": True,
                         "status": "applied",
@@ -427,7 +457,12 @@ class ExternalApplyActuator:
                     return True
                 else:
                     logger.warning(f"[browser]⚠ Submitted but confirmation not verified: {verification['description']}")
-                    blocker_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=False, reason=verification["description"])
+                    blocker_path = await capture_proof_screenshot(
+                        tab, job.job_id, job.company, job.title,
+                        is_success=False,
+                        reason=verification["description"],
+                        status=verification["status"],
+                    )
                     self.last_outcome = {
                         "success": False,
                         "status": verification["status"],
@@ -441,7 +476,12 @@ class ExternalApplyActuator:
                 logger.info("[browser]⚠ External portal submission requires manual verification.[/browser]")
                 verification = await verify_submission_status(tab)
                 reason_desc = verification["description"] if verification["reason_code"] != "UNKNOWN" else "Application submit button not found or required fields were incomplete."
-                blocker_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=False, reason=reason_desc)
+                blocker_path = await capture_proof_screenshot(
+                    tab, job.job_id, job.company, job.title,
+                    is_success=False,
+                    reason=reason_desc,
+                    status="requires_manual",
+                )
                 self.last_outcome = {
                     "success": False,
                     "status": "requires_manual",
@@ -493,14 +533,26 @@ class ExternalApplyActuator:
     async def _ensure_application_form_visible(self, page: Page) -> None:
         """If the page shows an 'Apply' or 'Apply for this job' button before loading the form, click it."""
         try:
-            has_form = await page.query_selector("input[type='file'], input[type='email']")
+            has_form = await page.query_selector("input[type='file'], input[type='email'], input[name='firstName']")
             if has_form and await has_form.is_visible():
                 return
 
             apply_triggers = [
+                # Phenom People (Proximus, Honeywell, ABB, etc.)
+                "[data-ph-at-id='apply-link']",
+                "[data-ph-at-id='apply-text']",
+                "[data-ph-at-id='apply-button']",
+                "a[data-ph-at-id*='apply']",
+                "button[data-ph-at-id*='apply']",
+                "[data-ph-id*='apply']",
+                "a.ph-apply-button",
+                "button.ph-apply-button",
+                ".ph-apply-button",
+                # Workday
                 "a[data-automation-id*='adventureButton']",
                 "a[data-automation-id*='applyManually']",
                 "button[data-automation-id*='apply']",
+                # Common ATS
                 "a[href*='#application-form']",
                 "a[href*='#apply']",
                 "a[href*='/apply']",
@@ -516,6 +568,7 @@ class ExternalApplyActuator:
                 "a:has-text('Apply')",
                 "[data-testid*='apply-button']",
             ]
+            clicked = False
             for sel in apply_triggers:
                 try:
                     btn = await page.query_selector(sel)
@@ -526,25 +579,50 @@ class ExternalApplyActuator:
                         except Exception:
                             pass
                         await human_delay(1500, 2500)
+                        clicked = True
                         break
                 except Exception:
                     continue
+
+            # If heuristic triggers didn't open the form, use Groq AI to locate the apply button
+            if not clicked:
+                try:
+                    from src.browser.groq_form_assistant import identify_apply_button_with_groq
+                    groq_sel = await identify_apply_button_with_groq(page, getattr(self, "_current_job_title", ""))
+                    if groq_sel:
+                        groq_btn = await page.query_selector(groq_sel)
+                        if groq_btn and await groq_btn.is_visible():
+                            await visual_click(page, groq_btn, action_text="Opening application form (Groq AI)...")
+                            await human_delay(1500, 2500)
+                except Exception as g_err:
+                    logger.debug(f"[browser]Groq AI apply trigger error: {g_err}")
+
+            # Wait briefly for form inputs to appear after clicking Apply
+            try:
+                await page.wait_for_selector(
+                    "input[type='file'], input[type='email'], input[name*='name'], input[name='firstName'], textarea",
+                    timeout=5000,
+                )
+            except Exception:
+                pass
         except Exception:
             pass
 
     ALLOWED_RESUME_EXTENSIONS = {".pdf", ".docx", ".doc", ".txt"}
 
-    async def _upload_resume(self, page: Page) -> None:
+    async def _upload_resume(self, page: Page) -> bool:
         """Upload resume document to any file input element present on page with CDP fallback."""
         if not self.resume_path.exists():
             logger.warning(f"[browser]Resume file not found on disk: {self.resume_path}")
-            return
+            return False
 
         if self.resume_path.suffix.lower() not in self.ALLOWED_RESUME_EXTENSIONS:
             logger.warning(
                 f"[browser]SECURITY POLICY VIOLATION: Blocked attempt to upload unauthorized file type: '{self.resume_path.name}'"
             )
-            return
+            return False
+
+        uploaded_any = False
         try:
             file_inputs = await page.query_selector_all(
                 "input[type='file'][accept*='pdf'], "
@@ -565,7 +643,6 @@ class ExternalApplyActuator:
                         root = await cdp.send("DOM.getDocument")
                         # Find nodeId of this input element
                         box = await inp.bounding_box()
-                        # Fallback query via selector or matching
                         node = await cdp.send("DOM.querySelector", {
                             "nodeId": root["root"]["nodeId"],
                             "selector": "input[type='file']"
@@ -590,13 +667,16 @@ class ExternalApplyActuator:
                 if uploaded:
                     await human_delay(1500, 2500)
                     logger.info("[browser]📎 Resume uploaded to external portal[/browser]")
+                    uploaded_any = True
                     break
         except Exception:
             pass
+        return uploaded_any
 
-    async def _fill_contact_fields(self, page: Page) -> None:
-        """Fill common personal and contact fields."""
+    async def _fill_contact_fields(self, page: Page) -> int:
+        """Fill common personal and contact fields. Returns count of fields successfully filled."""
         candidate = getattr(self, "candidate_info", {}) or {}
+        filled_count = 0
 
         # 1. Full name input (common on Ashby, Lever, Greenhouse, Workday)
         full_name_selectors = [
@@ -629,21 +709,22 @@ class ExternalApplyActuator:
                         if val_to_fill:
                             await el.fill(val_to_fill)
                             await human_delay(200, 400)
+                            filled_count += 1
                     full_name_filled = True
                     break
             except Exception:
                 continue
 
-        # 2. Field mappings for first/last name and other contact items
+        # 2. Field mappings for first/last name and other contact items (including Phenom People)
         fields_map = [
-            ("input[name*='first'], input[placeholder*='First' i], input[data-automation-id*='legalNameSection_firstName'], #first_name, #firstname", "First Name", candidate.get("first_name", "Vanraj")),
-            ("input[name*='last'], input[placeholder*='Last' i], input[data-automation-id*='legalNameSection_lastName'], #last_name, #lastname", "Last Name", candidate.get("last_name", "Solanki")),
-            ("input[type='email'], input[name*='email'], input[placeholder*='email' i], input[data-automation-id*='email'], #email", "Email Address", candidate.get("email", "vanrajsolanki2875@gmail.com")),
-            ("input[type='tel'], input[name*='phone'], input[placeholder*='phone' i], input[data-automation-id*='phone'], #phone", "Phone Number", candidate.get("phone", "+91-8320452875")),
+            ("input[name*='first'], input[placeholder*='First' i], input[data-automation-id*='legalNameSection_firstName'], input[data-ph-id*='firstName'], input[name='firstName'], #first_name, #firstname", "First Name", candidate.get("first_name", "Vanraj")),
+            ("input[name*='last'], input[placeholder*='Last' i], input[data-automation-id*='legalNameSection_lastName'], input[data-ph-id*='lastName'], input[name='lastName'], #last_name, #lastname", "Last Name", candidate.get("last_name", "Solanki")),
+            ("input[type='email'], input[name*='email'], input[placeholder*='email' i], input[data-automation-id*='email'], input[data-ph-id*='email'], input[name='email'], #email", "Email Address", candidate.get("email", "vanrajsolanki2875@gmail.com")),
+            ("input[type='tel'], input[name*='phone'], input[placeholder*='phone' i], input[data-automation-id*='phone'], input[data-ph-id*='phone'], input[name='phone'], #phone", "Phone Number", candidate.get("phone", "+91-8320452875")),
             ("input[name*='linkedin'], input[placeholder*='LinkedIn' i], input[id*='linkedin'], input[data-automation-id*='linkedin']", "LinkedIn Profile URL", candidate.get("linkedin", "https://linkedin.com/in/vanrajsinh")),
             ("input[name*='github'], input[placeholder*='GitHub' i], input[id*='github'], input[data-automation-id*='github']", "GitHub URL", candidate.get("github", "https://github.com/vanrajsinh650")),
             ("input[name*='website'], input[name*='portfolio'], input[placeholder*='portfolio' i], input[placeholder*='website' i]", "Portfolio URL", candidate.get("portfolio", "https://github.com/vanrajsinh650")),
-            ("input[name*='location'], input[placeholder*='location' i], input[placeholder*='city' i], input[data-automation-id*='addressSection_city']", "Location", candidate.get("location", "India")),
+            ("input[name*='location'], input[placeholder*='location' i], input[placeholder*='city' i], input[data-automation-id*='addressSection_city'], input[data-ph-id*='city']", "Location", candidate.get("location", "India")),
         ]
 
         for selector_group, question, default_val in fields_map:
@@ -669,9 +750,30 @@ class ExternalApplyActuator:
                             if val_to_fill:
                                 await el.fill(val_to_fill)
                                 await human_delay(200, 400)
+                                filled_count += 1
                         break
                 except Exception:
                     continue
+
+        # 3. If standard selectors found fewer than 2 fields, invoke Groq AI field mapper
+        if filled_count < 2:
+            try:
+                from src.browser.groq_form_assistant import map_unrecognized_form_fields_with_groq
+                ai_mappings = await map_unrecognized_form_fields_with_groq(page, candidate)
+                for m in ai_mappings:
+                    target_id = m.get("id")
+                    val = m.get("fill_value")
+                    if target_id and val:
+                        inp = await page.query_selector(f"#{target_id}, [name='{target_id}']")
+                        if inp and await inp.is_visible() and await inp.is_enabled():
+                            curr = await inp.input_value()
+                            if not curr.strip():
+                                await inp.fill(val)
+                                filled_count += 1
+            except Exception as g_err:
+                logger.debug(f"[browser]Groq AI field mapper skipped: {g_err}")
+
+        return filled_count
 
     async def _fill_standard_questions(self, page: Page) -> None:
         """Fill common standard ATS screening and compliance questions."""
@@ -722,10 +824,13 @@ class ExternalApplyActuator:
             "input[type='submit']",
             "button[data-automation-id='bottom-navigation-next-button']",
             "button[data-automation-id='submit-button']",
+            "button[data-ph-at-id='submit-button']",
+            "button[data-ph-at-id='submit']",
             "button:has-text('Submit Application')",
             "button:has-text('Submit application')",
+            "button:has-text('Submit Application Now')",
+            "button:has-text('Submit Form')",
             "button:has-text('Submit')",
-            "button:has-text('Apply')",
             "button:has-text('Send Application')",
         ]
         for sel in submit_selectors:

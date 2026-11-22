@@ -85,10 +85,17 @@ def is_admin_user(user_id: int, db_path: Optional[str] = None) -> bool:
     return False
 
 
+_db_initialized: set[str] = set()
+
+
 def init_db(db_path: Optional[str] = None) -> None:
-    """Initialize database tables with migrations and indexes."""
+    """Initialize database tables with migrations and indexes once per process."""
+    key = str(db_path or "default")
+    if key in _db_initialized:
+        return
     with get_db_connection(db_path) as conn:
         run_migrations(conn)
+    _db_initialized.add(key)
 
 
 def is_already_applied(

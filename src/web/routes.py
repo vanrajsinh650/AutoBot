@@ -1220,6 +1220,8 @@ async def search_live_handler(request: web.Request) -> web.Response:
 
             def cb(lvl: str, msg: str):
                 execution_manager.broadcast("log", {"level": lvl, "message": msg, "user_id": user_id})
+                if any(k in msg for k in ("Matched:", "Discovered", "Resolved direct ATS", "Filtered low-fit", "complete")):
+                    execution_manager.broadcast("portal_update", {"job_id": None, "status": "discovered"})
 
             if target == "google_only":
                 await run_direct_google_keyword_search(

@@ -331,6 +331,7 @@
         if (data.stable_id) {
           updatePortalCardStatus(data.stable_id, data.status);
         }
+        loadMissionFeaturedJobs();
       } catch (err) {
         console.error("SSE portal_update parse error:", err);
       }
@@ -387,6 +388,8 @@
       if (data.browser_health) {
         updateBrowserHealthUI(data.browser_health);
       }
+
+      loadMissionFeaturedJobs();
     } catch (err) {
       console.error("Failed to load status:", err);
     }

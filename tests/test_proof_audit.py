@@ -90,6 +90,18 @@ async def test_verify_submission_status_validation_error():
 
 
 @pytest.mark.asyncio
+async def test_verify_submission_status_proximus_phenom():
+    page = AsyncMock()
+    page.url = "https://jobs.proximus.com/be/en/applythankyou?status=success&jobSeqNo=PIHPROGBREQ19749EXTERNALENBE"
+    page.evaluate.return_value = "Vanraj, you have successfully applied for: Python Developer, Mumbai, IND. Back to home. Back to job search."
+
+    result = await verify_submission_status(page)
+    assert result["is_submitted"] is True
+    assert result["status"] == "applied"
+    assert result["reason_code"] == "SUCCESS"
+
+
+@pytest.mark.asyncio
 async def test_capture_proof_screenshot(tmp_path):
     page = AsyncMock()
     page.screenshot = AsyncMock()
@@ -102,7 +114,20 @@ async def test_capture_proof_screenshot(tmp_path):
             company="Acme Corp",
             title="Senior Python Engineer",
             is_success=True,
+            status="applied",
         )
         assert proof_path is not None
         assert "test_job_123_confirmed.png" in proof_path
         page.screenshot.assert_awaited_once()
+
+        # Test dry-run simulation proof
+        dry_proof = await capture_proof_screenshot(
+            page=page,
+            job_id="test_job_456",
+            company="Proximus",
+            title="Python Developer",
+            is_success=True,
+            status="dry_run",
+        )
+        assert dry_proof is not None
+        assert "test_job_456_dry_run.png" in dry_proof

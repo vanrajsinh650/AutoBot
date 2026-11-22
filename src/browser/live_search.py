@@ -193,106 +193,124 @@ async def run_direct_chrome_search(
 
     all_discovered_jobs: List[JobPosting] = []
 
-    # ── Phase 1: Search Primary Keyword 'Python Developer' in Browser 1 ──
-    _notify("info", f"🚀 Phase 1: Launching Primary Chrome Browser for '{primary_kw}'...")
-    manager1 = BrowserManager(cfg=cfg, env=env, headless=headless, user_id=user_id)
+    # 1. Deduplicate ordered keywords while preserving priority
+    unique_kws: List[str] = []
+    seen_kws = set()
+    for k in ordered_keywords:
+        kl = k.strip().lower()
+        if kl and kl not in seen_kws:
+            seen_kws.add(kl)
+            unique_kws.append(k.strip())
+
+    # 2. If user requested multiple parallel browsers but provided fewer keywords, expand intelligently
+    if len(unique_kws) < num_browsers:
+        fallback_expansions = [
+            "Software Engineer",
+            "Backend Developer",
+            "Automation Engineer",
+            "Full Stack Developer",
+            "DevOps Engineer",
+        ]
+        for fb in fallback_expansions:
+            if len(unique_kws) >= num_browsers:
+                break
+            if fb.lower() not in seen_kws:
+                seen_kws.add(fb.lower())
+                unique_kws.append(fb)
+
+    active_workers = min(num_browsers, len(unique_kws)) if num_browsers > 1 else 1
+    _notify(
+        "info",
+        f"⚡ Launching {active_workers} parallel Chrome browsers simultaneously across {len(unique_kws)} keywords: {', '.join(unique_kws)}..."
+    )
+
+    # 3. Shard keywords evenly across active concurrent workers
+    worker_keyword_buckets: Dict[int, List[str]] = {w: [] for w in range(1, active_workers + 1)}
+    for idx, kw_item in enumerate(unique_kws):
+        worker_id = (idx % active_workers) + 1
+        worker_keyword_buckets[worker_id].append(kw_item)
+
+    session_dir = Path("data/session")
+    session_dir.mkdir(parents=True, exist_ok=True)
+    active_managers: List[BrowserManager] = []
+
+    async def _run_worker(worker_id: int, assigned_kws: List[str]) -> List[JobPosting]:
+        worker_jobs: List[JobPosting] = []
+        worker_data_dir = session_dir / f"user_data_worker_{worker_id}"
+        worker_tag = f"Browser {worker_id}"
+
+        mgr = BrowserManager(
+            cfg=cfg,
+            env=env,
+            user_data_dir=worker_data_dir,
+            headless=headless,
+            user_id=user_id,
+        )
+        active_managers.append(mgr)
+
+        try:
+            _notify("info", f"🌐 [{worker_tag}] Launching Chrome instance for: {', '.join(assigned_kws)}...")
+            await mgr.start()
+            nav = LinkedInNavigator(manager=mgr, cfg=cfg, env=env)
+            is_auth = await nav.ensure_logged_in(require_login=False)
+            if not is_auth:
+                _notify("warning", f"[{worker_tag}] Proceeding in public stealth search mode.")
+
+            for kw_item in assigned_kws:
+                jobs = await _scrape_single_keyword(
+                    nav=nav,
+                    kw=kw_item,
+                    loc=search_location,
+                    j_types=effective_job_types,
+                    worker_tag=worker_tag,
+                )
+                worker_jobs.extend(jobs)
+
+            return worker_jobs
+        except Exception as w_err:
+            logger.error(f"[{worker_tag}] Worker search error: {w_err}", exc_info=True)
+            _notify("error", f"[{worker_tag}] Encountered error: {w_err}")
+            return worker_jobs
+        finally:
+            if not keep_open:
+                try:
+                    await mgr.close()
+                except Exception:
+                    pass
 
     try:
-        await manager1.start()
-        nav1 = LinkedInNavigator(manager=manager1, cfg=cfg, env=env)
-        _notify("info", "Checking LinkedIn authentication session...")
-        is_auth = await nav1.ensure_logged_in()
-        if not is_auth:
-            _notify("warning", "LinkedIn authentication required. Proceeding in public stealth search mode.")
+        # Launch ALL workers simultaneously at T=0 using asyncio.gather
+        tasks = [
+            _run_worker(w_id, worker_keyword_buckets[w_id])
+            for w_id in range(1, active_workers + 1)
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for res in results:
+            if isinstance(res, list):
+                all_discovered_jobs.extend(res)
 
-        p1_jobs = await _scrape_single_keyword(
-            nav=nav1,
-            kw=primary_kw,
-            loc=search_location,
-            j_types=effective_job_types,
-            worker_tag="Browser 1 (Primary)",
+        _notify(
+            "success",
+            f"🎉 Simultaneous multi-browser search complete across {active_workers} Chrome instances! "
+            f"Total {len(all_discovered_jobs)} matching opportunities discovered."
         )
-        all_discovered_jobs.extend(p1_jobs)
-        _notify("success", f"✓ Phase 1 complete: Finished search for '{primary_kw}'. Discovered {len(p1_jobs)} matching roles.")
-
-        # ── Phase 2: Search Secondary Keywords ───────────────────────
-        if secondary_kws:
-            if num_browsers <= 1:
-                # Sequential scraping in Browser 1
-                _notify("info", f"Phase 2: Continuing with {len(secondary_kws)} secondary keywords in Browser 1...")
-                for s_kw in secondary_kws:
-                    s_jobs = await _scrape_single_keyword(
-                        nav=nav1,
-                        kw=s_kw,
-                        loc=search_location,
-                        j_types=effective_job_types,
-                        worker_tag="Browser 1",
-                    )
-                    all_discovered_jobs.extend(s_jobs)
-            else:
-                # Parallel scraping across multiple concurrent Chrome browsers
-                active_workers = min(num_browsers, len(secondary_kws))
-                _notify("info", f"⚡ Phase 2: Launching {active_workers} parallel Chrome browsers for {len(secondary_kws)} keywords: {', '.join(secondary_kws)}...")
-
-                session_dir = manager1.session_dir
-                sem = asyncio.Semaphore(active_workers)
-
-                async def _worker_task(kw_item: str, worker_id: int):
-                    async with sem:
-                        worker_data_dir = session_dir / f"user_data_worker_{worker_id}"
-                        worker_mgr = BrowserManager(
-                            cfg=cfg,
-                            env=env,
-                            user_data_dir=worker_data_dir,
-                            headless=headless,
-                            user_id=user_id,
-                        )
-                        try:
-                            _notify("info", f"🌐 [Browser {worker_id}] Launching parallel Chrome instance for '{kw_item}'...")
-                            await worker_mgr.start()
-                            w_nav = LinkedInNavigator(manager=worker_mgr, cfg=cfg, env=env)
-                            await w_nav.ensure_logged_in(require_login=False)
-                            w_jobs = await _scrape_single_keyword(
-                                nav=w_nav,
-                                kw=kw_item,
-                                loc=search_location,
-                                j_types=effective_job_types,
-                                worker_tag=f"Browser {worker_id}",
-                            )
-                            return w_jobs
-                        except Exception as w_err:
-                            logger.error(f"[Browser {worker_id}] Parallel search error: {w_err}")
-                            return []
-                        finally:
-                            try:
-                                await worker_mgr.close()
-                            except Exception:
-                                pass
-
-                tasks = [
-                    _worker_task(kw, (idx % active_workers) + 2)
-                    for idx, kw in enumerate(secondary_kws)
-                ]
-                parallel_results = await asyncio.gather(*tasks, return_exceptions=True)
-                for pr in parallel_results:
-                    if isinstance(pr, list):
-                        all_discovered_jobs.extend(pr)
-
-        _notify("success", f"🎉 Autonomous search complete! Total {len(all_discovered_jobs)} matching opportunities discovered.")
 
         if keep_open:
-            _notify("info", "Chrome browser is ready. Keeping primary window open for you to view results...")
+            _notify("info", f"Chrome instances ({active_workers}) are ready and open on your screen for inspection.")
             return all_discovered_jobs
 
     except Exception as e:
-        _notify("error", f"Search encountered an error: {e}")
+        _notify("error", f"Parallel search encountered an error: {e}")
         logger.error(f"Error in direct Chrome search: {e}", exc_info=True)
     finally:
         if not keep_open:
-            try:
-                await manager1.close()
-            except Exception:
-                pass
+            for mgr in active_managers:
+                try:
+                    await mgr.close()
+                except Exception:
+                    pass
+
+    return all_discovered_jobs
 
     return all_discovered_jobs
 

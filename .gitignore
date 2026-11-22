@@ -16,6 +16,7 @@ data/backups/
 # Logs & DB
 logs/autobot.db
 logs/*.log
+logs/proofs/*.png
 
 # Qdrant
 qdrant_storage/
