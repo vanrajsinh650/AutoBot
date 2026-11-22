@@ -46,6 +46,16 @@ KNOWN_ATS_DOMAINS: List[str] = [
     "personio.com",
     "breezy.hr",
     "recruitee.com",
+    "zohorecruit.in",
+    "zohorecruit.com",
+    "join.com",
+    "keka.com",
+    "ripplehire.com",
+    "cutshort.io",
+    "prolegion.com",
+    "darwinbox.in",
+    "darwinbox.com",
+    "hiringthing.com",
 ]
 
 EXCLUDED_AGGREGATOR_DOMAINS: List[str] = [
@@ -92,6 +102,24 @@ KNOWN_COMPANY_SEARCH_PORTALS: Dict[str, str] = {
     "asurion india gcc": "https://careers.asurion.com/search-jobs/{query}",
     "ge vernova": "https://jobs.gevernova.com/global/en/search-results?keywords={query}",
     "jobgether": "https://jobgether.com/jobs?q={query}",
+    "tocumulus": "https://theomnihire.zohorecruit.in/jobs/Careers",
+    "ishan technologies": "https://ishantechnologies.com/careers/",
+    "izoologic": "https://izoologic.com/careers/",
+    "innefu labs": "https://innefu.com/careers/",
+    "innefu": "https://innefu.com/careers/",
+    "nat habit": "https://nathabit.in/pages/careers",
+    "v2 retail": "https://v2retail.com/",
+    "v2 retail ltd": "https://v2retail.com/",
+    "trivelta": "https://trivelta.com/careers",
+    "rankwatch": "https://join.com/companies/rankwatch",
+    "rankwatch inc.": "https://join.com/companies/rankwatch",
+    "persistent systems": "https://persistent.com/careers",
+    "ust": "https://usource.ripplehire.com/candidate/?token=8YxWjpwDhdL62DFYUIcQ",
+    "jll": "https://jll.wd1.myworkdayjobs.com/jllcareers",
+    "route mobile limited": "https://jobs.proximus.com",
+    "route mobile": "https://jobs.proximus.com",
+    "hireflexperts": "https://prolegion.com",
+    "impact analytics": "https://impactanalytics.keka.com/careers",
 }
 
 # Alias for backwards compatibility
@@ -99,6 +127,43 @@ KNOWN_COMPANY_ATS_PORTALS: Dict[str, str] = KNOWN_COMPANY_SEARCH_PORTALS
 
 # Exact verified job requisitions indexed strictly by specific Job ID or Req ID
 KNOWN_EXACT_REQUISITIONS: Dict[str, str] = {
+    # TOCUMULUS Python Developer (4492134351)
+    "4492134351": "https://theomnihire.zohorecruit.in/jobs/Careers/193563000004683072/Python-Developer?source=LinkedIn-Basic&embedsource=LinkedIn+Limited+Listings",
+    # Synechron Lead Python Developer (4490410657)
+    "4490410657": "https://synechron.wd1.myworkdayjobs.com/en-US/SynechronCareers/job/Python-AI-Lead-Developer---Cloud-Infrastructure--Software-Architecture---Cross-Functional-Team-Leadership_JR1044712",
+    # RankWatch Inc. Python Dev (4491690638)
+    "4491690638": "https://join.com/companies/rankwatch/16630250-python-dev#apply-window",
+    # UST Lead II - Software Engineering - Python (4490881475)
+    "4490881475": "https://usource.ripplehire.com/candidate/?token=8YxWjpwDhdL62DFYUIcQ&lang=en&source=USTLINKEDIN&ref=USTLINKEDIN#detail/job/68398",
+    # JLL Software Engineer 2 (4492926152)
+    "4492926152": "https://jll.wd1.myworkdayjobs.com/jllcareers/job/Bengaluru-KA/Software-Engineer-2_REQ547225-1",
+    # Capace Software Python Developer (4489871147)
+    "4489871147": "https://cutshort.io/job/Python-Developer-Bengaluru-Bangalore-Capace-Software-Private-Limited-e12918bb",
+    # HireFlexperts Python Developer (4492295753)
+    "4492295753": "https://prolegion.com/jobs/012y81A?utm_source=linkedin",
+    # Route Mobile Limited Python Developer (4444008373)
+    "4444008373": "https://jobs.proximus.com/be/en/job/req19749/Python-Developer?src=LinkedIn",
+    # Impact Analytics Senior Software Engineer (4484452544)
+    "4484452544": "https://impactanalytics.keka.com/careers/jobdetails/63569?source=linkedin",
+    # MULTIVAC Senior Developer - Python (4478691044)
+    "4478691044": "https://multivac.com/de/de/career/job-vacancies/vacancies.senior-developer-python",
+    # Glencore Python Software Engineer (4476204074)
+    "4476204074": "https://www.glencore.com/careers/jobs/R200001691",
+    # Ishan Technologies Software Developer (851766497692888889 / 4488710018)
+    "851766497692888889": "https://ishantechnologies.com/careers/",
+    "4488710018": "https://ishantechnologies.com/careers/",
+    # iZOOlogic Python Developer (4492563213)
+    "4492563213": "https://izoologic.com/careers/",
+    # Innefu Labs Python Software Developer (4491826398)
+    "4491826398": "https://innefu.com/careers/",
+    # Nat Habit Backend Engineer (4492013011)
+    "4492013011": "https://nathabit.in/pages/careers",
+    # V2 Retail Ltd Python Developer (4492573591)
+    "4492573591": "https://v2retail.com/",
+    # Trivelta Senior Backend Software Engineer (4370494226)
+    "4370494226": "https://trivelta.com/careers",
+    # Persistent Systems Python API developer (4490677816)
+    "4490677816": "https://persistent.com/careers",
     # Synechron Python Software Engineer (JR1044669 / 4475424818)
     "4475424818": "https://synechron.wd1.myworkdayjobs.com/SynechronCareers/job/Bengaluru---Bellandur-GTP/Python-Software-Engineer---Application-Maintenance--Debugging---Agile-Development_JR1044669?source=LinkedIn",
     "jr1044669": "https://synechron.wd1.myworkdayjobs.com/SynechronCareers/job/Bengaluru---Bellandur-GTP/Python-Software-Engineer---Application-Maintenance--Debugging---Agile-Development_JR1044669?source=LinkedIn",
@@ -335,14 +400,17 @@ def resolve_company_direct_apply_url(
             if d in KNOWN_EXACT_REQUISITIONS:
                 return sanitize_ats_url(KNOWN_EXACT_REQUISITIONS[d])
 
-    # 4. Check verified enterprise search portal templates with {query}
+    # 4. Check verified enterprise search portal templates with {query} or direct portal URLs
     clean_comp_lower = clean_comp.lower()
     url_encoded_query = urllib.parse.quote_plus(clean_title)
     if clean_comp_lower:
         for comp_key, portal_template in KNOWN_COMPANY_SEARCH_PORTALS.items():
             if comp_key == clean_comp_lower or (len(comp_key) > 3 and comp_key in clean_comp_lower):
-                if "{query}" in portal_template and clean_title:
-                    return portal_template.format(query=url_encoded_query)
+                if "{query}" in portal_template:
+                    if clean_title:
+                        return portal_template.format(query=url_encoded_query)
+                else:
+                    return portal_template
 
     # 5. Dynamic live discovery if enabled
     if auto_discover and clean_comp and clean_title:
@@ -352,6 +420,23 @@ def resolve_company_direct_apply_url(
             if is_valid:
                 return sanitize_ats_url(discovered)
 
-    # 6. Permanent Reliable Fallback: Google Jobs 1-Click Interactive Requisition
-    # Completely eliminates LinkedIn authwalls, Workday maintenance pages, 404s, and generic roots.
-    return get_google_jobs_apply_url(clean_comp, clean_title)
+    # 6. Requisition Equalizer for generic /careers/ directories
+    from src.browser.career_page_equalizer import is_generic_career_hub_url, resolve_career_hub_requisition_offline
+    if clean_url and is_generic_career_hub_url(clean_url) and clean_title:
+        try:
+            equalized = resolve_career_hub_requisition_offline(
+                hub_url=clean_url,
+                target_title=clean_title,
+                company=clean_comp,
+                location=location or "",
+            )
+            if equalized:
+                is_val, _ = is_valid_direct_ats_url(equalized, title=clean_title)
+                if is_val:
+                    return sanitize_ats_url(equalized)
+        except Exception:
+            pass
+
+    # 7. Authentic Preservation Fallback: Preserve original authentic URL
+    # Never replace candidate job URLs with synthetic Google Search queries.
+    return clean_url

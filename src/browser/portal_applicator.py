@@ -25,6 +25,18 @@ from src.utils.config import AppConfig, get_config, get_env
 from src.utils.logger import logger
 
 
+def _extract_outcome_meta(actuator_obj: Any) -> tuple[str, str, str]:
+    raw_outcome = getattr(actuator_obj, "last_outcome", None)
+    outcome = raw_outcome if isinstance(raw_outcome, dict) else {}
+    shot_val = outcome.get("proof_screenshot")
+    proof_shot = str(shot_val) if isinstance(shot_val, (str, int, float)) and shot_val else ""
+    desc_val = outcome.get("description")
+    desc = str(desc_val) if isinstance(desc_val, (str, int, float)) and desc_val else ""
+    st_val = outcome.get("status")
+    st = str(st_val) if isinstance(st_val, (str, int, float)) and st_val else ""
+    return proof_shot, desc, st
+
+
 async def apply_to_portals(
     job_ids: List[Union[int, str]],
     user_id: int = 1,
@@ -214,6 +226,10 @@ async def apply_to_portals(
                         dry_run=dry_run,
                     )
 
+                    proof_shot, fail_desc, fail_status = _extract_outcome_meta(easy_actuator)
+                    fail_desc = fail_desc or "Easy Apply requires manual answers or completion."
+                    fail_status = fail_status or "requires_manual"
+
                     if success:
                         succeeded += 1
                         status = "dry_run" if dry_run else "applied"
@@ -230,21 +246,39 @@ async def apply_to_portals(
                             notes=note,
                             db_path=active_db,
                             user_id=user_id,
+                            proof_screenshot=proof_shot,
                         )
                         _notify(
                             "success",
                             f"({idx}/{len(jobs_to_apply)}) ✅ LinkedIn Easy Apply for '{title}' @ '{company}' completed ({status})!",
-                            {"job_id": job.get("id"), "stable_id": job_stable_id, "status": status, "success": True},
+                            {"job_id": job.get("id"), "stable_id": job_stable_id, "status": status, "success": True, "proof_screenshot": proof_shot},
                         )
-                        results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True})
+                        results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True, "proof_screenshot": proof_shot})
                     else:
                         failed += 1
+                        fail_desc = outcome.get("description") or "Easy Apply requires manual answers or completion."
+                        fail_status = outcome.get("status") or "requires_manual"
+                        save_application(
+                            job_id=job_stable_id,
+                            job_title=title,
+                            company=company,
+                            location=job.get("location") or "Remote",
+                            apply_type="easy_apply",
+                            match_score=0.9,
+                            status=fail_status,
+                            url=target_url,
+                            notes=fail_desc,
+                            db_path=active_db,
+                            user_id=user_id,
+                            proof_screenshot=proof_shot,
+                            failure_reason=fail_desc,
+                        )
                         _notify(
                             "warning",
-                            f"({idx}/{len(jobs_to_apply)}) ⚠ LinkedIn Easy Apply for '{title}' @ '{company}' could not complete automatically.",
-                            {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "requires_manual", "success": False},
+                            f"({idx}/{len(jobs_to_apply)}) ⚠ LinkedIn Easy Apply for '{title}' @ '{company}': {fail_desc}",
+                            {"job_id": job.get("id"), "stable_id": job_stable_id, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False},
                         )
-                        results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": "requires_manual", "success": False})
+                        results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False})
 
                 except AntiBotChallengeDetected as abc:
                     failed += 1
@@ -310,6 +344,10 @@ async def apply_to_portals(
                                     is_easy_apply=True,
                                 )
                                 success = await easy_actuator.apply(job=job_posting, dry_run=dry_run)
+                                proof_shot, fail_desc, fail_status = _extract_outcome_meta(easy_actuator)
+                                fail_desc = fail_desc or "Easy Apply requires manual answers or completion."
+                                fail_status = fail_status or "requires_manual"
+
                                 if success:
                                     succeeded += 1
                                     status = "dry_run" if dry_run else "applied"
@@ -326,21 +364,39 @@ async def apply_to_portals(
                                         notes=note,
                                         db_path=active_db,
                                         user_id=user_id,
+                                        proof_screenshot=proof_shot,
                                     )
                                     _notify(
                                         "success",
                                         f"({idx}/{len(jobs_to_apply)}) ✅ LinkedIn Easy Apply for '{title}' @ '{company}' completed ({status})!",
-                                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": status, "success": True},
+                                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": status, "success": True, "proof_screenshot": proof_shot},
                                     )
-                                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True})
+                                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True, "proof_screenshot": proof_shot})
                                 else:
                                     failed += 1
+                                    fail_desc = outcome.get("description") or "Easy Apply requires manual answers or completion."
+                                    fail_status = outcome.get("status") or "requires_manual"
+                                    save_application(
+                                        job_id=job_stable_id,
+                                        job_title=title,
+                                        company=company,
+                                        location=job.get("location") or "Remote",
+                                        apply_type="easy_apply",
+                                        match_score=0.9,
+                                        status=fail_status,
+                                        url=target_url,
+                                        notes=fail_desc,
+                                        db_path=active_db,
+                                        user_id=user_id,
+                                        proof_screenshot=proof_shot,
+                                        failure_reason=fail_desc,
+                                    )
                                     _notify(
                                         "warning",
-                                        f"({idx}/{len(jobs_to_apply)}) ⚠ LinkedIn Easy Apply for '{title}' @ '{company}' requires manual completion.",
-                                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "requires_manual", "success": False},
+                                        f"({idx}/{len(jobs_to_apply)}) ⚠ LinkedIn Easy Apply for '{title}' @ '{company}': {fail_desc}",
+                                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False},
                                     )
-                                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": "requires_manual", "success": False})
+                                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False})
 
                                 await temp_page.close()
                                 temp_page = None
@@ -420,6 +476,10 @@ async def apply_to_portals(
                     dry_run=dry_run,
                 )
 
+                proof_shot, fail_desc, fail_status = _extract_outcome_meta(actuator)
+                fail_desc = fail_desc or "Requires manual completion on external portal."
+                fail_status = fail_status or "requires_manual"
+
                 if success:
                     succeeded += 1
                     status = "dry_run" if dry_run else "applied"
@@ -436,21 +496,39 @@ async def apply_to_portals(
                         notes=note,
                         db_path=active_db,
                         user_id=user_id,
+                        proof_screenshot=proof_shot,
                     )
                     _notify(
                         "success",
                         f"({idx}/{len(jobs_to_apply)}) ✅ Application to '{title}' @ '{company}' completed ({status})!",
-                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": status, "success": True, "title": title, "company": company},
+                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": status, "success": True, "title": title, "company": company, "proof_screenshot": proof_shot},
                     )
-                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True})
+                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True, "proof_screenshot": proof_shot})
                 else:
                     failed += 1
+                    fail_desc = outcome.get("description") or "Requires manual completion on external portal."
+                    fail_status = outcome.get("status") or "requires_manual"
+                    save_application(
+                        job_id=job_stable_id,
+                        job_title=title,
+                        company=company,
+                        location=job.get("location") or "Remote",
+                        apply_type="external_apply",
+                        match_score=0.9,
+                        status=fail_status,
+                        url=target_url,
+                        notes=fail_desc,
+                        db_path=active_db,
+                        user_id=user_id,
+                        proof_screenshot=proof_shot,
+                        failure_reason=fail_desc,
+                    )
                     _notify(
                         "warning",
-                        f"({idx}/{len(jobs_to_apply)}) ⚠ Application to '{title}' @ '{company}' requires manual completion.",
-                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "requires_manual", "success": False, "title": title, "company": company},
+                        f"({idx}/{len(jobs_to_apply)}) ⚠ Application to '{title}' @ '{company}': {fail_desc}",
+                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False, "title": title, "company": company},
                     )
-                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": "requires_manual", "success": False})
+                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False})
 
             except AntiBotChallengeDetected as abc:
                 failed += 1

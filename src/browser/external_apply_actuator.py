@@ -147,6 +147,7 @@ class ExternalApplyActuator:
             self.resume_path = Path(p)
 
         self.candidate_info = candidate_info or load_candidate_profile_info(self.cfg)
+        self.last_outcome: Dict[str, Any] = {}
 
     def validate_target_domain(self, url: str) -> str:
         """
@@ -259,9 +260,17 @@ class ExternalApplyActuator:
 
     def _resolve_external_apply_url(self, url: str) -> Optional[str]:
         """
-        Attempt to extract destination external ATS URL from query parameters or redirects
-        if the URL is an offsite LinkedIn tracking link (e.g. externalApply?url=...).
+        Attempt to extract destination external ATS URL from query parameters, safety redirects,
+        or tracking links (e.g. safety/go/?url=... or externalApply?url=...).
         """
+        try:
+            from src.browser.linkedin_apply_extractor import decode_linkedin_apply_url
+            decoded = decode_linkedin_apply_url(url)
+            if decoded:
+                return decoded
+        except Exception:
+            pass
+
         try:
             parsed = urlparse(url)
             qs = parse_qs(parsed.query)
@@ -332,13 +341,38 @@ class ExternalApplyActuator:
             except Exception:
                 pass
             await tab.goto(target_url, wait_until="domcontentloaded", timeout=30000)
-            await human_delay(2000, 3500)
+            await human_delay(1500, 2500)
+
+            # Auto-dismiss / suppress cookie consent overlays (Option 1 + Option 2)
+            from src.browser.cookie_handler import dismiss_cookie_banners
+            cookie_pol = getattr(getattr(self.cfg, "browser", None), "cookie_policy", "auto_accept")
+            await dismiss_cookie_banners(tab, policy=cookie_pol)
 
             # Check for security challenges / CAPTCHA gates
             await self.check_security_challenges(tab)
 
+            # Auto-equalize career directory hub to exact job requisition (Groq LLM / Tier-1 Matcher)
+            try:
+                from src.browser.career_page_equalizer import equalize_career_hub_url
+                equalized_url = await equalize_career_hub_url(
+                    page=tab,
+                    target_title=job.title,
+                    company=job.company,
+                    location=job.location or "",
+                    current_url=tab.url,
+                )
+                if equalized_url:
+                    target_url = equalized_url
+                    await human_delay(1500, 2500)
+                    await dismiss_cookie_banners(tab, policy=cookie_pol)
+            except Exception as eq_ex:
+                logger.debug(f"[browser]Requisition Equalizer bypassed: {eq_ex}")
+
             # Ensure application form section is expanded/visible (clicks 'Apply for this job' if needed)
             await self._ensure_application_form_visible(tab)
+
+            # Re-dismiss cookie banners in case opening the form spawned a consent dialog
+            await dismiss_cookie_banners(tab, policy=cookie_pol)
 
             # 1. Upload Resume
             await self._upload_resume(tab)
@@ -356,29 +390,99 @@ class ExternalApplyActuator:
             # Re-check challenges before submission
             await self.check_security_challenges(tab)
 
+            from src.browser.proof_audit import capture_proof_screenshot, verify_submission_status
+
             # 5. Attempt Submit or Dry-Run Simulation
             if dry_run:
                 logger.info(
                     f"[browser]🔍 [Dry-Run] Application form for '{job.title}' @ '{job.company}' "
                     f"completed successfully (simulation mode - not submitted).[/browser]"
                 )
-                await human_delay(1500, 2500)
+                proof_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=True)
+                self.last_outcome = {
+                    "success": True,
+                    "status": "dry_run",
+                    "reason_code": "DRY_RUN",
+                    "description": "Form auto-filled and validated in simulation mode.",
+                    "proof_screenshot": proof_path or "",
+                }
+                await human_delay(3000, 5000)
                 return True
 
             submitted = await self._submit_form(tab)
             if submitted:
-                logger.info("[browser]✅ External application submitted successfully![/browser]")
+                # Strictly verify post-submit confirmation on the page!
+                verification = await verify_submission_status(tab)
+                if verification["is_submitted"]:
+                    logger.info(f"[browser]✅ Verified external application submission for {job.company}!")
+                    proof_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=True)
+                    self.last_outcome = {
+                        "success": True,
+                        "status": "applied",
+                        "reason_code": verification["reason_code"],
+                        "description": verification["description"],
+                        "proof_screenshot": proof_path or "",
+                    }
+                    await human_delay(3000, 4500)
+                    return True
+                else:
+                    logger.warning(f"[browser]⚠ Submitted but confirmation not verified: {verification['description']}")
+                    blocker_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=False, reason=verification["description"])
+                    self.last_outcome = {
+                        "success": False,
+                        "status": verification["status"],
+                        "reason_code": verification["reason_code"],
+                        "description": verification["description"],
+                        "proof_screenshot": blocker_path or "",
+                    }
+                    await human_delay(2000, 3500)
+                    return False
             else:
                 logger.info("[browser]⚠ External portal submission requires manual verification.[/browser]")
-            return submitted
+                verification = await verify_submission_status(tab)
+                reason_desc = verification["description"] if verification["reason_code"] != "UNKNOWN" else "Application submit button not found or required fields were incomplete."
+                blocker_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=False, reason=reason_desc)
+                self.last_outcome = {
+                    "success": False,
+                    "status": "requires_manual",
+                    "reason_code": verification["reason_code"] if verification["reason_code"] != "UNKNOWN" else "SUBMIT_FAILED",
+                    "description": reason_desc,
+                    "proof_screenshot": blocker_path or "",
+                }
+                await human_delay(2000, 3500)
+                return False
 
         except AntiBotChallengeDetected as abc:
             logger.error(f"[browser]🛑 Anti-bot challenge: {abc}. Halting submission cleanly.[/browser]")
+            from src.browser.proof_audit import capture_proof_screenshot
+            try:
+                blocker_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=False, reason="Anti-bot security challenge detected")
+                self.last_outcome = {
+                    "success": False,
+                    "status": "challenge_detected",
+                    "reason_code": "SECURITY_CHALLENGE",
+                    "description": f"Security challenge on portal: {abc}",
+                    "proof_screenshot": blocker_path or "",
+                }
+            except Exception:
+                pass
             raise
         except LinkedInPolicyViolationError:
             raise
         except Exception as e:
             logger.warning(f"External apply error: {e}")
+            from src.browser.proof_audit import capture_proof_screenshot
+            try:
+                blocker_path = await capture_proof_screenshot(tab, job.job_id, job.company, job.title, is_success=False, reason=str(e))
+                self.last_outcome = {
+                    "success": False,
+                    "status": "requires_manual",
+                    "reason_code": "ERROR",
+                    "description": f"Error during application: {e}",
+                    "proof_screenshot": blocker_path or "",
+                }
+            except Exception:
+                pass
             return False
         finally:
             try:

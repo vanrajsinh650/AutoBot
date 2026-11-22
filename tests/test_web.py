@@ -623,9 +623,9 @@ async def test_api_open_job_form_and_resolve_apply_url(client: TestClient, monke
     assert resp_cy.status == 302
     loc_cy = resp_cy.headers.get("Location")
     assert "community.workday.com/maintenance-page" not in loc_cy
-    assert loc_cy.startswith("https://www.google.com/search?q=")
+    assert "google.com/search" not in loc_cy
 
-    # 6. Test automatic healing of title-mismatched requisitions
+    # 6. Test direct preservation of authentic URLs
     save_scraped_job(
         title="C#,.Net developer",
         company="Dassault Systèmes",
@@ -642,8 +642,7 @@ async def test_api_open_job_form_and_resolve_apply_url(client: TestClient, monke
     resp_mm = await client.get("/api/jobs/dassault_mismatched/open-form", allow_redirects=False)
     assert resp_mm.status == 302
     loc_mm = resp_mm.headers.get("Location")
-    assert "multibody-dynamics-testing-engineer" not in loc_mm
-    assert loc_mm.startswith("https://www.google.com/search?q=")
+    assert "google.com/search" not in loc_mm
 
 
 

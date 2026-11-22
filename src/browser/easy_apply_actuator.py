@@ -63,6 +63,7 @@ class EasyApplyActuator:
         self.form_rag = form_rag
         self.cfg = cfg or get_config()
         self.candidate_info = candidate_info or load_candidate_profile_info(self.cfg)
+        self.last_outcome: Dict[str, Any] = {}
 
         if resume_path is not None:
             self.resume_path = Path(resume_path)
@@ -187,6 +188,8 @@ class EasyApplyActuator:
             logger.warning("[browser]Could not find or click Easy Apply button.[/browser]")
             return False
 
+        from src.browser.proof_audit import capture_proof_screenshot
+
         # 3. Walk multi-step modal dialog
         for step in range(1, self.MAX_STEPS + 1):
             await human_delay(1000, 2000)
@@ -199,12 +202,39 @@ class EasyApplyActuator:
                         await update_visual_cursor(self.page, action_text="[DRY RUN] Complete! Discarding modal.")
                     except Exception:
                         pass
+                    proof_path = await capture_proof_screenshot(self.page, job.job_id, job.company, job.title, is_success=True)
+                    self.last_outcome = {
+                        "success": True,
+                        "status": "dry_run",
+                        "reason_code": "DRY_RUN",
+                        "description": "Easy Apply modal traversed and filled in dry-run simulation.",
+                        "proof_screenshot": proof_path or "",
+                    }
                     await human_delay(1200, 2000)
                     await self._dismiss_modal()
                     return True
 
                 logger.info(f"[browser]  → Step {step}: Submit application reached.[/browser]")
-                return await self._submit_application()
+                sub_res = await self._submit_application()
+                if sub_res:
+                    proof_path = await capture_proof_screenshot(self.page, job.job_id, job.company, job.title, is_success=True)
+                    self.last_outcome = {
+                        "success": True,
+                        "status": "applied",
+                        "reason_code": "SUCCESS",
+                        "description": "Submitted via LinkedIn Easy Apply.",
+                        "proof_screenshot": proof_path or "",
+                    }
+                else:
+                    blocker_path = await capture_proof_screenshot(self.page, job.job_id, job.company, job.title, is_success=False, reason="Submit button click failed")
+                    self.last_outcome = {
+                        "success": False,
+                        "status": "requires_manual",
+                        "reason_code": "SUBMIT_FAILED",
+                        "description": "Easy Apply submit button click failed.",
+                        "proof_screenshot": blocker_path or "",
+                    }
+                return sub_res
 
             logger.info(f"[browser]  → Step {step}: Filling form fields...[/browser]")
             try:
@@ -219,10 +249,26 @@ class EasyApplyActuator:
             advanced = await self._click_next_button()
             if not advanced:
                 logger.warning(f"[browser]Could not advance past step {step}. Discarding draft.[/browser]")
+                blocker_path = await capture_proof_screenshot(self.page, job.job_id, job.company, job.title, is_success=False, reason=f"Could not advance past step {step}")
+                self.last_outcome = {
+                    "success": False,
+                    "status": "requires_manual",
+                    "reason_code": "STEP_FAILED",
+                    "description": f"Could not advance past step {step}: custom question or required field unfulfilled.",
+                    "proof_screenshot": blocker_path or "",
+                }
                 await self._dismiss_modal()
                 return False
 
         logger.warning(f"[browser]Exceeded maximum {self.MAX_STEPS} steps without reaching Submit.[/browser]")
+        blocker_path = await capture_proof_screenshot(self.page, job.job_id, job.company, job.title, is_success=False, reason="Exceeded maximum steps")
+        self.last_outcome = {
+            "success": False,
+            "status": "requires_manual",
+            "reason_code": "MAX_STEPS_EXCEEDED",
+            "description": "Exceeded maximum steps in Easy Apply modal.",
+            "proof_screenshot": blocker_path or "",
+        }
         await self._dismiss_modal()
         return False
 

@@ -19,7 +19,7 @@ from src.utils.logger import logger
 
 def decode_linkedin_apply_url(raw_url: str) -> Optional[str]:
     """
-    Decode a LinkedIn externalApply or tracking URL to its direct external destination URL.
+    Decode a LinkedIn externalApply, safety redirect, or tracking URL to its direct external destination URL.
     Returns None if no external URL can be decoded or if the URL points to LinkedIn itself.
     """
     if not raw_url or not isinstance(raw_url, str):
@@ -36,7 +36,7 @@ def decode_linkedin_apply_url(raw_url: str) -> Optional[str]:
         if parsed.scheme in ("http", "https"):
             return cleaned
 
-    # Check for target parameters in query string
+    # Check for target parameters in query string (including LinkedIn safety redirect /safety/go/?url=...)
     qs = urllib.parse.parse_qs(parsed.query)
     for param in ("url", "dest", "target", "redirect", "session_redirect", "destination"):
         if param in qs and qs[param]:
@@ -51,6 +51,16 @@ def decode_linkedin_apply_url(raw_url: str) -> Optional[str]:
             if dec_domain and not any(li in dec_domain for li in ("linkedin.com", "lnkd.in")):
                 if dec_parsed.scheme in ("http", "https"):
                     return decoded
+
+    # Fallback regex for embedded /safety/go/?url= or externalApply
+    m = re.search(r'[?&]url=([^&]+)', cleaned)
+    if m:
+        val = urllib.parse.unquote(urllib.parse.unquote(m.group(1)))
+        dec_parsed = urllib.parse.urlparse(val)
+        dec_domain = (dec_parsed.netloc or "").lower()
+        if dec_domain and not any(li in dec_domain for li in ("linkedin.com", "lnkd.in")):
+            if dec_parsed.scheme in ("http", "https"):
+                return val
 
     return None
 
@@ -80,12 +90,19 @@ def extract_company_apply_url_from_html(html: str) -> Optional[str]:
             if decoded:
                 return decoded
 
-    # 2. Search for externalApply links in hrefs
-    href_matches = re.findall(r'href=["\']([^"\']*externalApply[^"\']*)["\']', html)
+    # 2. Search for externalApply and safety/go links in hrefs
+    href_matches = re.findall(r'href=["\']([^"\']*(?:externalApply|safety/go\?url=)[^"\']*)["\']', html)
     for href in href_matches:
         full_href = href if href.startswith("http") else f"https://www.linkedin.com{href}"
         decoded = decode_linkedin_apply_url(full_href)
         if decoded:
+            return decoded
+
+    # Also search unescaped /safety/go/?url= in full HTML
+    raw_safety = re.findall(r'https?://(?:www\.)?linkedin\.com/safety/go/\?url=([^"\'\s&<]+(?:%26[^"\'\s&<]+)*)', html)
+    for raw_s in raw_safety:
+        decoded = urllib.parse.unquote(urllib.parse.unquote(raw_s))
+        if decoded.startswith("http") and not any(li in decoded for li in ("linkedin.com", "lnkd.in")):
             return decoded
 
     # 3. Search for schema.org JobPosting JSON-LD
@@ -120,8 +137,13 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
     try:
         # Step 1: In-page DOM inspection
         extracted_info = await page.evaluate("""() => {
-            // Check for explicit Easy Apply first
-            const easyApplyBadge = document.querySelector(
+            // Locate the active job details container first to avoid false-positive Easy Apply matches from other cards
+            const detailPane = document.querySelector(
+                '.jobs-search__job-details, .scaffold-layout__detail, .jobs-details__main-content, #main .jobs-details, .job-view-layout, .top-card-layout, .jobs-unified-top-card, .job-details-pane, div[data-job-id]'
+            ) || document;
+
+            // Check for explicit Easy Apply within detailPane ONLY (not entire page)
+            const easyApplyBadge = detailPane.querySelector(
                 '.job-card-container__apply-method, [aria-label*="Easy Apply"], .jobs-s-apply button, .jobs-apply-button'
             );
             const isEasy = easyApplyBadge && (easyApplyBadge.innerText || '').toLowerCase().includes('easy apply');
@@ -129,13 +151,29 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
                 return { is_easy_apply: true };
             }
 
-            // 1. Check <a> tags for direct apply or externalApply
-            const applyAnchors = Array.from(document.querySelectorAll(
-                'a.apply-button, a.jobs-apply-button, a[data-tracking-control-name*="apply"], a.top-card-layout__cta--primary, a[href*="externalApply"]'
+            // 1. Check all elements inside detailPane and document for direct apply, safety redirect, or externalApply
+            const candidates = Array.from(detailPane.querySelectorAll(
+                'a, button, [role="button"], [data-apply-url], [data-modal]'
             ));
-            for (const a of applyAnchors) {
-                if (a.href) {
-                    return { type: 'link', url: a.href, is_easy_apply: false };
+
+            for (const el of candidates) {
+                const href = el.href || el.getAttribute('href') || el.getAttribute('data-apply-url') || el.getAttribute('data-url') || '';
+                if (href && (href.includes('safety/go') || href.includes('externalApply'))) {
+                    return { type: 'link', url: href, is_easy_apply: false };
+                }
+            }
+
+            // Check for any anchor with text or aria-label containing "Apply" (non-easy)
+            for (const el of candidates) {
+                if (el.tagName === 'A') {
+                    const text = (el.innerText || '').toLowerCase().trim();
+                    const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+                    if ((text === 'apply' || text.startsWith('apply') || aria.includes('apply')) && !text.includes('easy')) {
+                        const href = el.href || el.getAttribute('href') || '';
+                        if (href && href.startsWith('http') && !href.includes('#')) {
+                            return { type: 'link', url: href, is_easy_apply: false };
+                        }
+                    }
                 }
             }
 
@@ -149,12 +187,19 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
                         return { type: 'voyager', url: m[1], is_easy_apply: false };
                     }
                 }
+                if (text.includes('safety/go') || text.includes('externalApply')) {
+                    const m = text.match(/(https?:\\/\\/[^"'\\s]*(?:safety\\/go\\?url=|externalApply)[^"'\\s]*)/);
+                    if (m && m[1]) {
+                        return { type: 'link', url: m[1], is_easy_apply: false };
+                    }
+                }
             }
 
             // 3. Check for external apply button (offsite Apply)
-            const offsiteBtn = document.querySelector(
-                '.jobs-apply-button, button[aria-label*="Apply to"], button.apply-button'
-            );
+            const offsiteBtn = detailPane.querySelector(
+                '.jobs-apply-button, button[aria-label*="Apply to"], button.apply-button, button.top-card-layout__cta--primary, button[data-modal*="apply"]'
+            ) || document.querySelector('.jobs-apply-button, button[aria-label*="Apply to"], button.apply-button');
+
             if (offsiteBtn) {
                 const btnText = (offsiteBtn.innerText || '').toLowerCase();
                 if (!btnText.includes('easy')) {
@@ -204,7 +249,7 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
         if extracted_info.get("type") == "button":
             try:
                 apply_button = await page.query_selector(
-                    '.jobs-apply-button, button[aria-label*="Apply to"], button.apply-button'
+                    '.jobs-apply-button, button[aria-label*="Apply to"], button.apply-button, button.top-card-layout__cta--primary, button:has-text("Apply")'
                 )
                 if apply_button and await apply_button.is_visible():
                     btn_text = (await apply_button.inner_text()).lower()
@@ -264,3 +309,81 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
     except Exception as e:
         logger.debug(f"resolve_direct_apply_url_from_page error: {e}")
         return None
+
+
+async def resolve_job_direct_ats_url(job_url_or_id: str, timeout_sec: int = 15) -> Optional[str]:
+    """
+    Launch an authenticated browser context with stealth evasion and session cookies
+    to navigate to the LinkedIn job page and resolve the direct external ATS destination URL.
+    """
+    if not job_url_or_id:
+        return None
+
+    # First check if the URL already has an encoded destination parameter
+    decoded = decode_linkedin_apply_url(job_url_or_id)
+    if decoded and not any(li in decoded.lower() for li in ("linkedin.com", "lnkd.in")):
+        return decoded
+
+    from src.browser.manager import BrowserManager
+    url = str(job_url_or_id).strip()
+
+    # Pre-check exact known requisitions by ID
+    try:
+        from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
+        pre_resolved = resolve_company_direct_apply_url(current_url=url, auto_discover=False)
+        if pre_resolved and pre_resolved != url:
+            is_val, _ = is_valid_direct_ats_url(pre_resolved)
+            if is_val:
+                return pre_resolved
+    except Exception:
+        pass
+
+    # Normalize regional subdomains (in.linkedin.com, uk.linkedin.com) to www.linkedin.com
+    match = re.search(r"(\d{6,15})", url)
+    if match:
+        url = f"https://www.linkedin.com/jobs/view/{match.group(1)}/"
+    else:
+        url = re.sub(r"https?://[a-z]{2,3}\.linkedin\.com", "https://www.linkedin.com", url)
+
+    mgr = BrowserManager(headless=True)
+    try:
+        await mgr.start()
+        await mgr.page.goto(url, wait_until="domcontentloaded", timeout=min(timeout_sec * 1000, 15000))
+        await asyncio.sleep(2.0)
+        direct_url = await resolve_direct_apply_url_from_page(mgr.page, timeout_ms=4000)
+        if direct_url:
+            return direct_url
+
+        # Fallback: extract title & company from page to discover direct ATS
+        try:
+            page_meta = await mgr.page.evaluate('''() => {
+                const titleEl = document.querySelector('h1, h2.top-card-layout__title, .jobs-unified-top-card__job-title, [class*="job-title"]');
+                const compEl = document.querySelector('.topcard__flavor, .jobs-unified-top-card__company-name, .job-card-container__company-name, [class*="company-name"]');
+                return {
+                    title: titleEl ? (titleEl.innerText || '').trim() : '',
+                    company: compEl ? (compEl.innerText || '').trim() : ''
+                };
+            }''')
+            if page_meta.get("company") and page_meta.get("title"):
+                from src.browser.company_careers_resolver import discover_direct_job_ats_url, resolve_company_direct_apply_url
+                disc = resolve_company_direct_apply_url(
+                    title=page_meta["title"],
+                    company=page_meta["company"],
+                    current_url=url,
+                    auto_discover=True,
+                )
+                if disc and disc != url:
+                    return disc
+        except Exception as ex_disc:
+            logger.debug(f"Page metadata ATS discovery error: {ex_disc}")
+
+        return None
+    except Exception as ex:
+        logger.debug(f"resolve_job_direct_ats_url error on {url}: {ex}")
+        return None
+    finally:
+        try:
+            await mgr.close()
+        except Exception:
+            pass
+

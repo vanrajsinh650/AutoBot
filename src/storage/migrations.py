@@ -39,6 +39,8 @@ def run_migrations(conn: sqlite3.Connection) -> None:
             applied_at     TEXT NOT NULL,
             notes          TEXT,
             user_id        INTEGER DEFAULT 1,
+            proof_screenshot TEXT DEFAULT '',
+            failure_reason TEXT DEFAULT '',
             UNIQUE(user_id, job_id)
         )
     """)
@@ -54,10 +56,14 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         )
     """)
 
-    # Ensure user_id column exists on applications table
+    # Ensure user_id, proof_screenshot, failure_reason columns exist on applications table
     app_cols = [r[1] for r in conn.execute("PRAGMA table_info(applications)").fetchall()]
     if "user_id" not in app_cols:
         conn.execute("ALTER TABLE applications ADD COLUMN user_id INTEGER DEFAULT 1")
+    if "proof_screenshot" not in app_cols:
+        conn.execute("ALTER TABLE applications ADD COLUMN proof_screenshot TEXT DEFAULT ''")
+    if "failure_reason" not in app_cols:
+        conn.execute("ALTER TABLE applications ADD COLUMN failure_reason TEXT DEFAULT ''")
 
     # Migrate legacy applications table with job_id UNIQUE constraint to UNIQUE(user_id, job_id)
     cur_app = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='applications'").fetchone()

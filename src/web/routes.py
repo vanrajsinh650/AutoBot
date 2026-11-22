@@ -269,18 +269,29 @@ async def get_jobs(request: web.Request) -> web.Response:
 
     init_db()
     with get_db_connection() as conn:
-        query = "SELECT * FROM applications WHERE user_id = ?"
+        query = """
+            SELECT 
+                a.*,
+                COALESCE(a.job_title, j.title) as job_title,
+                COALESCE(j.title, a.job_title) as title,
+                COALESCE(a.company, j.company) as company,
+                COALESCE(a.location, j.location) as location,
+                COALESCE(j.description, '') as description
+            FROM applications a
+            LEFT JOIN jobs j ON (a.job_id = j.stable_id OR a.job_id = CAST(j.id AS TEXT))
+            WHERE a.user_id = ?
+        """
         params: List[Any] = [user_id]
 
         if status_filter:
-            query += " AND status = ?"
+            query += " AND a.status = ?"
             params.append(status_filter)
 
         if search_query:
-            query += " AND (LOWER(job_title) LIKE ? OR LOWER(company) LIKE ?)"
+            query += " AND (LOWER(COALESCE(a.job_title, j.title)) LIKE ? OR LOWER(COALESCE(a.company, j.company)) LIKE ?)"
             params.extend([f"%{search_query}%", f"%{search_query}%"])
 
-        query += " ORDER BY id DESC LIMIT ? OFFSET ?"
+        query += " ORDER BY a.id DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         rows = conn.execute(query, params).fetchall()
@@ -297,8 +308,17 @@ async def get_jobs(request: web.Request) -> web.Response:
 
         total = conn.execute(count_query, count_params).fetchone()[0]
 
-    jobs = [dict(row) for row in rows]
-    return web.json_response({"total": total, "jobs": jobs})
+        jobs = []
+        for row in rows:
+            r_dict = dict(row)
+            jid = str(r_dict.get("job_id") or "")
+            m_jid = re.search(r"(\d{6,15})", jid)
+            if m_jid:
+                r_dict["linkedin_url"] = f"https://www.linkedin.com/jobs/view/{m_jid.group(1)}/"
+            else:
+                r_dict["linkedin_url"] = ""
+            jobs.append(r_dict)
+        return web.json_response({"total": total, "jobs": jobs})
 
 
 async def get_apply_portals_handler(request: web.Request) -> web.Response:
@@ -414,9 +434,13 @@ async def apply_portals_bot_handler(request: web.Request) -> web.Response:
         return web.json_response({"error": "No jobs selected for application."}, status=400)
 
     dry_run = bool(data.get("dry_run", False))
+    # User requested to see the bot apply in a visible browser window:
+    # background_param defaults to False (headed / visible Chrome) for apply, unless explicitly requested True!
     background_param = data.get("background")
     if background_param is None:
-        background_param = True
+        background_param = data.get("headless")
+    if background_param is None:
+        background_param = False
     headless = bool(background_param)
 
     if execution_manager.is_running:
@@ -506,9 +530,13 @@ async def apply_direct_link_handler(request: web.Request) -> web.Response:
         return web.json_response({"error": "Please provide a valid job URL starting with http:// or https://"}, status=400)
 
     dry_run = bool(data.get("dry_run", False))
+    # User requested to see the bot apply in a visible browser window:
+    # background_param defaults to False (headed / visible Chrome) for apply, unless explicitly requested True!
     background_param = data.get("background")
     if background_param is None:
-        background_param = True
+        background_param = data.get("headless")
+    if background_param is None:
+        background_param = False
     headless = bool(background_param)
 
     if execution_manager.is_running:
@@ -678,6 +706,19 @@ async def apply_direct_link_handler(request: web.Request) -> web.Response:
         "headless": headless,
     })
 
+
+
+async def get_proof_handler(request: web.Request) -> web.Response:
+    """Safely serve proof and blocker screenshots from logs/proofs/."""
+    filename = request.match_info.get("filename", "")
+    if not re.match(r"^[a-zA-Z0-9_\-\.]+\.png$", filename) or ".." in filename:
+        return web.json_response({"error": "Invalid proof filename"}, status=400)
+
+    proof_file = Path("logs/proofs") / filename
+    if not proof_file.is_file():
+        return web.json_response({"error": "Proof screenshot not found"}, status=404)
+
+    return web.FileResponse(proof_file)
 
 
 async def get_config_handler(request: web.Request) -> web.Response:
@@ -1140,13 +1181,12 @@ async def search_live_handler(request: web.Request) -> web.Response:
     location = body.get("location")
     target = str(body.get("target", "google")).lower().strip()
     
-    # Background execution support: run silently without stealing desktop window focus
+    # Scraping/Searching runs silently in background (headless=True) without stealing desktop focus
     background_param = body.get("background")
     if background_param is None:
         background_param = body.get("headless")
     if background_param is None:
-        from src.utils.config import get_config
-        background_param = getattr(getattr(get_config(), "browser", None), "headless", False)
+        background_param = True
     headless = bool(background_param)
 
     execution_manager.user_id = user_id
@@ -2086,6 +2126,10 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
             title = r_dict.get("title") or ""
             company = r_dict.get("company") or ""
 
+    from src.browser.linkedin_apply_extractor import (
+        decode_linkedin_apply_url,
+        extract_company_apply_url_from_html,
+    )
     from src.browser.company_careers_resolver import (
         resolve_company_direct_apply_url,
         sanitize_ats_url,
@@ -2095,14 +2139,15 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
 
     # If not found in DB, check if job_id or URL has known mapping or direct URL
     if not target_url:
-        resolved = resolve_company_direct_apply_url(
-            title="",
-            company="",
-            current_url=stable_identifier,
-            auto_discover=True,
-        )
-        if resolved:
-            raise web.HTTPFound(location=sanitize_redirect_url(sanitize_ats_url(resolved)))
+        if stable_identifier.startswith("http"):
+            resolved = resolve_company_direct_apply_url(
+                title="",
+                company="",
+                current_url=stable_identifier,
+                auto_discover=True,
+            )
+            if resolved and resolved != stable_identifier:
+                raise web.HTTPFound(location=sanitize_redirect_url(sanitize_ats_url(resolved)))
         return web.json_response({"error": f"Job {job_id} not found"}, status=404)
 
     # 1. If URL is already a strictly verified direct ATS URL, redirect immediately!
@@ -2129,6 +2174,33 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
                 conn.commit()
             raise web.HTTPFound(location=sanitize_redirect_url(clean_decoded))
 
+    # 2.5 Requisition Equalizer: If target_url is a generic /careers/ hub, equalize to exact requisition
+    from src.browser.career_page_equalizer import is_generic_career_hub_url, resolve_career_hub_requisition_offline
+    if target_url and is_generic_career_hub_url(target_url) and title:
+        try:
+            equalized_req = resolve_career_hub_requisition_offline(
+                hub_url=target_url,
+                target_title=title,
+                company=company,
+            )
+            if equalized_req:
+                clean_eq = sanitize_ats_url(equalized_req)
+                with get_db_connection() as conn:
+                    conn.execute(
+                        "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                        (clean_eq, stable_identifier, stable_identifier),
+                    )
+                    conn.execute(
+                        "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                        (clean_eq, stable_identifier, stable_identifier),
+                    )
+                    conn.commit()
+                raise web.HTTPFound(location=sanitize_redirect_url(clean_eq))
+        except web.HTTPFound:
+            raise
+        except Exception as eq_err:
+            logger.debug(f"[web]Career hub offline equalization skipped: {eq_err}")
+
     # 3. Resolve direct company application ATS career portal (Workday, iCIMS, Greenhouse, etc.)
     resolved_ats_url = resolve_company_direct_apply_url(
         title=title,
@@ -2136,23 +2208,112 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
         current_url=target_url,
         auto_discover=True,
     )
-    if resolved_ats_url:
-        clean_ats = sanitize_ats_url(resolved_ats_url)
-        with get_db_connection() as conn:
-            conn.execute(
-                "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
-                (clean_ats, stable_identifier, stable_identifier),
-            )
-            conn.execute(
-                "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
-                (clean_ats, stable_identifier, stable_identifier),
-            )
-            conn.commit()
-        raise web.HTTPFound(location=sanitize_redirect_url(clean_ats))
+    if resolved_ats_url and resolved_ats_url != target_url:
+        is_val, _ = is_valid_direct_ats_url(resolved_ats_url, title=title)
+        if is_val:
+            clean_ats = sanitize_ats_url(resolved_ats_url)
+            with get_db_connection() as conn:
+                conn.execute(
+                    "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                    (clean_ats, stable_identifier, stable_identifier),
+                )
+                conn.execute(
+                    "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                    (clean_ats, stable_identifier, stable_identifier),
+                )
+                conn.commit()
+            raise web.HTTPFound(location=sanitize_redirect_url(clean_ats))
 
-    # Fallback: Redirect to verified Google Careers interactive requisition rather than LinkedIn authwall
-    fallback_url = get_google_jobs_apply_url(company, title)
-    raise web.HTTPFound(location=sanitize_redirect_url(fallback_url))
+    # 4. If target_url is a LinkedIn URL, attempt fast extraction from HTML
+    if any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in")):
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                target_url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                html = resp.read().decode("utf-8", errors="ignore")
+                extracted = extract_company_apply_url_from_html(html)
+                if extracted and not any(li in extracted.lower() for li in ("linkedin.com", "lnkd.in")):
+                    clean_ext = sanitize_ats_url(extracted)
+                    with get_db_connection() as conn:
+                        conn.execute(
+                            "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                            (clean_ext, stable_identifier, stable_identifier),
+                        )
+                        conn.execute(
+                            "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                            (clean_ext, stable_identifier, stable_identifier),
+                        )
+                        conn.commit()
+                    raise web.HTTPFound(location=sanitize_redirect_url(clean_ext))
+        except web.HTTPFound:
+            raise
+        except Exception as ex:
+            logger.debug(f"Fast HTTP extraction failed in open_job_form_handler: {ex}")
+
+    # 5. If target_url is still a LinkedIn URL, launch authenticated browser extraction
+    if any(li in target_url.lower() for li in ("linkedin.com", "lnkd.in")):
+        match = re.search(r"(\d{6,15})", target_url)
+        canonical_linkedin = f"https://www.linkedin.com/jobs/view/{match.group(1)}/" if match else re.sub(r"https?://[a-z]{2,3}\.linkedin\.com", "https://www.linkedin.com", target_url)
+        try:
+            from src.browser.linkedin_apply_extractor import resolve_job_direct_ats_url
+            direct_ats = await resolve_job_direct_ats_url(canonical_linkedin, timeout_sec=12)
+            if direct_ats and not any(li in direct_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                clean_ats = sanitize_ats_url(direct_ats)
+                with get_db_connection() as conn:
+                    conn.execute(
+                        "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                        (clean_ats, stable_identifier, stable_identifier),
+                    )
+                    conn.execute(
+                        "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                        (clean_ats, stable_identifier, stable_identifier),
+                    )
+                    conn.commit()
+                logger.info(f"[web]🎯 Live resolved direct external ATS apply URL for '{title}' @ '{company}': {clean_ats}")
+                raise web.HTTPFound(location=sanitize_redirect_url(clean_ats))
+        except web.HTTPFound:
+            raise
+        except Exception as ex:
+            logger.warning(f"[web]Live direct apply resolution failed for {target_url}: {ex}")
+
+        # If live browser resolution did not return an outbound ATS link, check company portal or search discovery
+        try:
+            fallback_portal = resolve_company_direct_apply_url(
+                title=title,
+                company=company,
+                current_url=canonical_linkedin,
+                auto_discover=True,
+            )
+            if fallback_portal and fallback_portal != canonical_linkedin and not any(li in fallback_portal.lower() for li in ("linkedin.com", "lnkd.in")):
+                clean_portal = sanitize_ats_url(fallback_portal)
+                with get_db_connection() as conn:
+                    conn.execute(
+                        "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                        (clean_portal, stable_identifier, stable_identifier),
+                    )
+                    conn.execute(
+                        "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                        (clean_portal, stable_identifier, stable_identifier),
+                    )
+                    conn.commit()
+                logger.info(f"[web]🎯 Resolved fallback direct ATS portal for '{title}' @ '{company}': {clean_portal}")
+                raise web.HTTPFound(location=sanitize_redirect_url(clean_portal))
+        except web.HTTPFound:
+            raise
+        except Exception as ex_fb:
+            logger.debug(f"Fallback direct portal resolution failed: {ex_fb}")
+
+        # If completely unknown, redirect to canonical www.linkedin.com (never regional authwall or Google)
+        raise web.HTTPFound(location=sanitize_redirect_url(canonical_linkedin))
+
+    # Fallback: Redirect directly to the authentic target_url (never generate synthetic Google search links)
+    raise web.HTTPFound(location=sanitize_redirect_url(target_url))
 
 
 async def resolve_apply_url_handler(request: web.Request) -> web.Response:
@@ -2190,6 +2351,10 @@ async def resolve_apply_url_handler(request: web.Request) -> web.Response:
             title = r_dict.get("title") or ""
             company = r_dict.get("company") or ""
 
+    from src.browser.linkedin_apply_extractor import (
+        decode_linkedin_apply_url,
+        extract_company_apply_url_from_html,
+    )
     from src.browser.company_careers_resolver import (
         resolve_company_direct_apply_url,
         sanitize_ats_url,
@@ -2277,9 +2442,30 @@ async def resolve_apply_url_handler(request: web.Request) -> web.Response:
     except Exception as ex:
         logger.debug(f"Quick HTTP direct apply extraction failed for {job_id}: {ex}")
 
-    # Fallback to search query link so that candidate is never returned a raw LinkedIn authwall URL
-    comp_term = urllib.parse.quote_plus(company or "company")
-    title_term = urllib.parse.quote_plus(title or "jobs")
-    fallback_url = f"https://www.google.com/search?q={comp_term}+{title_term}+careers+apply"
-    return web.json_response({"success": True, "apply_url": fallback_url, "is_external": True, "resolved": True})
+    if any(li in str(target_url).lower() for li in ("linkedin.com", "lnkd.in")):
+        match = re.search(r"(\d{6,15})", str(target_url))
+        canonical_linkedin = f"https://www.linkedin.com/jobs/view/{match.group(1)}/" if match else re.sub(r"https?://[a-z]{2,3}\.linkedin\.com", "https://www.linkedin.com", str(target_url))
+        try:
+            from src.browser.linkedin_apply_extractor import resolve_job_direct_ats_url
+            direct_ats = await resolve_job_direct_ats_url(canonical_linkedin, timeout_sec=12)
+            if direct_ats and not any(li in direct_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                clean_ats = sanitize_ats_url(direct_ats)
+                with get_db_connection() as conn:
+                    conn.execute(
+                        "UPDATE jobs SET application_url = ? WHERE stable_id = ? OR CAST(id AS TEXT) = ?",
+                        (clean_ats, stable_identifier, stable_identifier),
+                    )
+                    conn.execute(
+                        "UPDATE applications SET url = ? WHERE job_id = ? OR CAST(id AS TEXT) = ?",
+                        (clean_ats, stable_identifier, stable_identifier),
+                    )
+                    conn.commit()
+                return web.json_response({"success": True, "apply_url": clean_ats, "is_external": True, "resolved": True})
+        except Exception as ex:
+            logger.debug(f"Live direct apply resolution failed in resolve_apply_url_handler: {ex}")
+
+        return web.json_response({"success": True, "apply_url": canonical_linkedin, "is_external": True, "resolved": False})
+
+    # Fallback to authentic target_url (never generate synthetic Google search links)
+    return web.json_response({"success": True, "apply_url": target_url or "", "is_external": True, "resolved": False})
 

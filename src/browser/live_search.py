@@ -154,6 +154,22 @@ async def run_direct_chrome_search(
                     except Exception as ex:
                         logger.debug(f"[{worker_tag}] fetch_job_details fallback failed: {ex}")
 
+                # If still a LinkedIn URL, resolve direct company career portal (Zoho, Workday, etc.)
+                if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                    try:
+                        from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+                        resolved_ats = resolve_company_direct_apply_url(
+                            title=job.title,
+                            company=job.company,
+                            current_url=final_apply_url,
+                            auto_discover=True,
+                        )
+                        if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                            final_apply_url = resolved_ats
+                            logger.info(f"[{worker_tag}] 🎯 Resolved direct ATS apply portal for '{job.title}' @ '{job.company}': {final_apply_url}")
+                    except Exception as ex_ats:
+                        logger.debug(f"[{worker_tag}] Direct ATS portal resolution error: {ex_ats}")
+
                 try:
                     save_scraped_job(
                         title=job.title,

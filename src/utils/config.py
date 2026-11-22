@@ -75,6 +75,7 @@ class BrowserConfig(BaseModel):
     viewport_height: int = 800
     executable_path: str = ""
     use_system_chrome: bool = True
+    cookie_policy: str = "auto_accept"  # auto_accept, auto_reject, hide_banner
 
 
 class AppConfig(BaseModel):
@@ -100,7 +101,10 @@ class EnvSettings(BaseSettings):
     gemini_api_key:       str = ""
     anthropic_api_key:    str = ""
     anthropic_base_url:   str = ""
-    llm_provider:         str = "openai"       # openai | gemini | anthropic
+    groq_api_key:         str = ""
+    groq_base_url:        str = "https://api.groq.com/openai/v1"
+    groq_model:           str = "openai/gpt-oss-120b"
+    llm_provider:         str = "openai"       # openai | gemini | anthropic | groq
     llm_model:            str = "gpt-4o"
     embeddings_provider:  str = "openai"       # openai | gemini | local
     embeddings_model:     str = "text-embedding-3-small"

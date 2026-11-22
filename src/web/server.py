@@ -32,6 +32,7 @@ from src.web.routes import (
     get_jobs,
     get_preferences_handler,
     get_profile_handler,
+    get_proof_handler,
     get_resume_versions_handler,
     get_sources_handler,
     get_sources_health_handler,
@@ -161,6 +162,7 @@ def create_app() -> web.Application:
     app.router.add_post("/api/portals/apply", apply_portals_bot_handler)
     app.router.add_post("/api/portals/apply-direct", apply_direct_link_handler)
     app.router.add_post("/api/application/direct-apply", apply_direct_link_handler)
+    app.router.add_get("/api/proofs/{filename}", get_proof_handler)
     app.router.add_get("/api/config", get_config_handler)
     app.router.add_post("/api/config", save_config_handler)
     app.router.add_get("/api/profile", get_profile_handler)

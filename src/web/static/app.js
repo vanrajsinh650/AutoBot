@@ -146,6 +146,7 @@
     cfgWorkAuth: document.getElementById("cfg-work-auth"),
     cfgSponsorship: document.getElementById("cfg-sponsorship"),
     cfgNotice: document.getElementById("cfg-notice"),
+    cfgCookiePolicy: document.getElementById("cfg-cookie-policy"),
     btnSaveSettings: document.getElementById("btn-save-settings"),
 
     // Browser Health Telemetry & Admin Controls
@@ -846,9 +847,15 @@
       row.innerHTML = `
         <td style="font-family: var(--font-mono); color: var(--text-dim); font-size: 11px;">#${job.id}</td>
         <td style="font-weight: 700;">
-          <a href="${job.url && !job.url.includes('linkedin.com') && !job.url.includes('lnkd.in') ? escapeHtml(job.url) : `/api/jobs/${encodeURIComponent(job.job_id || job.id)}/open-form`}" target="_blank" rel="noopener noreferrer" style="color: #fff; text-decoration: none;">
-            ${escapeHtml(job.job_title || "Untitled Role")}
-          </a>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <a href="${job.url && !job.url.includes('linkedin.com') && !job.url.includes('lnkd.in') ? escapeHtml(job.url) : `/api/jobs/${encodeURIComponent(job.job_id || job.id)}/open-form`}" target="_blank" rel="noopener noreferrer" style="color: #fff; text-decoration: none;" title="Open direct application form">
+              ${escapeHtml(job.job_title || "Untitled Role")}
+            </a>
+            ${job.linkedin_url || (job.job_id && /^\d+$/.test(String(job.job_id))) ? `
+            <a href="${escapeHtml(job.linkedin_url || `https://www.linkedin.com/jobs/view/${job.job_id}/`)}" target="_blank" rel="noopener noreferrer" style="color: #70B5F9; font-size: 10.5px; text-decoration: none; padding: 1px 5px; border: 1px solid rgba(10,102,194,0.4); border-radius: 4px; display: inline-flex; align-items: center; gap: 2px;" title="View original job post on LinkedIn">
+              <span>LI ↗</span>
+            </a>` : ''}
+          </div>
         </td>
         <td style="color: var(--cyan); font-weight: 600;">${escapeHtml(job.company || "Unknown")}</td>
         <td style="color: var(--text-muted);">${escapeHtml(job.location || "Remote")}</td>
@@ -861,7 +868,19 @@
           <span class="match-pill ${pillClass}">${score}% FIT</span>
         </td>
         <td>
-          <span class="badge ${badgeClass}">${escapeHtml(job.status || "")}</span>
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+            <span class="badge ${badgeClass}">${escapeHtml(job.status || "")}</span>
+            ${job.proof_screenshot ? `
+              <button class="btn btn-xs btn-view-proof" data-shot="${escapeHtml(job.proof_screenshot)}" data-title="${escapeHtml(job.job_title || job.title || '')}" data-company="${escapeHtml(job.company || '')}" data-reason="${escapeHtml(job.failure_reason || '')}" style="font-size: 10px; padding: 2px 7px; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; cursor: pointer;" title="View verified application proof screenshot">
+                <span>Proof 📸</span>
+              </button>
+            ` : ''}
+            ${job.failure_reason && job.status !== 'applied' && job.status !== 'dry_run' ? `
+              <span style="font-size: 10px; color: #F87171; max-width: 140px; line-height: 1.25; word-break: break-word;" title="${escapeHtml(job.failure_reason)}">
+                ⚠️ ${escapeHtml(job.failure_reason.slice(0, 42))}${job.failure_reason.length > 42 ? '...' : ''}
+              </span>
+            ` : ''}
+          </div>
         </td>
         <td style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
           ${timeStr}
@@ -1128,11 +1147,19 @@
     els.cfgWorkAuth.value = answers.work_authorization || answers.legally_authorized || "Yes";
     els.cfgSponsorship.value = String(answers.sponsorship_required || answers.require_sponsorship || false);
     els.cfgNotice.value = answers.notice_period || "30 days";
+    if (els.cfgCookiePolicy) {
+      els.cfgCookiePolicy.value = cfg.browser?.cookie_policy || "auto_accept";
+    }
   }
 
   async function saveConfig() {
     if (!state.config) state.config = {};
     sfx.click();
+
+    if (els.cfgCookiePolicy) {
+      if (!state.config.browser) state.config.browser = {};
+      state.config.browser.cookie_policy = els.cfgCookiePolicy.value;
+    }
 
     const keywordsArr = els.cfgKeywords.value
       .split(",")
@@ -1210,6 +1237,30 @@
         els.audioStateText.textContent = state.audioEnabled ? "AUDIO ON" : "MUTED";
         if (state.audioEnabled) sfx.click();
         showToast(state.audioEnabled ? "Tactile audio feedback enabled" : "Audio muted");
+      });
+    }
+
+    // Watch Bot (Visible vs Background) Toggle Sync
+    const watchBotEl = document.getElementById("watch-bot-checkbox");
+    if (watchBotEl) {
+      if (els.bgModeCheckbox) {
+        els.bgModeCheckbox.checked = !watchBotEl.checked;
+      }
+      watchBotEl.addEventListener("change", () => {
+        if (els.bgModeCheckbox) {
+          els.bgModeCheckbox.checked = !watchBotEl.checked;
+        }
+        const label = document.getElementById("watch-bot-label");
+        if (label) {
+          label.textContent = watchBotEl.checked ? "Watch Bot (Visible)" : "Background (Silent)";
+        }
+        if (state.audioEnabled && sfx) sfx.click();
+        showToast(
+          watchBotEl.checked
+            ? "👁️ Bot will open a visible window during application so you can watch"
+            : "🔇 Bot will apply silently in background mode",
+          "info"
+        );
       });
     }
 
@@ -1970,9 +2021,10 @@
             Discovered: ${escapeHtml((j.discovered_at || j.created_at || '').slice(0, 10))} · Verified: ${escapeHtml((j.last_verified_at || '').slice(0, 10) || 'Recent')}
           </div>
         </div>
-        <div style="display: flex; gap: 6px;">
+        <div style="display: flex; gap: 6px; align-items: center;">
           <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="window.evaluateCandidateJob('${j.stable_id}')">Evaluate</button>
-          <a href="${j.application_url && !j.application_url.includes('linkedin.com') && !j.application_url.includes('lnkd.in') ? escapeHtml(j.application_url) : `/api/jobs/${encodeURIComponent(j.stable_id || j.id)}/open-form`}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none;">View Form ↗</a>
+          <a href="${j.application_url && !j.application_url.includes('linkedin.com') && !j.application_url.includes('lnkd.in') ? escapeHtml(j.application_url) : `/api/jobs/${encodeURIComponent(j.stable_id || j.id)}/open-form`}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; color: #38BDF8;" title="Open direct application form">Apply Form ↗</a>
+          <a href="${escapeHtml(j.linkedin_url || (j.stable_id && /^\d+$/.test(String(j.stable_id)) ? `https://www.linkedin.com/jobs/view/${j.stable_id}/` : 'https://www.linkedin.com/jobs/'))}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; color: #70B5F9;" title="View original job post on LinkedIn">LinkedIn ↗</a>
         </div>
       `;
       container.appendChild(item);
@@ -2460,8 +2512,10 @@
       batchBtn.innerHTML = `<span class="spinner-inline"></span> Applying to ${jobIds.length}...`;
     }
 
-    const bgModeCheckbox = document.getElementById("bg-mode-checkbox");
-    const isBackground = bgModeCheckbox ? bgModeCheckbox.checked : true;
+    // Read Watch Bot toggle (default: true -> visible browser so user can watch form filling)
+    const watchBot = document.getElementById("watch-bot-checkbox");
+    const isVisible = watchBot ? watchBot.checked : true;
+    const isBackground = !isVisible;
 
     try {
       showToast(`Launching Auto-Apply Bot for ${jobIds.length} job(s)...`, "info");
@@ -2472,6 +2526,7 @@
           job_ids: jobIds,
           dry_run: dryRun,
           background: isBackground,
+          headless: isBackground,
         }),
       });
 
@@ -2513,8 +2568,10 @@
 
     if (state.audioEnabled && sfx) sfx.click();
 
-    const bgModeCheckbox = document.getElementById("bg-mode-checkbox");
-    const isBackground = bgModeCheckbox ? bgModeCheckbox.checked : true;
+    // Read Watch Bot toggle (default: true -> visible browser so user can watch form filling)
+    const watchBot = document.getElementById("watch-bot-checkbox");
+    const isVisible = watchBot ? watchBot.checked : true;
+    const isBackground = !isVisible;
 
     if (triggerBtn) {
       triggerBtn.disabled = true;
@@ -2531,6 +2588,7 @@
           url: url,
           dry_run: dryRun,
           background: isBackground,
+          headless: isBackground,
         }),
       });
 
@@ -2579,6 +2637,8 @@
         const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category);
         const rawApplyUrl = job.apply_url || job.source_url || "#";
         const openFormHref = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+        const linkedinDigits = (String(stableId).match(/\d{6,15}/) || String(jobId).match(/\d{6,15}/) || [])[0];
+        const linkedinUrl = job.linkedin_url || (linkedinDigits ? `https://www.linkedin.com/jobs/view/${linkedinDigits}/` : '');
         const descText = (job.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
         const snippet = descText.length > 200 ? descText.slice(0, 200) + "..." : descText || "No description preview available.";
         const matchPct = Math.round((job.match_score || 0.60) * 100);
@@ -2617,22 +2677,35 @@
               <div class="portal-desc-snippet">
                 ${escapeHtml(snippet)}
               </div>
+              ${job.failure_reason && job.status !== 'applied' && job.status !== 'dry_run' ? `
+              <div style="margin-top: 8px; padding: 6px 10px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; font-size: 11px; color: #FCA5A5; display: flex; align-items: flex-start; gap: 6px; line-height: 1.35;">
+                <span>⚠️</span>
+                <span>${escapeHtml(job.failure_reason)}</span>
+              </div>` : ''}
             </div>
 
-            <div style="display: flex; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
-              <button class="btn btn-secondary btn-sm btn-view-desc" data-idx="${idx}" style="flex: 1; min-width: 80px; padding: 7px 8px; font-size: 11.5px;">
+            <div style="display: flex; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; align-items: center;">
+              <button class="btn btn-secondary btn-sm btn-view-desc" data-idx="${idx}" style="flex: 1; min-width: 78px; padding: 7px 8px; font-size: 11.5px;">
                 View Details
               </button>
-              <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 80px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none;">
-                Open Form ↗
+              ${job.proof_screenshot ? `
+              <button class="btn btn-secondary btn-sm btn-view-proof" data-shot="${escapeHtml(job.proof_screenshot)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" data-reason="${escapeHtml(job.failure_reason || '')}" style="flex: 1; min-width: 74px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; color: #10B981; border-color: rgba(16, 185, 129, 0.4); cursor: pointer;" title="View verified application proof screenshot">
+                Proof 📸
+              </button>` : ''}
+              <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 82px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Open verified direct ATS application form">
+                Apply Form ↗
               </a>
-              <button class="btn btn-primary btn-sm btn-apply-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" style="flex: 1.3; min-width: 110px; padding: 7px 10px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 5px; font-weight: 700;">
+              ${linkedinUrl ? `
+              <a href="${escapeHtml(linkedinUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 78px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #70B5F9; border-color: rgba(10, 102, 194, 0.4);" title="View original job post on LinkedIn">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.64 1.64 0 1 0 0-3.28 1.64 1.64 0 0 0 0 3.28m1.4 9.74v-8.37H5.06v8.37z"/></svg>
+                LinkedIn ↗
+              </a>` : ''}
+              <button class="btn btn-primary btn-sm btn-apply-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" style="flex: 1.1; min-width: 100px; padding: 7px 9px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; font-weight: 700;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                Apply with Bot ⚡
+                Apply ⚡
               </button>
-              <button class="btn btn-sm btn-delete-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" title="Delete this opportunity" style="padding: 7px 12px; color: #FFFFFF; background: #DC2626; border: 1px solid #EF4444; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; font-weight: 700; border-radius: 6px; font-size: 11.5px; box-shadow: 0 1px 4px rgba(220, 38, 38, 0.35);">
+              <button class="btn btn-sm btn-delete-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" title="Delete this opportunity" style="padding: 7px 10px; color: #FFFFFF; background: #DC2626; border: 1px solid #EF4444; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; font-weight: 700; border-radius: 6px; font-size: 11.5px;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                Delete
               </button>
             </div>
           </div>
@@ -2696,6 +2769,7 @@
     const modalSubtitle = document.getElementById("modal-job-subtitle");
     const modalDesc = document.getElementById("modal-job-desc");
     const modalApply = document.getElementById("modal-apply-link");
+    const modalLinkedIn = document.getElementById("modal-linkedin-link");
 
     if (modalBadge) {
       modalBadge.innerHTML = getPlatformBadgeHtml(job.platform, job.platform_category);
@@ -2706,9 +2780,31 @@
       const cleanDesc = (job.description || "").replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
       modalDesc.textContent = cleanDesc || "No detailed job description captured.";
     }
+    const stableId = job.stable_id || job.id || job.job_id || "";
     if (modalApply) {
-      const stableId = job.stable_id || job.id || job.job_id || "";
       modalApply.href = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+    }
+    if (modalLinkedIn) {
+      const liDigits = (String(stableId).match(/\d{6,15}/) || String(job.id || '').match(/\d{6,15}/) || [])[0];
+      const liUrl = job.linkedin_url || (liDigits ? `https://www.linkedin.com/jobs/view/${liDigits}/` : '');
+      if (liUrl) {
+        modalLinkedIn.href = liUrl;
+        modalLinkedIn.style.display = "inline-flex";
+      } else {
+        modalLinkedIn.style.display = "none";
+      }
+    }
+
+    const modalProof = document.getElementById("modal-proof-btn");
+    if (modalProof) {
+      if (job.proof_screenshot) {
+        modalProof.style.display = "inline-flex";
+        modalProof.onclick = () => {
+          openProofModal(job.proof_screenshot, job.title, job.company, job.failure_reason);
+        };
+      } else {
+        modalProof.style.display = "none";
+      }
     }
 
     const modalDeleteBtn = document.getElementById("modal-delete-btn");
@@ -2726,6 +2822,62 @@
   function closeJobModal() {
     const modal = document.getElementById("job-modal-overlay");
     if (modal) modal.style.display = "none";
+  }
+
+  function openProofModal(screenshotPath, title, company, reason) {
+    const modal = document.getElementById("proof-modal-overlay");
+    if (!modal) return;
+    const img = document.getElementById("proof-modal-img");
+    const titleEl = document.getElementById("proof-modal-title");
+    const subEl = document.getElementById("proof-modal-subtitle");
+
+    const filename = String(screenshotPath).replace(/^.*[\\/]/, "");
+    const imgUrl = `/api/proofs/${encodeURIComponent(filename)}`;
+
+    if (img) {
+      img.src = imgUrl;
+    }
+    if (titleEl) {
+      const isBlocked = filename.includes("blocked");
+      titleEl.innerHTML = isBlocked ? "⚠️ Application Audit Blocker" : "✅ Application Verified Proof";
+      titleEl.style.color = isBlocked ? "#F87171" : "#10B981";
+    }
+    if (subEl) {
+      subEl.textContent = `${title || 'Job Application'} • ${company || ''} ${reason ? `• Reason: ${reason}` : ''}`;
+    }
+
+    modal.style.display = "flex";
+  }
+
+  function closeProofModal() {
+    const modal = document.getElementById("proof-modal-overlay");
+    if (modal) modal.style.display = "none";
+  }
+
+  // Delegated click for any .btn-view-proof
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-view-proof");
+    if (btn) {
+      e.preventDefault();
+      const shot = btn.getAttribute("data-shot");
+      const title = btn.getAttribute("data-title") || "";
+      const company = btn.getAttribute("data-company") || "";
+      const reason = btn.getAttribute("data-reason") || "";
+      if (shot) {
+        openProofModal(shot, title, company, reason);
+      }
+    }
+  });
+
+  const proofCloseBtn = document.getElementById("proof-modal-close-btn");
+  if (proofCloseBtn) proofCloseBtn.addEventListener("click", closeProofModal);
+  const proofDismissBtn = document.getElementById("proof-modal-dismiss-btn");
+  if (proofDismissBtn) proofDismissBtn.addEventListener("click", closeProofModal);
+  const proofOverlay = document.getElementById("proof-modal-overlay");
+  if (proofOverlay) {
+    proofOverlay.addEventListener("click", (e) => {
+      if (e.target === proofOverlay) closeProofModal();
+    });
   }
 
   // ── Portal Deletion Actions (Individual, Batch, All) ─────────────
@@ -2865,6 +3017,8 @@
           const stableId = job.stable_id || job.id;
           const rawApplyUrl = job.apply_url || job.source_url || "#";
           const openFormHref = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+          const linkedinDigits = (String(stableId).match(/\d{6,15}/) || String(job.id || '').match(/\d{6,15}/) || [])[0];
+          const linkedinUrl = job.linkedin_url || (linkedinDigits ? `https://www.linkedin.com/jobs/view/${linkedinDigits}/` : '');
 
           return `
             <div class="featured-portal-card" data-idx="${idx}">
@@ -2879,9 +3033,14 @@
                 <div class="portal-company-loc">${escapeHtml(job.company)} • ${escapeHtml(job.location || 'Remote')}</div>
               </div>
               <div class="portal-actions">
-                <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-xs" style="text-decoration: none;">
-                  <span>Open Form ↗</span>
+                <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-xs" style="text-decoration: none; color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Open direct application form">
+                  <span>Apply Form ↗</span>
                 </a>
+                ${linkedinUrl ? `
+                <a href="${escapeHtml(linkedinUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-xs" style="text-decoration: none; color: #70B5F9; border-color: rgba(10, 102, 194, 0.4); display: inline-flex; align-items: center; gap: 3px;" title="View original job post on LinkedIn">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.64 1.64 0 1 0 0-3.28 1.64 1.64 0 0 0 0 3.28m1.4 9.74v-8.37H5.06v8.37z"/></svg>
+                  <span>LinkedIn ↗</span>
+                </a>` : ''}
                 <button class="btn btn-secondary btn-xs btn-featured-view" data-idx="${idx}">
                   <span>View Details</span>
                 </button>

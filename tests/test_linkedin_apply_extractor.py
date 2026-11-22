@@ -70,3 +70,29 @@ def test_extract_company_apply_url_from_json_ld():
     '''
     result = extract_company_apply_url_from_html(html)
     assert result == "https://jobs.apple.com/en-us/details/20054321"
+
+
+def test_decode_safety_redirect_url():
+    raw = (
+        "https://www.linkedin.com/safety/go/?url=https%3A%2F%2Fsynechron%2Ewd1%2Emyworkdayjobs%2Ecom"
+        "%2FSynechronCareers%2Fjob%2FBengaluru---Bellandur-GTP%2FPython-Software-Engineer"
+        "---Application-Maintenance--Debugging---Agile-Development_JR1044669%3Fsource%3DLinkedIn"
+        "&urlhash=9w_c&mt=qcRN4kna"
+    )
+    result = decode_linkedin_apply_url(raw)
+    expected = (
+        "https://synechron.wd1.myworkdayjobs.com/SynechronCareers/job/Bengaluru---Bellandur-GTP/"
+        "Python-Software-Engineer---Application-Maintenance--Debugging---Agile-Development_JR1044669?source=LinkedIn"
+    )
+    assert result == expected
+
+
+def test_extract_safety_redirect_from_html():
+    html = '''
+    <div class="job-view">
+      <a class="bsjlxl" href="https://www.linkedin.com/safety/go/?url=https%3A%2F%2Fsynechron%2Ewd1%2Emyworkdayjobs%2Ecom%2FSynechronCareers%2Fjob%2F123%3Fsource%3DLinkedIn&urlhash=abc">Apply ↗</a>
+    </div>
+    '''
+    result = extract_company_apply_url_from_html(html)
+    assert result == "https://synechron.wd1.myworkdayjobs.com/SynechronCareers/job/123?source=LinkedIn"
+

@@ -262,6 +262,8 @@ class ChromiumBackend(BrowserBackend):
         ]
 
         slow_mo = getattr(self.cfg.browser, "slow_mo", 50) if hasattr(self.cfg, "browser") else 50
+        if not self.headless:
+            slow_mo = max(slow_mo, 75)
         viewport_w = getattr(self.cfg.browser, "viewport_width", 1280) if hasattr(self.cfg, "browser") else 1280
         viewport_h = getattr(self.cfg.browser, "viewport_height", 800) if hasattr(self.cfg, "browser") else 800
 

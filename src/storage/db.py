@@ -230,17 +230,23 @@ def save_application(
     notes: Optional[str] = None,
     db_path: Optional[str] = None,
     user_id: int = 1,
+    proof_screenshot: Optional[str] = None,
+    failure_reason: Optional[str] = None,
 ) -> None:
     """Insert or update an application record in the database with strict tenant isolation."""
     init_db(db_path)
     now = datetime.now().isoformat()
+    safe_proof = str(proof_screenshot) if isinstance(proof_screenshot, (str, int, float)) and proof_screenshot is not None else ""
+    safe_reason = str(failure_reason) if isinstance(failure_reason, (str, int, float)) and failure_reason is not None else ""
+
     with get_db_connection(db_path) as conn:
         conn.execute(
             """
             INSERT INTO applications (
                 job_id, job_title, company, location,
-                apply_type, match_score, status, url, applied_at, notes, user_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                apply_type, match_score, status, url, applied_at, notes, user_id,
+                proof_screenshot, failure_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, job_id) DO UPDATE SET
                 job_title = excluded.job_title,
                 company = excluded.company,
@@ -250,7 +256,9 @@ def save_application(
                 status = excluded.status,
                 url = excluded.url,
                 applied_at = excluded.applied_at,
-                notes = excluded.notes
+                notes = excluded.notes,
+                proof_screenshot = CASE WHEN excluded.proof_screenshot != '' THEN excluded.proof_screenshot ELSE applications.proof_screenshot END,
+                failure_reason = CASE WHEN excluded.failure_reason != '' THEN excluded.failure_reason ELSE applications.failure_reason END
             """,
             (
                 job_id,
@@ -264,6 +272,8 @@ def save_application(
                 now,
                 notes or "",
                 user_id,
+                safe_proof,
+                safe_reason,
             ),
         )
         conn.commit()
@@ -491,7 +501,9 @@ def get_apply_portals(
                 a.status as application_status,
                 a.apply_type as app_apply_type,
                 a.url as app_url,
-                a.match_score
+                a.match_score,
+                a.proof_screenshot,
+                a.failure_reason
             FROM jobs j
             LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
             WHERE 1=1
@@ -656,6 +668,19 @@ def get_apply_portals(
             elif req_plat not in plat_name.lower() and req_plat != plat_name.lower():
                 continue
 
+        # Determine canonical LinkedIn source posting URL where job was scraped
+        linkedin_url = ""
+        sid = str(row_dict.get("stable_id") or "")
+        m_sid = re.search(r"(\d{6,15})", sid)
+        if m_sid:
+            linkedin_url = f"https://www.linkedin.com/jobs/view/{m_sid.group(1)}/"
+        elif raw.get("source_url") and any(li in str(raw.get("source_url")).lower() for li in ("linkedin.com", "lnkd.in")):
+            m_src = re.search(r"(\d{6,15})", str(raw.get("source_url")))
+            if m_src:
+                linkedin_url = f"https://www.linkedin.com/jobs/view/{m_src.group(1)}/"
+            else:
+                linkedin_url = str(raw.get("source_url"))
+
         items.append({
             "id": row_dict.get("job_table_id") or row_dict.get("app_id"),
             "stable_id": row_dict.get("stable_id"),
@@ -664,12 +689,15 @@ def get_apply_portals(
             "location": row_dict.get("location") or "Remote",
             "description": row_dict.get("description") or "",
             "apply_url": app_url,
+            "linkedin_url": linkedin_url,
             "source_name": src_name,
             "platform": plat_name,
             "platform_category": plat_cat,
             "apply_type": "Easy Apply" if is_easy else "External Apply",
             "match_score": computed_score,
             "status": row_dict.get("application_status") or "discovered",
+            "proof_screenshot": row_dict.get("proof_screenshot") or "",
+            "failure_reason": row_dict.get("failure_reason") or "",
             "created_at": row_dict.get("created_at") or "",
         })
 
