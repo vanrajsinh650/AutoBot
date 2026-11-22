@@ -100,7 +100,6 @@ KNOWN_COMPANY_SEARCH_PORTALS: Dict[str, str] = {
     "ntt data north america": "https://careers.services.global.ntt/global/en/search-results?keywords={query}",
     "ntt data": "https://careers.services.global.ntt/global/en/search-results?keywords={query}",
     "asurion india gcc": "https://careers.asurion.com/search-jobs/{query}",
-    "ge vernova": "https://jobs.gevernova.com/global/en/search-results?keywords={query}",
     "jobgether": "https://jobgether.com/jobs?q={query}",
     "tocumulus": "https://theomnihire.zohorecruit.in/jobs/Careers",
     "ishan technologies": "https://ishantechnologies.com/careers/",
@@ -127,6 +126,9 @@ KNOWN_COMPANY_ATS_PORTALS: Dict[str, str] = KNOWN_COMPANY_SEARCH_PORTALS
 
 # Exact verified job requisitions indexed strictly by specific Job ID or Req ID
 KNOWN_EXACT_REQUISITIONS: Dict[str, str] = {
+    # GE Vernova Engineer - Platform NPI (4489740962 / R5058359)
+    "4489740962": "https://careers.gevernova.com/engineer-platform-npi/job/R5058359",
+    "r5058359": "https://careers.gevernova.com/engineer-platform-npi/job/R5058359",
     # TOCUMULUS Python Developer (4492134351)
     "4492134351": "https://theomnihire.zohorecruit.in/jobs/Careers/193563000004683072/Python-Developer?source=LinkedIn-Basic&embedsource=LinkedIn+Limited+Listings",
     # Synechron Lead Python Developer (4490410657)
@@ -250,6 +252,29 @@ def is_valid_direct_ats_url(url: str, title: Optional[str] = None) -> Tuple[bool
     if "myworkdayjobs.com" in hostname:
         if "/job/" not in parsed.path.lower():
             return False, "Workday root without /job/ requisition path (causes maintenance page)"
+
+    # Reject search-results / search-listing pages (not a specific job requisition)
+    # These are company career portal search pages, NOT individual job postings.
+    SEARCH_PAGE_INDICATORS = (
+        "search-results",
+        "search_results",
+        "search-jobs",
+        "search/jobs",
+        "jobs/search",
+        "careers/search",
+        "/search?",
+        "/search/?",
+    )
+    SEARCH_QUERY_PARAMS = ("keywords", "q", "search", "query", "keyword")
+    is_search_page = any(ind in clean_lower for ind in SEARCH_PAGE_INDICATORS)
+    if not is_search_page and parsed.query:
+        qs_keys = set(urllib.parse.parse_qs(parsed.query).keys())
+        if qs_keys & set(SEARCH_QUERY_PARAMS) and not any(
+            marker in parsed.path.lower() for marker in ("/job/", "/jobs/", "requisition", "req", "jobdetail", "posting")
+        ):
+            is_search_page = True
+    if is_search_page:
+        return False, "Career portal search results page (not a specific job requisition)"
 
     # Generic corporate root check (e.g. 3ds.com/careers, kite.com/, etc.)
     path_segments = [p for p in path.split("/") if p]
@@ -401,16 +426,16 @@ def resolve_company_direct_apply_url(
                 return sanitize_ats_url(KNOWN_EXACT_REQUISITIONS[d])
 
     # 4. Check verified enterprise search portal templates with {query} or direct portal URLs
+    # Strict gate: Only return if it is a valid direct requisition, not a search page
     clean_comp_lower = clean_comp.lower()
     url_encoded_query = urllib.parse.quote_plus(clean_title)
     if clean_comp_lower:
         for comp_key, portal_template in KNOWN_COMPANY_SEARCH_PORTALS.items():
             if comp_key == clean_comp_lower or (len(comp_key) > 3 and comp_key in clean_comp_lower):
-                if "{query}" in portal_template:
-                    if clean_title:
-                        return portal_template.format(query=url_encoded_query)
-                else:
-                    return portal_template
+                candidate_portal = portal_template.format(query=url_encoded_query) if "{query}" in portal_template else portal_template
+                is_val, _ = is_valid_direct_ats_url(candidate_portal, title=clean_title)
+                if is_val:
+                    return sanitize_ats_url(candidate_portal)
 
     # 5. Dynamic live discovery if enabled
     if auto_discover and clean_comp and clean_title:

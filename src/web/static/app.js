@@ -2618,6 +2618,88 @@
     }
   }
 
+  function renderPortalCardHtml(job, idx) {
+    const jobId = String(job.id != null ? job.id : (job.job_id || idx));
+    const stableId = String(job.stable_id || jobId);
+    const isSelected = portalsState.selectedIds.has(jobId);
+    const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category);
+    const rawApplyUrl = job.apply_url || job.source_url || "#";
+    const openFormHref = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+    const linkedinDigits = (String(stableId).match(/\d{6,15}/) || String(jobId).match(/\d{6,15}/) || [])[0];
+    const linkedinUrl = job.linkedin_url || (linkedinDigits ? `https://www.linkedin.com/jobs/view/${linkedinDigits}/` : '');
+    const descText = (job.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const snippet = descText.length > 200 ? descText.slice(0, 200) + "..." : descText || "No description preview available.";
+    const matchPct = Math.round((job.match_score || 0.60) * 100);
+    let matchBadgeClass = "badge-match-med";
+    if (matchPct >= 80) matchBadgeClass = "badge-match-high";
+    else if (matchPct < 60) matchBadgeClass = "badge-match-low";
+
+    return `
+      <div class="portal-card ${isSelected ? 'is-selected' : ''}" data-idx="${idx}" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <input type="checkbox" class="portal-card-checkbox" data-id="${escapeHtml(jobId)}" data-idx="${idx}" ${isSelected ? 'checked' : ''} title="Select this portal for automated application">
+              ${badgeHtml}
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="badge ${matchBadgeClass}" style="font-size: 11px; padding: 2px 7px;">
+                ⚡ ${matchPct}% Match
+              </span>
+              <span class="badge portal-status-badge ${job.status === 'applied' ? 'badge-applied' : (job.status === 'applying' ? 'badge-applying' : 'badge-dry-run')}" style="font-size: 10.5px;">
+                ${escapeHtml(job.status || 'discovered')}
+              </span>
+            </div>
+          </div>
+
+          <h3 style="font-size: 15.5px; font-weight: 700; color: #FFFFFF; margin: 0 0 5px 0; line-height: 1.35;">
+            ${escapeHtml(job.title)}
+          </h3>
+
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
+            <span style="font-weight: 600; color: #E2E8F0;">${escapeHtml(job.company)}</span>
+            <span>•</span>
+            <span>${escapeHtml(job.location || 'Remote')}</span>
+          </div>
+
+          <div class="portal-desc-snippet">
+            ${escapeHtml(snippet)}
+          </div>
+          ${job.failure_reason && job.status !== 'applied' && job.status !== 'dry_run' ? `
+          <div style="margin-top: 8px; padding: 6px 10px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; font-size: 11px; color: #FCA5A5; display: flex; align-items: flex-start; gap: 6px; line-height: 1.35;">
+            <span>⚠️</span>
+            <span>${escapeHtml(job.failure_reason)}</span>
+          </div>` : ''}
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; align-items: center;">
+          <button class="btn btn-secondary btn-sm btn-view-desc" data-idx="${idx}" style="flex: 1; min-width: 78px; padding: 7px 8px; font-size: 11.5px;">
+            View Details
+          </button>
+          ${job.proof_screenshot ? `
+          <button class="btn btn-secondary btn-sm btn-view-proof" data-shot="${escapeHtml(job.proof_screenshot)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" data-reason="${escapeHtml(job.failure_reason || '')}" style="flex: 1; min-width: 74px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; color: #10B981; border-color: rgba(16, 185, 129, 0.4); cursor: pointer;" title="View verified application proof screenshot">
+            Proof 📸
+          </button>` : ''}
+          <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 82px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Open verified direct ATS application form">
+            Apply Form ↗
+          </a>
+          ${linkedinUrl ? `
+          <a href="${escapeHtml(linkedinUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 78px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #70B5F9; border-color: rgba(10, 102, 194, 0.4);" title="View original job post on LinkedIn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.64 1.64 0 1 0 0-3.28 1.64 1.64 0 0 0 0 3.28m1.4 9.74v-8.37H5.06v8.37z"/></svg>
+            LinkedIn ↗
+          </a>` : ''}
+          <button class="btn btn-primary btn-sm btn-apply-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" style="flex: 1.1; min-width: 100px; padding: 7px 9px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; font-weight: 700;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            Apply ⚡
+          </button>
+          <button class="btn btn-sm btn-delete-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" title="Delete this opportunity" style="padding: 7px 10px; color: #FFFFFF; background: #DC2626; border: 1px solid #EF4444; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; font-weight: 700; border-radius: 6px; font-size: 11.5px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   function renderApplyPortals(jobs) {
     const grid = document.getElementById("portals-cards-grid");
     if (!grid) return;
@@ -2632,89 +2714,49 @@
       return;
     }
 
-    grid.innerHTML = jobs
-      .map((job, idx) => {
-        const jobId = String(job.id != null ? job.id : (job.job_id || idx));
-        const stableId = String(job.stable_id || jobId);
-        const isSelected = portalsState.selectedIds.has(jobId);
-        const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category);
-        const rawApplyUrl = job.apply_url || job.source_url || "#";
-        const openFormHref = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
-        const linkedinDigits = (String(stableId).match(/\d{6,15}/) || String(jobId).match(/\d{6,15}/) || [])[0];
-        const linkedinUrl = job.linkedin_url || (linkedinDigits ? `https://www.linkedin.com/jobs/view/${linkedinDigits}/` : '');
-        const descText = (job.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-        const snippet = descText.length > 200 ? descText.slice(0, 200) + "..." : descText || "No description preview available.";
-        const matchPct = Math.round((job.match_score || 0.60) * 100);
-        let matchBadgeClass = "badge-match-med";
-        if (matchPct >= 80) matchBadgeClass = "badge-match-high";
-        else if (matchPct < 60) matchBadgeClass = "badge-match-low";
+    const isAllTab = (!portalsState.category || portalsState.category === "all");
+    const extJobsWithIdx = [];
+    const easyJobsWithIdx = [];
 
-        return `
-          <div class="portal-card ${isSelected ? 'is-selected' : ''}" data-idx="${idx}" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}">
-            <div>
-              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <input type="checkbox" class="portal-card-checkbox" data-id="${escapeHtml(jobId)}" data-idx="${idx}" ${isSelected ? 'checked' : ''} title="Select this portal for automated application">
-                  ${badgeHtml}
-                </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <span class="badge ${matchBadgeClass}" style="font-size: 11px; padding: 2px 7px;">
-                    ⚡ ${matchPct}% Match
-                  </span>
-                  <span class="badge portal-status-badge ${job.status === 'applied' ? 'badge-applied' : (job.status === 'applying' ? 'badge-applying' : 'badge-dry-run')}" style="font-size: 10.5px;">
-                    ${escapeHtml(job.status || 'discovered')}
-                  </span>
-                </div>
-              </div>
+    jobs.forEach((j, idx) => {
+      const isEasy = (j.platform_category === "linkedin" || (j.platform || "").toLowerCase().includes("easy apply"));
+      if (isEasy) {
+        easyJobsWithIdx.push({ job: j, idx });
+      } else {
+        extJobsWithIdx.push({ job: j, idx });
+      }
+    });
 
-              <h3 style="font-size: 15.5px; font-weight: 700; color: #FFFFFF; margin: 0 0 5px 0; line-height: 1.35;">
-                ${escapeHtml(job.title)}
-              </h3>
-
-              <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
-                <span style="font-weight: 600; color: #E2E8F0;">${escapeHtml(job.company)}</span>
-                <span>•</span>
-                <span>${escapeHtml(job.location || 'Remote')}</span>
-              </div>
-
-              <div class="portal-desc-snippet">
-                ${escapeHtml(snippet)}
-              </div>
-              ${job.failure_reason && job.status !== 'applied' && job.status !== 'dry_run' ? `
-              <div style="margin-top: 8px; padding: 6px 10px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; font-size: 11px; color: #FCA5A5; display: flex; align-items: flex-start; gap: 6px; line-height: 1.35;">
-                <span>⚠️</span>
-                <span>${escapeHtml(job.failure_reason)}</span>
-              </div>` : ''}
-            </div>
-
-            <div style="display: flex; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; align-items: center;">
-              <button class="btn btn-secondary btn-sm btn-view-desc" data-idx="${idx}" style="flex: 1; min-width: 78px; padding: 7px 8px; font-size: 11.5px;">
-                View Details
-              </button>
-              ${job.proof_screenshot ? `
-              <button class="btn btn-secondary btn-sm btn-view-proof" data-shot="${escapeHtml(job.proof_screenshot)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" data-reason="${escapeHtml(job.failure_reason || '')}" style="flex: 1; min-width: 74px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; color: #10B981; border-color: rgba(16, 185, 129, 0.4); cursor: pointer;" title="View verified application proof screenshot">
-                Proof 📸
-              </button>` : ''}
-              <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 82px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Open verified direct ATS application form">
-                Apply Form ↗
-              </a>
-              ${linkedinUrl ? `
-              <a href="${escapeHtml(linkedinUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 78px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #70B5F9; border-color: rgba(10, 102, 194, 0.4);" title="View original job post on LinkedIn">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.64 1.64 0 1 0 0-3.28 1.64 1.64 0 0 0 0 3.28m1.4 9.74v-8.37H5.06v8.37z"/></svg>
-                LinkedIn ↗
-              </a>` : ''}
-              <button class="btn btn-primary btn-sm btn-apply-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" style="flex: 1.1; min-width: 100px; padding: 7px 9px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; font-weight: 700;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                Apply ⚡
-              </button>
-              <button class="btn btn-sm btn-delete-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" title="Delete this opportunity" style="padding: 7px 10px; color: #FFFFFF; background: #DC2626; border: 1px solid #EF4444; display: flex; align-items: center; justify-content: center; gap: 4px; cursor: pointer; font-weight: 700; border-radius: 6px; font-size: 11.5px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-              </button>
-            </div>
+    let html = "";
+    if (isAllTab && extJobsWithIdx.length > 0 && easyJobsWithIdx.length > 0) {
+      html += `
+        <div style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; margin-top: 4px; margin-bottom: 4px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 17px;">🌐</span>
+            <span style="font-size: 14.5px; font-weight: 700; color: #FFFFFF;">Direct External Form Portals (ATS & Careers)</span>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-size: 11.5px; padding: 2px 8px; border-radius: 9999px;">${extJobsWithIdx.length} roles</span>
           </div>
-        `;
-      })
-      .join("");
+          <div style="font-size: 12px; color: var(--text-muted);">External ATS portals (Ashby, Workday, Greenhouse, Lever, Oracle)</div>
+        </div>
+      `;
+      html += extJobsWithIdx.map(item => renderPortalCardHtml(item.job, item.idx)).join("");
+
+      html += `
+        <div style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; margin-top: 24px; margin-bottom: 4px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 17px;">⚡</span>
+            <span style="font-size: 14.5px; font-weight: 700; color: #FFFFFF;">LinkedIn Easy Apply Portals</span>
+            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; font-size: 11.5px; padding: 2px 8px; border-radius: 9999px;">${easyJobsWithIdx.length} roles</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted);">1-Click in-app application forms on LinkedIn</div>
+        </div>
+      `;
+      html += easyJobsWithIdx.map(item => renderPortalCardHtml(item.job, item.idx)).join("");
+    } else {
+      html = jobs.map((job, idx) => renderPortalCardHtml(job, idx)).join("");
+    }
+
+    grid.innerHTML = html;
 
     // Attach click listeners to "View Details" buttons
     grid.querySelectorAll(".btn-view-desc").forEach((btn) => {

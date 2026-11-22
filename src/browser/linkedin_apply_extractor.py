@@ -65,6 +65,51 @@ def decode_linkedin_apply_url(raw_url: str) -> Optional[str]:
     return None
 
 
+def detect_easy_apply_from_html(html: str) -> bool:
+    """
+    Detect whether a LinkedIn job page (guest/unauthenticated HTML) is an Easy Apply job.
+
+    Signal (reliable for unauthenticated scraping):
+      - Easy Apply: Tracking attribute contains "apply-link-onsite", or primary CTA class "apply-button--default"
+      - External Apply: Tracking attribute contains "apply-link-offsite", or primary CTA class "sign-up-modal__outlet"
+
+    Returns True if Easy Apply, False if External Apply or unknown.
+    """
+    if not html:
+        return False
+
+    # 1. Definitive LinkedIn tracking attributes (highest confidence for guest pages)
+    if "apply-link-onsite" in html:
+        return True
+    if "apply-link-offsite" in html:
+        return False
+
+    # 2. Check primary CTA button class
+    primary_cta_match = re.search(
+        r'top-card-layout__cta[^>]*class=["\']([^"\']+)["\']|class=["\']([^"\']*top-card-layout__cta--primary[^"\']*)["\']',
+        html
+    )
+    if primary_cta_match:
+        cta_class = primary_cta_match.group(1) or primary_cta_match.group(2) or ""
+        if "apply-button--default" in cta_class:
+            return True
+        if "sign-up-modal__outlet" in cta_class:
+            return False
+
+    # 3. Broader scan: look for apply-button--default class near the Apply CTA area
+    if re.search(r'apply-button apply-button--default[^>]*top-card-layout', html) or \
+       re.search(r'top-card-layout[^>]*apply-button--default', html):
+        return True
+    if re.search(r'apply-button--default', html):
+        return True
+
+    # 4. Fallback: search results list card markers
+    if 'job-search-card__easy-apply' in html or 'job-card-container__apply-method' in html:
+        return True
+
+    return False
+
+
 def extract_company_apply_url_from_html(html: str) -> Optional[str]:
     """
     Search raw HTML source, embedded Voyager state, or JSON-LD for companyApplyUrl
@@ -142,7 +187,34 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
                 '.jobs-search__job-details, .scaffold-layout__detail, .jobs-details__main-content, #main .jobs-details, .job-view-layout, .top-card-layout, .jobs-unified-top-card, .job-details-pane, div[data-job-id]'
             ) || document;
 
-            // Check for explicit Easy Apply within detailPane ONLY (not entire page)
+            // --- PRIMARY EASY APPLY DETECTION (unauthenticated-safe) ---
+            // When NOT logged in, LinkedIn renders:
+            //   Easy Apply jobs → primary CTA has class "apply-button apply-button--default"
+            //   External Apply jobs → primary CTA has class "sign-up-modal__outlet" (sign-in gate before redirect)
+            // This is reliable even when both show "Apply" as button text.
+            const primaryCta = detailPane.querySelector(
+                'button.top-card-layout__cta--primary, button[class*="top-card-layout__cta"]'
+            ) || document.querySelector('button.top-card-layout__cta--primary');
+            if (primaryCta) {
+                const trackingName = (primaryCta.getAttribute('data-tracking-control-name') || '').toLowerCase();
+                if (trackingName.includes('apply-link-onsite')) {
+                    return { is_easy_apply: true };
+                }
+                if (trackingName.includes('apply-link-offsite')) {
+                    return { is_easy_apply: false, type: 'external_cta' };
+                }
+                const ctaClass = primaryCta.className || '';
+                // Easy Apply: button has apply-button class (LinkedIn in-app flow)
+                if (ctaClass.includes('apply-button') && ctaClass.includes('apply-button--default')) {
+                    return { is_easy_apply: true };
+                }
+                // External Apply: button opens sign-in modal which then redirects to external ATS
+                if (ctaClass.includes('sign-up-modal__outlet')) {
+                    return { is_easy_apply: false, type: 'external_cta' };
+                }
+            }
+
+            // --- LOGGED-IN FALLBACK: Check for explicit Easy Apply badge text ---
             const easyApplyBadge = detailPane.querySelector(
                 '.job-card-container__apply-method, [aria-label*="Easy Apply"], .jobs-s-apply button, .jobs-apply-button'
             );

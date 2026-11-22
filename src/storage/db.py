@@ -359,7 +359,9 @@ def save_scraped_job(
                 auto_discover=True,
             )
             if resolved_apply_url:
-                clean_url = sanitize_ats_url(resolved_apply_url)
+                is_res_valid, _ = is_valid_direct_ats_url(resolved_apply_url, title=clean_title)
+                if is_res_valid:
+                    clean_url = sanitize_ats_url(resolved_apply_url)
         else:
             clean_url = sanitize_ats_url(clean_url)
 
@@ -586,7 +588,9 @@ def get_apply_portals(
                     auto_discover=False,
                 )
                 if resolved_portal:
-                    app_url = sanitize_ats_url(resolved_portal)
+                    is_res_valid, _ = is_valid_direct_ats_url(resolved_portal, title=title)
+                    if is_res_valid:
+                        app_url = sanitize_ats_url(resolved_portal)
             else:
                 app_url = sanitize_ats_url(app_url)
 

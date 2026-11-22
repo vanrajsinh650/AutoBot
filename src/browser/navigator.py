@@ -685,7 +685,7 @@ class LinkedInNavigator:
 
             # 5. Easy Apply Check
             easy_badge = await card.query_selector(
-                ".job-card-container__apply-method, [aria-label*='Easy Apply'], :text('Easy Apply')"
+                ".job-card-container__apply-method, [aria-label*='Easy Apply'], :text('Easy Apply'), [data-tracking-control-name*='apply-link-onsite'], .apply-button--default"
             )
             is_easy_apply = easy_badge is not None
 
@@ -750,10 +750,12 @@ class LinkedInNavigator:
                         # If not easy apply and still pointing to LinkedIn, resolve direct company portal
                         if not final_is_easy and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
                             try:
-                                from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+                                from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
                                 resolved_ats = resolve_company_direct_apply_url(title=job.title, company=job.company, current_url=final_apply_url, auto_discover=True)
                                 if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
-                                    final_apply_url = resolved_ats
+                                    is_val, _ = is_valid_direct_ats_url(resolved_ats)
+                                    if is_val:
+                                        final_apply_url = resolved_ats
                             except Exception:
                                 pass
 
@@ -829,10 +831,12 @@ class LinkedInNavigator:
                     # If not easy apply and still pointing to LinkedIn, resolve direct company portal
                     if not final_is_easy and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
                         try:
-                            from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+                            from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
                             resolved_ats = resolve_company_direct_apply_url(title=job.title, company=job.company, current_url=final_apply_url, auto_discover=True)
                             if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
-                                final_apply_url = resolved_ats
+                                is_val, _ = is_valid_direct_ats_url(resolved_ats)
+                                if is_val:
+                                    final_apply_url = resolved_ats
                         except Exception:
                             pass
 

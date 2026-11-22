@@ -14,6 +14,7 @@ from urllib.parse import quote_plus
 from src.agent.state import JobPosting
 from src.browser.linkedin_apply_extractor import (
     decode_linkedin_apply_url,
+    detect_easy_apply_from_html,
     resolve_direct_apply_url_from_page,
 )
 from src.browser.manager import BrowserManager
@@ -157,7 +158,7 @@ async def run_direct_chrome_search(
                 # If still a LinkedIn URL, resolve direct company career portal (Zoho, Workday, etc.)
                 if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
                     try:
-                        from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+                        from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
                         resolved_ats = resolve_company_direct_apply_url(
                             title=job.title,
                             company=job.company,
@@ -165,8 +166,13 @@ async def run_direct_chrome_search(
                             auto_discover=True,
                         )
                         if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
-                            final_apply_url = resolved_ats
-                            logger.info(f"[{worker_tag}] 🎯 Resolved direct ATS apply portal for '{job.title}' @ '{job.company}': {final_apply_url}")
+                            # Reject search-results pages — they are not specific job requisitions
+                            is_val, reason = is_valid_direct_ats_url(resolved_ats)
+                            if is_val:
+                                final_apply_url = resolved_ats
+                                logger.info(f"[{worker_tag}] 🎯 Resolved direct ATS apply portal for '{job.title}' @ '{job.company}': {final_apply_url}")
+                            else:
+                                logger.info(f"[{worker_tag}] ⚠️ Rejected invalid ATS URL for '{job.title}' @ '{job.company}': {resolved_ats} ({reason}) — keeping LinkedIn source URL")
                     except Exception as ex_ats:
                         logger.debug(f"[{worker_tag}] Direct ATS portal resolution error: {ex_ats}")
 
@@ -580,10 +586,16 @@ async def run_google_to_linkedin_job_search(
                 const linkEl = card.querySelector('a[href*="/jobs/view/"], .base-card__full-link, a.job-card-list__title');
                 const snippetEl = card.querySelector('.job-search-card__snippet, .base-search-card__metadata, .job-card-list__insight-item');
                 const cardText = card.innerText || '';
+                const cardHtml = card.innerHTML || '';
+                const hasOnsiteTracking = cardHtml.includes('apply-link-onsite');
+                const hasOffsiteTracking = cardHtml.includes('apply-link-offsite');
                 const isEasyApply = Boolean(
-                    card.querySelector('.job-search-card__easy-apply, .job-card-container__apply-method') ||
-                    cardText.includes('Easy Apply') ||
-                    cardText.includes('Easy apply')
+                    hasOnsiteTracking ||
+                    (!hasOffsiteTracking && (
+                        card.querySelector('.job-search-card__easy-apply, .job-card-container__apply-method, .apply-button--default') ||
+                        cardText.includes('Easy Apply') ||
+                        cardText.includes('Easy apply')
+                    ))
                 );
                 const applyBtn = card.querySelector('a.apply-button, a[data-tracking-control-name*="apply"]');
                 const directApplyUrl = applyBtn && applyBtn.href ? applyBtn.href : (linkEl ? linkEl.href : '');
