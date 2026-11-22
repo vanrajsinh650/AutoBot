@@ -369,14 +369,16 @@ async def equalize_career_hub_url(
             return results;
         }""")
 
-        if not links_data or len(links_data) == 0:
+        if not links_data or not isinstance(links_data, list) or len(links_data) == 0:
             return None
 
         # Filter candidate links
         filtered_candidates = []
         for c in links_data:
-            u_lower = c["url"].lower()
-            t_lower = c["title"].lower()
+            if not isinstance(c, dict):
+                continue
+            u_lower = str(c.get("url", "")).lower()
+            t_lower = str(c.get("title", "")).lower()
             if any(re.search(p, u_lower) for p in EXCLUDED_HREF_PATTERNS):
                 continue
             if any(marker in u_lower for marker in ("/job/", "/jobs/", "/career/", "/careers/", "/position/", "/openings/", "req", "lever.co", "myworkdayjobs.com", "greenhouse.io")) or any(kw in t_lower for kw in ("engineer", "developer", "lead", "manager", "architect", "analyst")):

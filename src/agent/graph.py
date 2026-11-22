@@ -293,7 +293,7 @@ async def run_agent(
     initial_state = create_initial_state(app_cfg, dry_run=dry_run)
     logger.info("[agent]⚡ Commencing LangGraph execution loop...[/agent]")
 
-    final_state: Dict[str, Any] = {}
+    final_state: Dict[str, Any] = dict(initial_state)
     try:
         from src.web.routes import execution_manager
         async for chunk in graph.astream(initial_state):

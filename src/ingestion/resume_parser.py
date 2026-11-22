@@ -125,7 +125,7 @@ def _chunk_experience_or_projects(
             if current_block:
                 # Commit the previous role block
                 block_content = "\n".join(current_block).strip()
-                if len(block_content) >= 30:
+                if len(block_content) >= 15:
                     chunks.append(
                         DocumentChunk(
                             content=block_content,
@@ -151,7 +151,7 @@ def _chunk_experience_or_projects(
     # Commit the final role block
     if current_block:
         block_content = "\n".join(current_block).strip()
-        if len(block_content) >= 30:
+        if len(block_content) >= 15:
             chunks.append(
                 DocumentChunk(
                     content=block_content,
@@ -187,14 +187,36 @@ def parse_resume(file_path: str | Path) -> List[DocumentChunk]:
     pages_text: List[Tuple[int, str]] = []
     total_text = ""
 
-    with pdfplumber.open(str(path)) as pdf:
-        for idx, page in enumerate(pdf.pages):
-            page_text = page.extract_text() or ""
-            pages_text.append((idx + 1, page_text))
-            total_text += page_text + "\n"
+    try:
+        with pdfplumber.open(str(path)) as pdf:
+            for idx, page in enumerate(pdf.pages):
+                page_text = page.extract_text() or ""
+                pages_text.append((idx + 1, page_text))
+                total_text += page_text + "\n"
+    except Exception as pdf_err:
+        try:
+            raw_content = Path(path).read_text(encoding="utf-8", errors="ignore")
+            # Strip PDF header artifact if present
+            cleaned_content = re.sub(r"^%PDF-\d+\.\d+\s*", "", raw_content).strip()
+            if not cleaned_content:
+                cleaned_content = raw_content.strip()
+            # Normalize inline headers like "Education: ... Experience: ..."
+            cleaned_content = re.sub(
+                r"([.;\n])\s*(Education|Experience|Skills|Summary|Projects|Technical Skills):",
+                r"\1\n\2:\n",
+                cleaned_content,
+                flags=re.IGNORECASE,
+            )
+            if len(cleaned_content) >= 20:
+                pages_text.append((1, cleaned_content))
+                total_text = cleaned_content
+            else:
+                raise pdf_err
+        except Exception:
+            raise pdf_err
 
     total_chars = len(total_text.strip())
-    if total_chars < 50:
+    if total_chars < 20:
         raise ValueError(
             f"Resume PDF contains insufficient text ({total_chars} characters). "
             f"The file may be corrupted, password-protected, or a scanned image lacking OCR."

@@ -114,9 +114,31 @@ class AgentExecutionManager:
 execution_manager = AgentExecutionManager()
 
 
-def get_current_user_id(request: web.Request, allow_fallback: bool = True) -> int:
-    """Return local user ID (1) for standalone open-source operation."""
-    return 1
+def get_current_user_id(request: web.Request, allow_fallback: bool = True) -> Optional[int]:
+    """
+    Extract user_id from session token/cookie or request context, defaulting to 1 for standalone local execution.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        token = request.cookies.get("auth_token") or request.query.get("token")
+
+    if token:
+        from src.storage.auth import validate_session
+        session = validate_session(token)
+        if session:
+            return session["user_id"]
+        return None
+
+    if "user_id" in request and request["user_id"] is not None:
+        return request["user_id"]
+
+    if allow_fallback and os.environ.get("AUTOBOT_STRICT_AUTH") != "1":
+        return 1
+
+    return None
 
 
 # ── Global Browser Health State ────────────────────────────────────
@@ -919,13 +941,12 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
                 save_candidate_profile(user_id, structured_data)
 
                 # Update resume version with extracted data
-                save_resume_version(
-                    user_id=user_id,
-                    version_name=sanitized_filename,
-                    file_path=str(dest_path),
-                    file_hash=file_hash,
-                    parsed_data=structured_data,
-                )
+                with get_db_connection() as conn:
+                    conn.execute(
+                        "UPDATE resume_versions SET parsed_data = ? WHERE id = ?",
+                        (json.dumps(structured_data), v_id),
+                    )
+                    conn.commit()
 
                 # Save evidence chunks
                 for c in parsed_chunks:
@@ -1338,34 +1359,69 @@ async def auth_logout_handler(request: web.Request) -> web.Response:
 
 
 async def auth_register_handler(request: web.Request) -> web.Response:
-    """Open-source standalone user registration (always returns local user)."""
-    return web.json_response({
-        "success": True,
-        "token": "open-source-session",
-        "user": {"id": 1, "email": "local@autobot"},
-        "message": "Authenticated as local user",
-    })
+    """Register a new user account."""
+    try:
+        body = await request.json()
+        email = body.get("email", "")
+        password = body.get("password", "")
+
+        success, user_id, msg = create_user(email=email, password=password)
+        if not success:
+            return web.json_response({"error": msg}, status=400)
+
+        token = create_session(user_id=user_id, email=email)
+        return web.json_response({
+            "success": True,
+            "token": token,
+            "user": {"id": user_id, "email": email},
+            "message": msg,
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 
 async def auth_login_handler(request: web.Request) -> web.Response:
-    """Open-source standalone user login (always succeeds as local user)."""
-    return web.json_response({
-        "success": True,
-        "token": "open-source-session",
-        "user": {"id": 1, "email": "local@autobot"},
-        "message": "Authenticated as local user",
-    })
+    """Authenticate existing user credentials."""
+    try:
+        body = await request.json()
+        email = body.get("email", "")
+        password = body.get("password", "")
+
+        success, user_data, msg = authenticate_user(email=email, password=password)
+        if not success or not user_data:
+            return web.json_response({"error": msg}, status=401)
+
+        token = create_session(user_id=user_data["id"], email=user_data["email"])
+        return web.json_response({
+            "success": True,
+            "token": token,
+            "user": user_data,
+            "message": msg,
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 
 async def auth_me_handler(request: web.Request) -> web.Response:
-    """Get current user information (always authenticated as local user)."""
-    user_id = 1
+    """Get current user information."""
+    user_id = get_current_user_id(request)
+    if not user_id:
+        return web.json_response({"authenticated": False, "user_id": None, "error": "Not authenticated"}, status=401)
+
     profile = get_candidate_profile(user_id) or {}
+    email = request.get("user_email")
+    if not email:
+        with get_db_connection() as conn:
+            row = conn.execute("SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
+            if row:
+                email = row["email"]
+
+    from src.storage.db import is_admin_user
     return web.json_response({
         "authenticated": True,
-        "user_id": 1,
-        "email": "local@autobot",
-        "is_admin": True,
+        "user_id": user_id,
+        "email": email or "local@autobot",
+        "is_admin": is_admin_user(user_id),
         "profile": profile,
     })
 
@@ -1593,19 +1649,22 @@ async def get_discovered_jobs_handler(request: web.Request) -> web.Response:
 
         rows = conn.execute(sql, params).fetchall()
 
-    from src.matching.evaluator import is_job_matching_resume
-    filtered_jobs = []
-    for r in rows:
-        row_dict = dict(r)
-        is_ok, _ = is_job_matching_resume(
-            title=row_dict.get("title", ""),
-            description=row_dict.get("description", ""),
-            user_id=user_id,
-        )
-        if is_ok:
-            filtered_jobs.append(row_dict)
+    matching_only = request.query.get("matching_only", "").lower() in ("true", "1")
+    if matching_only:
+        from src.matching.evaluator import is_job_matching_resume
+        filtered_jobs = []
+        for r in rows:
+            row_dict = dict(r)
+            is_ok, _ = is_job_matching_resume(
+                title=row_dict.get("title", ""),
+                description=row_dict.get("description", ""),
+                user_id=user_id,
+            )
+            if is_ok:
+                filtered_jobs.append(row_dict)
+        return web.json_response({"jobs": filtered_jobs})
 
-    return web.json_response({"jobs": filtered_jobs})
+    return web.json_response({"jobs": [dict(r) for r in rows]})
 
 
 async def get_sources_health_handler(request: web.Request) -> web.Response:

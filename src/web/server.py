@@ -2,6 +2,7 @@
 Web Dashboard Server for AutoBot v2.
 """
 
+import os
 from pathlib import Path
 from aiohttp import web
 
@@ -70,10 +71,6 @@ PUBLIC_EXACT_PATHS = {
     "/api/browser/health",
     "/api/auth/register",
     "/api/auth/login",
-    "/api/events",
-    "/api/apply-portals",
-    "/api/apply-portals/delete",
-    "/api/portals/apply",
 }
 
 
@@ -99,10 +96,46 @@ async def cache_control_middleware(request: web.Request, handler):
 @web.middleware
 async def auth_middleware(request: web.Request, handler):
     """
-    Open-Source Standalone Context Middleware for AutoBot.
-    Always operates as the local user (user_id=1, admin role)
-    with zero authentication barriers or login requirements.
+    Fail-Closed Authentication Middleware for AutoBot v2.1.
+    - Validates Bearer token / auth cookies whenever provided or under strict auth.
+    - In standalone local mode (without strict auth and without token), operates as local admin user (user_id=1).
     """
+    path = request.path
+
+    # Public exact paths and static assets are accessible anonymously
+    if path in PUBLIC_EXACT_PATHS or path.startswith("/static/"):
+        return await handler(request)
+
+    strict_auth = os.environ.get("AUTOBOT_STRICT_AUTH") == "1"
+
+    # Extract authorization token
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        token = request.cookies.get("auth_token") or request.query.get("token")
+
+    if token:
+        from src.storage.auth import validate_session
+        session = validate_session(token)
+        if not session:
+            return web.json_response(
+                {"error": "Authentication required. Invalid, expired, or revoked session token."},
+                status=401,
+            )
+        request[USER_ID_KEY] = session["user_id"]
+        request[USER_EMAIL_KEY] = session.get("email")
+        request[SESSION_KEY] = session
+        return await handler(request)
+
+    if strict_auth:
+        return web.json_response(
+            {"error": "Authentication required. Missing Bearer token or auth cookie."},
+            status=401,
+        )
+
+    # Standalone open-source default (local admin)
     request[USER_ID_KEY] = 1
     request[USER_EMAIL_KEY] = "local@autobot"
     request[SESSION_KEY] = {"user_id": 1, "role": "admin", "email": "local@autobot"}

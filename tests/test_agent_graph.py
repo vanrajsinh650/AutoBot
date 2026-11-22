@@ -411,7 +411,7 @@ async def test_run_agent_dry_run_entrypoint(tmp_path):
     db_file = str(tmp_path / "test_run_agent.db")
 
     mock_jobs = [
-        JobPosting(job_id="201", title="Python Backend Lead", company="Meta"),
+        JobPosting(job_id="201", title="Python Backend Developer", company="Meta"),
     ]
 
     class MockQualifyingMatcher:

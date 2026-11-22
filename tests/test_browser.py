@@ -99,18 +99,28 @@ async def test_external_apply_actuator_authorized_ats_success(tmp_path):
     tab = AsyncMock()
     tab.url = "https://boards.greenhouse.io/stripe/jobs/101"
     tab.title = AsyncMock(return_value="Careers at Stripe")
-    tab.evaluate = AsyncMock(return_value="Apply for this job")
+    async def mock_evaluate(expr):
+        if "innerText" in str(expr) or "document" in str(expr):
+            return "Thank you for applying to Stripe! Your application has been received."
+        return []
+    tab.evaluate = AsyncMock(side_effect=mock_evaluate)
     context.new_page = AsyncMock(return_value=tab)
 
     submit_btn = AsyncMock()
     submit_btn.is_visible = AsyncMock(return_value=True)
     submit_btn.is_enabled = AsyncMock(return_value=True)
 
+    first_name_input = AsyncMock()
+    first_name_input.is_visible = AsyncMock(return_value=True)
+    first_name_input.input_value = AsyncMock(return_value="")
+
     tab.query_selector_all = AsyncMock(return_value=[])
 
     async def tab_query_selector(sel):
         if "submit" in sel.lower():
             return submit_btn
+        if "first" in sel.lower() or "name" in sel.lower():
+            return first_name_input
         return None
 
     tab.query_selector = AsyncMock(side_effect=tab_query_selector)
