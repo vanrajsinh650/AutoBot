@@ -142,7 +142,52 @@ def answer_question_with_groq(
             return options[0]
         return expected_val
 
-    # 5. Job Title / Current Role (ONLY when explicitly requested!)
+    # 5. EEOC / Diversity & Inclusion (Gender, Disability, Veteran, Race, Referral Source)
+    if any(k in q_lower for k in ("gender", "sex")) and not any(w in q_lower for w in ("sexual orientation",)):
+        if options:
+            for o in options:
+                o_low = o.lower().strip()
+                if "female" not in o_low and ("male" in o_low or "man" in o_low or any(g in o_low for g in ("decline", "prefer not"))):
+                    return o
+            return options[0]
+        return "Male"
+
+    if any(k in q_lower for k in ("disability", "disabled", "handicap")):
+        if options:
+            for o in options:
+                if any(d in o.lower() for d in ("no, i don't have", "no disability", "do not have a disability", "no", "decline", "prefer not")):
+                    return o
+            return options[0]
+        return "No"
+
+    if any(k in q_lower for k in ("veteran", "military")):
+        if options:
+            for o in options:
+                if any(v in o.lower() for v in ("not a protected veteran", "i am not a protected", "not a veteran", "no", "decline", "prefer not")):
+                    return o
+            return options[0]
+        return "No"
+
+    if any(k in q_lower for k in ("race", "ethnicity", "ethnic origin")):
+        if options:
+            for o in options:
+                if any(r in o.lower() for r in ("asian", "south asian", "indian", "decline", "prefer not to say")):
+                    return o
+            return options[0]
+        return "Asian"
+
+    if any(k in q_lower for k in ("how did you hear", "source of referral", "referral source", "where did you hear")):
+        if options:
+            for o in options:
+                if "linkedin" in o.lower():
+                    return o
+            for o in options:
+                if any(s in o.lower() for s in ("job board", "career site", "company website", "online")):
+                    return o
+            return options[0]
+        return "LinkedIn"
+
+    # 6. Job Title / Current Role (ONLY when explicitly requested!)
     if any(k in q_lower for k in ("current title", "job title", "current role", "designation", "position title", "current position")):
         return candidate.get("current_title", "Software & Automation Engineer")
 

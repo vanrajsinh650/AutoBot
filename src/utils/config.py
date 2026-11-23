@@ -54,6 +54,7 @@ class ApplyConfig(BaseModel):
     max_applications: int = 30
     skip_already_applied: bool = True
     min_match_score: float = 0.6
+    login_portal_policy: str = "skip_portal"  # skip_portal, auto_login, pause_for_manual
     answers: AnswersConfig = Field(default_factory=AnswersConfig)
 
 
@@ -75,7 +76,7 @@ class BrowserConfig(BaseModel):
     viewport_height: int = 800
     executable_path: str = ""
     use_system_chrome: bool = True
-    cookie_policy: str = "auto_accept"  # auto_accept, auto_reject, hide_banner
+    cookie_policy: str = "hide_banner"  # auto_accept, auto_reject, hide_banner
 
 
 class AppConfig(BaseModel):

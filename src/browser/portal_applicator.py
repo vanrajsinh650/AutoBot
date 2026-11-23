@@ -596,8 +596,6 @@ async def apply_to_portals(
                     results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True, "proof_screenshot": proof_shot})
                 else:
                     failed += 1
-                    fail_desc = outcome.get("description") or "Requires manual completion on external portal."
-                    fail_status = outcome.get("status") or "requires_manual"
                     save_application(
                         job_id=job_stable_id,
                         job_title=title,

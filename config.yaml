@@ -23,6 +23,7 @@ apply:
   max_applications: 30
   skip_already_applied: true
   min_match_score: 0.6
+  login_portal_policy: skip_portal
   answers:
     years_of_experience: '3'
     expected_salary: 2 LPA
@@ -64,3 +65,4 @@ browser:
   slow_mo: 50
   viewport_width: 1280
   viewport_height: 800
+  cookie_policy: hide_banner

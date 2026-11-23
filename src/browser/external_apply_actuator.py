@@ -75,6 +75,7 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
         "disability": "No",
         "work_authorization": "Yes",
         "sponsorship_required": "No",
+        "expected_salary": "100000",
     }
     # 1. First populate from persistent candidate profile in SQLite database
     try:
@@ -429,6 +430,28 @@ class ExternalApplyActuator:
 
             # Re-dismiss cookie banners in case opening the form spawned a consent dialog
             await dismiss_cookie_banners(tab, policy=cookie_pol)
+
+            # Fast check: If portal requires candidate login or account creation, handle according to user policy
+            login_pol = getattr(getattr(self.cfg, "apply", None), "login_portal_policy", "skip_portal")
+            from src.browser.proof_audit import verify_submission_status
+            pre_login_check = await verify_submission_status(tab)
+            if pre_login_check.get("reason_code") == "ACCOUNT_REQUIRED":
+                if login_pol == "skip_portal":
+                    logger.info(f"[browser]⏭ Portal requires candidate login/account creation for '{job.title}' @ '{job.company}'. Skipping automatically per user policy.")
+                    blocker_path = await capture_proof_screenshot(
+                        tab, job.job_id, job.company, job.title,
+                        is_success=False,
+                        reason=pre_login_check["description"],
+                        status="requires_manual",
+                    )
+                    self.last_outcome = {
+                        "success": False,
+                        "status": "requires_manual",
+                        "reason_code": "ACCOUNT_REQUIRED",
+                        "description": pre_login_check["description"],
+                        "proof_screenshot": blocker_path or "",
+                    }
+                    return False
 
             # --- Multi-Step / Multi-Page Form Progression Loop ---
             # Universally handles single-page forms AND multi-step ATS flows
@@ -916,12 +939,20 @@ class ExternalApplyActuator:
             ("input[name*='github' i], input[placeholder*='GitHub' i], input[id*='github' i], input[data-automation-id*='github']", "GitHub URL", candidate.get("github", "https://github.com/vanrajsinh650")),
             ("input[name*='website' i], input[name*='portfolio' i], input[placeholder*='portfolio' i], input[placeholder*='website' i]", "Portfolio URL", candidate.get("portfolio", "https://github.com/vanrajsinh650")),
             ("input[name*='city' i], input[placeholder*='city' i], input[data-automation-id*='addressSection_city'], input[data-ph-id*='city']", "City", candidate.get("city", "Ahmedabad")),
+            ("input[name*='state' i], input[name*='province' i], input[placeholder*='state' i], input[data-automation-id*='addressSection_region']", "State", candidate.get("state", "Gujarat")),
+            ("input[name*='country' i]:not([name*='code' i]), input[placeholder*='country' i]:not([placeholder*='code' i]), input[data-automation-id*='addressSection_country']", "Country", candidate.get("country", "India")),
+            ("input[name*='countryCode' i], input[name*='phoneCountry' i], input[placeholder*='dialing' i]", "Country Code", candidate.get("country_code", "+91")),
             ("input[name*='location' i], input[placeholder*='location' i]", "Location", candidate.get("location", "India")),
             ("input[name*='postal' i], input[name*='zip' i], input[placeholder*='postal' i], input[placeholder*='zip' i], input[data-automation-id*='postalCode']", "Postal Code", candidate.get("postal_code", "380015")),
             ("input[name*='address' i], input[placeholder*='address' i], input[data-automation-id*='addressSection_addressLine1']", "Address", candidate.get("street_address", "132 Feet Ring Road")),
             ("input[name='company'], input[name='currentCompany'], input[name='employer'], input[name='org'], input[placeholder*='current company' i]", "Current Company", candidate.get("current_company", "Route Mobile Limited")),
             ("input[name='jobTitle'], input[name='currentJobTitle'], input[name='current_title'], input[name='job_title'], input[name='title'], input[placeholder*='current title' i], input[placeholder*='job title' i]", "Current Title", candidate.get("current_title", "Software & Automation Engineer")),
             ("input[name*='notice' i], input[placeholder*='notice period' i]", "Notice Period", candidate.get("notice_period", "Immediate")),
+            ("input[name*='salary' i], input[placeholder*='salary' i], input[name*='ctc' i], input[placeholder*='ctc' i], input[data-automation-id*='salary']", "Expected Salary", str(candidate.get("expected_salary") or "100000")),
+            ("input[name*='experience' i][type='number'], input[placeholder*='years of experience' i], input[name='years_of_experience']", "Years of Experience", str(candidate.get("years_of_experience") or "3")),
+            ("input[name*='school' i], input[name*='university' i], input[name*='college' i], input[placeholder*='university' i], input[placeholder*='school' i]", "University", candidate.get("university", "Gujarat Technological University")),
+            ("input[name*='degree' i], input[placeholder*='degree' i]", "Degree", candidate.get("degree", "Bachelor of Engineering (B.E.)")),
+            ("input[name*='major' i], input[name*='discipline' i], input[placeholder*='major' i], input[placeholder*='field of study' i]", "Major", candidate.get("major", "Computer Engineering")),
         ]
 
         for ctx in contexts:

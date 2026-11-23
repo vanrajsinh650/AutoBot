@@ -56,3 +56,20 @@ def test_micron_screening_questions_deterministic_answers():
     assert answer_question_with_groq("Are you legally authorized to work in this location?", candidate_info=candidate) == "Yes"
     assert answer_question_with_groq("Are you at least 18 years of age?", candidate_info=candidate) == "Yes"
     assert answer_question_with_groq("Will you now or in the future require visa sponsorship?", candidate_info=candidate) == "No"
+
+
+def test_eeoc_and_dropdown_options():
+    candidate = {
+        "full_name": "Vanraj Solanki",
+        "expected_salary": "100000",
+    }
+    # Gender
+    assert answer_question_with_groq("Gender", options=["Female", "Male", "Decline"], candidate_info=candidate) == "Male"
+    # Disability
+    assert answer_question_with_groq("Voluntary Self-Identification of Disability", options=["Yes, I have a disability", "No, I don't have a disability", "I don't wish to answer"], candidate_info=candidate) == "No, I don't have a disability"
+    # Veteran
+    assert answer_question_with_groq("Veteran Status", options=["I am a protected veteran", "I am not a protected veteran", "Decline to identify"], candidate_info=candidate) == "I am not a protected veteran"
+    # Race
+    assert answer_question_with_groq("Race / Ethnicity", options=["Hispanic/Latino", "Asian (Not Hispanic or Latino)", "White", "Decline"], candidate_info=candidate) == "Asian (Not Hispanic or Latino)"
+    # Referral source
+    assert answer_question_with_groq("How did you hear about this opportunity?", options=["Company Website", "LinkedIn", "Referral", "Other"], candidate_info=candidate) == "LinkedIn"

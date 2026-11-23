@@ -247,3 +247,59 @@ async def test_apply_preserves_genuine_match_score(tmp_path):
             # Must remain 0.44, NOT corrupted to 0.90!
             assert row["match_score"] == 0.44, f"Expected 0.44, got {row['match_score']}"
 
+
+@pytest.mark.asyncio
+async def test_apply_skips_login_gated_portal_when_configured(tmp_path):
+    """Verify that when a portal requires candidate account creation/sign-in, it skips with ACCOUNT_REQUIRED."""
+    db_file = str(tmp_path / "login_skip_test.db")
+    init_db(db_file)
+
+    save_scraped_job(
+        title="Integration Test Engineer",
+        company="Philips",
+        location="Bangalore",
+        description="Position: Integration Test Engineer at Philips.",
+        apply_url="https://philips.wd3.myworkdayjobs.com/jobs-and-careers/job/584997-1",
+        source_name="Workday",
+        is_easy_apply=False,
+        job_id="philips_wd_01",
+        user_id=1,
+        match_score=0.88,
+        db_path=db_file,
+    )
+
+    mock_actuator = MagicMock()
+    # Actuator returns False and sets last_outcome with ACCOUNT_REQUIRED
+    mock_actuator.apply = AsyncMock(return_value=False)
+    mock_actuator.last_outcome = {
+        "success": False,
+        "status": "requires_manual",
+        "reason_code": "ACCOUNT_REQUIRED",
+        "description": "Company career portal requires candidate account registration or sign-in (e.g. Workday/Taleo account).",
+        "proof_screenshot": "/tmp/proof_workday.png",
+    }
+
+    mock_browser_mgr = MagicMock()
+    mock_browser_mgr.start = AsyncMock()
+    mock_browser_mgr.close = AsyncMock()
+    mock_browser_mgr.context = MagicMock()
+
+    with patch("src.browser.portal_applicator.BrowserManager", return_value=mock_browser_mgr), \
+         patch("src.browser.portal_applicator.ExternalApplyActuator", return_value=mock_actuator):
+
+        res = await apply_to_portals(
+            job_ids=["philips_wd_01"],
+            user_id=1,
+            dry_run=True,
+            headless=True,
+            db_path=db_file,
+        )
+
+        assert res["total"] == 1
+        from src.storage.db import get_db_connection
+        with get_db_connection(db_file) as conn:
+            row = conn.execute("SELECT status, failure_reason FROM applications WHERE job_id = 'philips_wd_01'").fetchone()
+            assert row is not None
+            assert row["status"] == "requires_manual"
+            assert "account" in row["failure_reason"].lower()
+

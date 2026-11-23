@@ -754,11 +754,20 @@
             </div>
 
             <div class="form-group full-width">
-              <label class="form-label" for="cfg-cookie-policy">Cookie Consent Policy (Option 1 + Option 2)</label>
+              <label class="form-label" for="cfg-cookie-policy">Cookie Consent Policy (Anti-Overlay)</label>
               <select id="cfg-cookie-policy" class="filter-select" style="width: 100%;">
+                <option value="hide_banner">Hide Banners Only (CSS Suppression 🚫 - Clean & Fast)</option>
                 <option value="auto_accept">Auto-Accept All (Recommended ⚡ - Form scripts load cleanly)</option>
                 <option value="auto_reject">Auto-Reject Non-Essential (Privacy-First 🛡️ - Reject marketing)</option>
-                <option value="hide_banner">Hide Banners Only (CSS Suppression 🚫 - No cookies chosen)</option>
+              </select>
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label" for="cfg-login-portal-policy">Login-Required Portal Policy (Workday / Taleo)</label>
+              <select id="cfg-login-portal-policy" class="filter-select" style="width: 100%;">
+                <option value="skip_portal">Skip Login-Required Portals (Autonomous ⚡ - Focus on 1-Click & Guest Forms)</option>
+                <option value="auto_login">Attempt Auto-Login / Register (Candidate Credentials 🔑)</option>
+                <option value="pause_for_manual">Flag for Manual Review (Awaiting User ✋)</option>
               </select>
             </div>
           </div>

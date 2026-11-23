@@ -147,6 +147,7 @@
     cfgSponsorship: document.getElementById("cfg-sponsorship"),
     cfgNotice: document.getElementById("cfg-notice"),
     cfgCookiePolicy: document.getElementById("cfg-cookie-policy"),
+    cfgLoginPortalPolicy: document.getElementById("cfg-login-portal-policy"),
     btnSaveSettings: document.getElementById("btn-save-settings"),
 
     // Browser Health Telemetry & Admin Controls
@@ -1152,7 +1153,10 @@
     els.cfgSponsorship.value = String(answers.sponsorship_required || answers.require_sponsorship || false);
     els.cfgNotice.value = answers.notice_period || "30 days";
     if (els.cfgCookiePolicy) {
-      els.cfgCookiePolicy.value = cfg.browser?.cookie_policy || "auto_accept";
+      els.cfgCookiePolicy.value = cfg.browser?.cookie_policy || "hide_banner";
+    }
+    if (els.cfgLoginPortalPolicy) {
+      els.cfgLoginPortalPolicy.value = cfg.apply?.login_portal_policy || "skip_portal";
     }
   }
 
@@ -1163,6 +1167,10 @@
     if (els.cfgCookiePolicy) {
       if (!state.config.browser) state.config.browser = {};
       state.config.browser.cookie_policy = els.cfgCookiePolicy.value;
+    }
+    if (els.cfgLoginPortalPolicy) {
+      if (!state.config.apply) state.config.apply = {};
+      state.config.apply.login_portal_policy = els.cfgLoginPortalPolicy.value;
     }
 
     const keywordsArr = els.cfgKeywords.value
