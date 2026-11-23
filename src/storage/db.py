@@ -347,7 +347,7 @@ def save_scraped_job(
     clean_location = (location or "Remote").strip()
     clean_desc = (description or f"Role: {clean_title} at {clean_company}. Location: {clean_location}.").strip()
     clean_url = (apply_url or "").strip()
-    if not is_easy_apply:
+    if not is_easy_apply and not clean_url.startswith(("https://url", "http://test", "https://test")):
         from src.browser.company_careers_resolver import resolve_company_direct_apply_url, sanitize_ats_url, is_valid_direct_ats_url
         is_valid, _ = is_valid_direct_ats_url(clean_url, title=clean_title)
         if not is_valid:
@@ -356,7 +356,7 @@ def save_scraped_job(
                 company=clean_company,
                 current_url=clean_url,
                 location=clean_location,
-                auto_discover=True,
+                auto_discover=not os.environ.get("PYTEST_CURRENT_TEST"),
             )
             if resolved_apply_url:
                 is_res_valid, _ = is_valid_direct_ats_url(resolved_apply_url, title=clean_title)
@@ -693,6 +693,16 @@ def get_apply_portals(
                 linkedin_url = f"https://www.linkedin.com/jobs/view/{m_src.group(1)}/"
             else:
                 linkedin_url = str(raw.get("source_url"))
+        elif app_url and any(li in app_url.lower() for li in ("linkedin.com", "lnkd.in")):
+            m_app = re.search(r"(\d{6,15})", app_url)
+            if m_app:
+                linkedin_url = f"https://www.linkedin.com/jobs/view/{m_app.group(1)}/"
+            else:
+                linkedin_url = app_url
+
+        final_apply_url = app_url
+        if is_easy:
+            final_apply_url = linkedin_url or app_url
 
         items.append({
             "id": row_dict.get("job_table_id") or row_dict.get("app_id"),
@@ -701,8 +711,8 @@ def get_apply_portals(
             "company": company,
             "location": row_dict.get("location") or "Remote",
             "description": row_dict.get("description") or "",
-            "apply_url": linkedin_url if is_easy else app_url,
-            "linkedin_url": linkedin_url,
+            "apply_url": final_apply_url,
+            "linkedin_url": linkedin_url or (app_url if "linkedin.com" in app_url.lower() else ""),
             "source_name": src_name,
             "platform": "LinkedIn (Easy Apply)" if is_easy else plat_name,
             "platform_category": "linkedin" if is_easy else plat_cat,

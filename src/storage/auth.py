@@ -2,13 +2,15 @@
 User Authentication, Password Hashing, and Secure Session Management.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 import hashlib
 import hmac
 import os
 import secrets
 import sqlite3
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.storage.db import get_db_connection, init_db, get_db_path, log_audit
 from src.utils.logger import logger

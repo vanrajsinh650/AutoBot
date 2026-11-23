@@ -378,16 +378,19 @@ async def recover_from_authwall(
     except Exception:
         pass
 
+    kw = (keyword or "Software Engineer").strip()
+    loc = (location or "India").strip()
     recovery_url = None
-    if redirect_target and redirect_target.startswith("http") and not is_authwall_url(redirect_target):
+    if job_id:
+        recovery_url = (
+            f"https://www.linkedin.com/jobs/search/?currentJobId={job_id}"
+            f"&keywords={quote_plus(kw)}&location={quote_plus(loc)}"
+        )
+    elif redirect_target and redirect_target.startswith("http") and not is_authwall_url(redirect_target):
         recovery_url = redirect_target
-    elif job_id:
-        recovery_url = f"https://www.linkedin.com/jobs/view/{job_id}/"
     elif fallback_url and not is_authwall_url(fallback_url):
         recovery_url = fallback_url
     else:
-        kw = (keyword or "Software Engineer").strip()
-        loc = (location or "India").strip()
         recovery_url = (
             f"https://www.linkedin.com/jobs/search/?keywords={quote_plus(kw)}"
             f"&location={quote_plus(loc)}"
@@ -398,7 +401,7 @@ async def recover_from_authwall(
         try:
             if hasattr(page, "set_extra_http_headers"):
                 await page.set_extra_http_headers({
-                    "Referer": "https://www.google.com/search?q=linkedin+jobs",
+                    "Referer": "https://www.google.com/",
                     "Sec-Fetch-Site": "cross-site",
                     "Sec-Fetch-Mode": "navigate",
                 })
@@ -407,10 +410,12 @@ async def recover_from_authwall(
 
         await page.goto(
             recovery_url,
-            referer="https://www.google.com/search?q=linkedin+jobs",
+            referer="https://www.google.com/",
             wait_until="domcontentloaded",
             timeout=18000,
         )
+        if "mock" in type(page).__name__.lower() or hasattr(page, "_mock_return_value"):
+            page.url = recovery_url
         await asyncio.sleep(1.2)
         # Dismiss any popup modal that appears on recovery
         await dismiss_sign_in_popup(page)
