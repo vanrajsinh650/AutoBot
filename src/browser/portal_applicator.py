@@ -487,6 +487,15 @@ async def apply_to_portals(
 
                 # Fallback to direct company ATS resolver if not extracted from page
                 if not decoded_target:
+                    try:
+                        from src.browser.linkedin_apply_extractor import resolve_job_direct_ats_url
+                        resolved_live = await resolve_job_direct_ats_url(target_url, timeout_sec=12)
+                        if resolved_live and not any(li in resolved_live.lower() for li in ("linkedin.com", "lnkd.in")):
+                            decoded_target = resolved_live
+                    except Exception as ex_live:
+                        logger.debug(f"Live ATS resolution fallback error for {target_url}: {ex_live}")
+
+                if not decoded_target:
                     from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
                     resolved_ats = resolve_company_direct_apply_url(
                         title=title,
