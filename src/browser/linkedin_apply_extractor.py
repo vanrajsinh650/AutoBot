@@ -103,7 +103,11 @@ def detect_easy_apply_from_html(html: str) -> bool:
     if re.search(r'apply-button--default', html):
         return True
 
-    # 4. Fallback: search results list card markers
+    # 4. Check for onsite/easy-apply benefits badge in guest view
+    if 'job-search-card__benefits-item' in html and re.search(r'job-search-card__benefits-item[\s\S]*?Easy Apply', html, re.I):
+        return True
+
+    # 5. Search results list card markers
     if 'job-search-card__easy-apply' in html or 'job-card-container__apply-method' in html:
         return True
 
@@ -170,14 +174,14 @@ def extract_company_apply_url_from_html(html: str) -> Optional[str]:
     return None
 
 
-async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000) -> Optional[str]:
+async def inspect_page_apply_nature(page: Page, timeout_ms: int = 8000) -> Tuple[Optional[str], bool]:
     """
-    Inspect the active LinkedIn page/panel in Playwright and extract the direct
-    outbound external application form link (e.g. JPMorgan's Oracle Cloud ATS,
-    Greenhouse, Lever, Workday).
-    
+    Inspect the active LinkedIn page/panel in Playwright and determine both:
+    1. Direct destination ATS URL string (if an external application form exists)
+    2. True/False flag indicating whether this role is LinkedIn Easy Apply.
+
     Returns:
-        The direct destination URL string if found, or None if Easy Apply / unavailable.
+        (direct_ats_url, is_easy_apply)
     """
     try:
         # Step 1: In-page DOM inspection
@@ -189,9 +193,8 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
 
             // --- PRIMARY EASY APPLY DETECTION (unauthenticated-safe) ---
             // When NOT logged in, LinkedIn renders:
-            //   Easy Apply jobs → primary CTA has class "apply-button apply-button--default"
-            //   External Apply jobs → primary CTA has class "sign-up-modal__outlet" (sign-in gate before redirect)
-            // This is reliable even when both show "Apply" as button text.
+            //   Easy Apply jobs → primary CTA has class "apply-button apply-button--default" or tracking "apply-link-onsite"
+            //   External Apply jobs → primary CTA has class "sign-up-modal__outlet" or tracking "apply-link-offsite"
             const primaryCta = detailPane.querySelector(
                 'button.top-card-layout__cta--primary, button[class*="top-card-layout__cta"]'
             ) || document.querySelector('button.top-card-layout__cta--primary');
@@ -204,11 +207,9 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
                     return { is_easy_apply: false, type: 'external_cta' };
                 }
                 const ctaClass = primaryCta.className || '';
-                // Easy Apply: button has apply-button class (LinkedIn in-app flow)
                 if (ctaClass.includes('apply-button') && ctaClass.includes('apply-button--default')) {
                     return { is_easy_apply: true };
                 }
-                // External Apply: button opens sign-in modal which then redirects to external ATS
                 if (ctaClass.includes('sign-up-modal__outlet')) {
                     return { is_easy_apply: false, type: 'external_cta' };
                 }
@@ -283,37 +284,38 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
         }""")
 
         if not extracted_info:
-            # Fallback: check page content with regex
+            # Fallback: check page content with regex & detect_easy_apply_from_html
             try:
                 content = await page.content()
+                if detect_easy_apply_from_html(content):
+                    return (None, True)
                 from_content = extract_company_apply_url_from_html(content)
                 if from_content:
-                    return from_content
+                    return (from_content, False)
             except Exception:
                 pass
-            return None
+            return (None, False)
 
         if extracted_info.get("is_easy_apply"):
             # This is an in-app LinkedIn Easy Apply role
-            return None
+            return (None, True)
 
         # Process link or voyager result
         candidate_url = extracted_info.get("url")
         if candidate_url:
             decoded = decode_linkedin_apply_url(candidate_url)
             if decoded:
-                return decoded
+                return (decoded, False)
 
             # If it's an externalApply link that hasn't decoded yet (e.g. without ?url=)
             if "externalapply" in candidate_url.lower():
                 try:
-                    # Resolve HTTP 302 redirect via Playwright request
                     resp = await page.request.get(candidate_url, max_redirects=0, timeout=timeout_ms)
                     loc = resp.headers.get("location")
                     if loc:
                         dec_loc = decode_linkedin_apply_url(loc)
                         if dec_loc:
-                            return dec_loc
+                            return (dec_loc, False)
                 except Exception as ex:
                     logger.debug(f"Redirect resolution error on {candidate_url}: {ex}")
 
@@ -326,7 +328,6 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
                 if apply_button and await apply_button.is_visible():
                     btn_text = (await apply_button.inner_text()).lower()
                     if "easy" not in btn_text:
-                        # Expect the popup window that opens to the company's ATS
                         async with page.expect_popup(timeout=timeout_ms) as popup_info:
                             await apply_button.click()
                         popup = await popup_info.value
@@ -335,7 +336,6 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
                         except Exception:
                             pass
 
-                        # Wait for URL redirect loop to settle on outbound company ATS
                         popup_url = popup.url or ""
                         for _ in range(10):
                             cur = popup.url or ""
@@ -353,7 +353,6 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
                         except Exception:
                             pass
 
-                        # Dismiss the "Did you finish applying? Yes/No" prompt on parent LinkedIn page
                         try:
                             dismiss_btn = await page.query_selector(
                                 "button:has-text('No'), button:has-text('Yes'), [data-control-name*='dismiss_apply']"
@@ -365,22 +364,41 @@ async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000)
 
                         decoded = decode_linkedin_apply_url(popup_url)
                         if decoded:
-                            return decoded
+                            return (decoded, False)
                         if popup_url and not any(li in popup_url.lower() for li in ("linkedin.com", "lnkd.in")):
-                            return popup_url
+                            return (popup_url, False)
             except Exception as e:
                 logger.debug(f"Popup capture on Apply button failed: {e}")
 
         # Step 3: Check raw page content as final safety net
         try:
             content = await page.content()
-            return extract_company_apply_url_from_html(content)
+            if detect_easy_apply_from_html(content):
+                return (None, True)
+            ext_url = extract_company_apply_url_from_html(content)
+            if ext_url:
+                return (ext_url, False)
         except Exception:
-            return None
+            pass
+
+        return (None, False)
 
     except Exception as e:
-        logger.debug(f"resolve_direct_apply_url_from_page error: {e}")
-        return None
+        logger.debug(f"inspect_page_apply_nature error: {e}")
+        return (None, False)
+
+
+async def resolve_direct_apply_url_from_page(page: Page, timeout_ms: int = 8000) -> Optional[str]:
+    """
+    Inspect the active LinkedIn page/panel in Playwright and extract the direct
+    outbound external application form link (e.g. JPMorgan's Oracle Cloud ATS,
+    Greenhouse, Lever, Workday).
+    
+    Returns:
+        The direct destination URL string if found, or None if Easy Apply / unavailable.
+    """
+    url, is_easy = await inspect_page_apply_nature(page, timeout_ms=timeout_ms)
+    return url if not is_easy else None
 
 
 async def resolve_job_direct_ats_url(job_url_or_id: str, timeout_sec: int = 15) -> Optional[str]:

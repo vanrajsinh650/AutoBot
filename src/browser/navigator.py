@@ -31,6 +31,8 @@ from src.application.workflows import LinkedInPolicyViolationError
 from src.browser.linkedin_apply_extractor import (
     decode_linkedin_apply_url,
     resolve_direct_apply_url_from_page,
+    inspect_page_apply_nature,
+    detect_easy_apply_from_html,
 )
 from src.browser.manager import BrowserManager
 from src.browser.popup_handler import (
@@ -708,10 +710,19 @@ class LinkedInNavigator:
             location = (await location_el.inner_text()).strip() if location_el else ""
 
             # 5. Easy Apply Check
+            card_text = ""
+            try:
+                card_text = (await card.inner_text()).lower()
+            except Exception:
+                pass
+            is_easy_from_text = "easy apply" in card_text or "easyapply" in card_text
+
             easy_badge = await card.query_selector(
-                ".job-card-container__apply-method, [aria-label*='Easy Apply'], :text('Easy Apply'), [data-tracking-control-name*='apply-link-onsite'], .apply-button--default"
+                ".job-card-container__apply-method, [aria-label*='Easy Apply'], :text('Easy Apply'), "
+                "[data-tracking-control-name*='apply-link-onsite'], .apply-button--default, "
+                ".job-search-card__benefits-item"
             )
-            is_easy_apply = easy_badge is not None
+            is_easy_apply = bool(easy_badge or is_easy_from_text)
 
             # 6. Description Preview
             snippet_el = await card.query_selector(".job-search-card__snippet, .base-search-card__metadata")
@@ -723,7 +734,7 @@ class LinkedInNavigator:
             raw_apply_href = (await apply_el.get_attribute("href")) if apply_el else None
             decoded_direct = decode_linkedin_apply_url(raw_apply_href) if raw_apply_href else None
             apply_url = decoded_direct or raw_apply_href or url
-            if decoded_direct:
+            if decoded_direct and not any(li in decoded_direct.lower() for li in ("linkedin.com", "lnkd.in")):
                 is_easy_apply = False
 
             return JobPosting(
@@ -754,9 +765,17 @@ class LinkedInNavigator:
             panel_title = (await panel_title_el.inner_text()).strip().lower() if panel_title_el else ""
             clean_job_title = job.title.strip().lower()
 
-            is_same_job = (
-                clean_job_title and (clean_job_title in panel_title or panel_title in clean_job_title)
-            ) or (job.job_id and job.job_id in (self.page.url or ""))
+            panel_company_el = await self.page.query_selector(
+                ".jobs-unified-top-card__company-name, .topcard__org-name-link, .job-details-jobs-unified-top-card__company-name"
+            )
+            panel_company = (await panel_company_el.inner_text()).strip().lower() if panel_company_el else ""
+            clean_company = job.company.strip().lower()
+
+            company_matches = not panel_company or not clean_company or (clean_company in panel_company or panel_company in clean_company)
+            title_matches = bool(clean_job_title and panel_title and (clean_job_title == panel_title or clean_job_title in panel_title or panel_title in clean_job_title))
+            url_matches = bool(job.job_id and job.job_id.isdigit() and job.job_id in (self.page.url or ""))
+
+            is_same_job = (title_matches and company_matches) or (url_matches and company_matches)
 
             if is_same_job:
                 desc_el = await self.page.query_selector(
@@ -766,25 +785,32 @@ class LinkedInNavigator:
                     full_text = (await desc_el.inner_text()).strip()
                     if len(full_text) > 80:
                         job.description = full_text
-                        # Check for direct external apply form link behind the Apply button
-                        direct_url = await resolve_direct_apply_url_from_page(self.page)
-                        final_apply_url = direct_url or getattr(job, "external_apply_url", None) or job.url
-                        final_is_easy = False if direct_url else job.is_easy_apply
+                        # Check for direct external apply form link or easy apply nature
+                        direct_url, is_easy_page = await inspect_page_apply_nature(self.page)
+                        if is_easy_page:
+                            final_is_easy = True
+                            final_apply_url = job.url
+                        elif direct_url and not any(li in direct_url.lower() for li in ("linkedin.com", "lnkd.in")):
+                            final_is_easy = False
+                            final_apply_url = direct_url
+                        else:
+                            final_is_easy = job.is_easy_apply
+                            final_apply_url = getattr(job, "external_apply_url", None) or job.url
 
-                        # If not easy apply and still pointing to LinkedIn, resolve direct company portal
-                        if not final_is_easy and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
-                            try:
-                                from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
-                                resolved_ats = resolve_company_direct_apply_url(title=job.title, company=job.company, current_url=final_apply_url, auto_discover=True)
-                                if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
-                                    is_val, _ = is_valid_direct_ats_url(resolved_ats)
-                                    if is_val:
-                                        final_apply_url = resolved_ats
-                            except Exception:
-                                pass
+                            # If not easy apply and still pointing to LinkedIn, resolve direct company portal
+                            if not final_is_easy and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                                try:
+                                    from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
+                                    resolved_ats = resolve_company_direct_apply_url(title=job.title, company=job.company, current_url=final_apply_url, auto_discover=True)
+                                    if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                                        is_val, _ = is_valid_direct_ats_url(resolved_ats, title=job.title, company=job.company)
+                                        if is_val:
+                                            final_apply_url = resolved_ats
+                                except Exception:
+                                    pass
 
                         job.is_easy_apply = final_is_easy
-                        job.external_apply_url = final_apply_url
+                        job.external_apply_url = None if final_is_easy else final_apply_url
 
                         try:
                             save_scraped_job(
@@ -792,7 +818,7 @@ class LinkedInNavigator:
                                 company=job.company,
                                 location=job.location,
                                 description=full_text,
-                                apply_url=final_apply_url,
+                                apply_url=job.url if final_is_easy else final_apply_url,
                                 source_name="LinkedIn",
                                 is_easy_apply=final_is_easy,
                                 job_id=job.job_id,
@@ -873,25 +899,32 @@ class LinkedInNavigator:
                 if full_text:
                     job.description = full_text
 
-                    # Extract direct external application form link behind Apply button
-                    direct_url = await resolve_direct_apply_url_from_page(self.page)
-                    final_apply_url = direct_url or getattr(job, "external_apply_url", None) or job.url
-                    final_is_easy = False if direct_url else job.is_easy_apply
+                    # Extract direct external application form link or easy apply nature
+                    direct_url, is_easy_page = await inspect_page_apply_nature(self.page)
+                    if is_easy_page:
+                        final_is_easy = True
+                        final_apply_url = job.url
+                    elif direct_url and not any(li in direct_url.lower() for li in ("linkedin.com", "lnkd.in")):
+                        final_is_easy = False
+                        final_apply_url = direct_url
+                    else:
+                        final_is_easy = job.is_easy_apply
+                        final_apply_url = getattr(job, "external_apply_url", None) or job.url
 
-                    # If not easy apply and still pointing to LinkedIn, resolve direct company portal
-                    if not final_is_easy and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
-                        try:
-                            from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
-                            resolved_ats = resolve_company_direct_apply_url(title=job.title, company=job.company, current_url=final_apply_url, auto_discover=True)
-                            if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
-                                is_val, _ = is_valid_direct_ats_url(resolved_ats)
-                                if is_val:
-                                    final_apply_url = resolved_ats
-                        except Exception:
-                            pass
+                        # If not easy apply and still pointing to LinkedIn, resolve direct company portal
+                        if not final_is_easy and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                            try:
+                                from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
+                                resolved_ats = resolve_company_direct_apply_url(title=job.title, company=job.company, current_url=final_apply_url, auto_discover=True)
+                                if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                                    is_val, _ = is_valid_direct_ats_url(resolved_ats, title=job.title, company=job.company)
+                                    if is_val:
+                                        final_apply_url = resolved_ats
+                            except Exception:
+                                pass
 
                     job.is_easy_apply = final_is_easy
-                    job.external_apply_url = final_apply_url
+                    job.external_apply_url = None if final_is_easy else final_apply_url
 
                     try:
                         save_scraped_job(
@@ -899,7 +932,7 @@ class LinkedInNavigator:
                             company=job.company,
                             location=job.location,
                             description=full_text,
-                            apply_url=final_apply_url,
+                            apply_url=job.url if final_is_easy else final_apply_url,
                             source_name="LinkedIn",
                             is_easy_apply=final_is_easy,
                             job_id=job.job_id,

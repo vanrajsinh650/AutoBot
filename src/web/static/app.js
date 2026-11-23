@@ -2026,8 +2026,12 @@
         </div>
         <div style="display: flex; gap: 6px; align-items: center;">
           <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="window.evaluateCandidateJob('${j.stable_id}')">Evaluate</button>
-          <a href="${j.application_url && !j.application_url.includes('linkedin.com') && !j.application_url.includes('lnkd.in') ? escapeHtml(j.application_url) : `/api/jobs/${encodeURIComponent(j.stable_id || j.id)}/open-form`}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; color: #38BDF8;" title="Open direct application form">Apply Form ↗</a>
+          ${(j.apply_type === 'Easy Apply' || j.apply_type === 'easy_apply' || j.is_easy_apply === true || (j.source_name || '').toLowerCase().includes('easy apply')) ? `
+          <a href="${escapeHtml(j.linkedin_url || (j.stable_id && /^\d+$/.test(String(j.stable_id)) ? `https://www.linkedin.com/jobs/view/${j.stable_id}/` : 'https://www.linkedin.com/jobs/'))}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; color: #34D399; border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.08);" title="Open Easy Apply on LinkedIn">Easy Apply on LinkedIn ↗</a>
+          ` : `
+          <a href="${j.application_url && !j.application_url.includes('linkedin.com') && !j.application_url.includes('lnkd.in') ? escapeHtml(j.application_url) : `/api/jobs/${encodeURIComponent(j.stable_id || j.id)}/open-form`}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; color: #38BDF8; border-color: rgba(56, 189, 248, 0.45); background: rgba(56, 189, 248, 0.08);" title="Open direct application form">Apply Form ↗</a>
           <a href="${escapeHtml(j.linkedin_url || (j.stable_id && /^\d+$/.test(String(j.stable_id)) ? `https://www.linkedin.com/jobs/view/${j.stable_id}/` : 'https://www.linkedin.com/jobs/'))}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px; text-decoration: none; color: #70B5F9;" title="View original job post on LinkedIn">LinkedIn ↗</a>
+          `}
         </div>
       `;
       container.appendChild(item);
@@ -2386,13 +2390,13 @@
     }
   }
 
-  function getPlatformBadgeHtml(platform, category) {
+  function getPlatformBadgeHtml(platform, category, explicitIsEasy = null) {
     const p = (platform || "").toLowerCase();
-    const isEasy = (category === "linkedin" || p.includes("easy apply") || p.includes("easy_apply"));
+    const isEasy = (explicitIsEasy !== null ? explicitIsEasy : (category === "linkedin" || p.includes("easy apply") || p.includes("easy_apply")));
 
     if (isEasy) {
       const iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>`;
-      return `<span class="platform-badge platform-badge-linkedin">${iconSvg} LinkedIn (Easy Apply)</span>`;
+      return `<span class="platform-badge platform-badge-linkedin" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 600;">${iconSvg} LinkedIn (Easy Apply)</span>`;
     }
 
     let atsName = "LinkedIn (External Form)";
@@ -2405,7 +2409,7 @@
     else if (p.includes("ashby")) atsName = "Ashby (External ATS)";
 
     const extSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
-    return `<span class="platform-badge platform-badge-linkedin-ext">${extSvg} ${escapeHtml(atsName)}</span>`;
+    return `<span class="platform-badge platform-badge-linkedin-ext" style="background: rgba(56, 189, 248, 0.12); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35); font-weight: 600;">${extSvg} ${escapeHtml(atsName)}</span>`;
   }
 
   function updateBatchBarState() {
@@ -2604,7 +2608,7 @@
 
       // Reload portals to show new job card immediately
       await loadApplyPortals();
-      await fetchFeaturedPortals();
+      if (typeof fetchFeaturedPortals === "function") await fetchFeaturedPortals();
 
     } catch (err) {
       console.error("Direct link apply error:", err);
@@ -2622,11 +2626,17 @@
     const jobId = String(job.id != null ? job.id : (job.job_id || idx));
     const stableId = String(job.stable_id || jobId);
     const isSelected = portalsState.selectedIds.has(jobId);
-    const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category);
+    const isEasy = (
+      job.apply_type === 'Easy Apply' ||
+      job.is_easy_apply === true ||
+      job.platform_category === 'linkedin' ||
+      (job.platform || '').toLowerCase().includes('easy apply')
+    );
+    const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category, isEasy);
     const rawApplyUrl = job.apply_url || job.source_url || "#";
     const openFormHref = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
     const linkedinDigits = (String(stableId).match(/\d{6,15}/) || String(jobId).match(/\d{6,15}/) || [])[0];
-    const linkedinUrl = job.linkedin_url || (linkedinDigits ? `https://www.linkedin.com/jobs/view/${linkedinDigits}/` : '');
+    const linkedinUrl = job.linkedin_url || (linkedinDigits ? `https://www.linkedin.com/jobs/view/${linkedinDigits}/` : (job.url && job.url.includes('linkedin.com') ? job.url : ''));
     const descText = (job.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     const snippet = descText.length > 200 ? descText.slice(0, 200) + "..." : descText || "No description preview available.";
     const matchPct = Math.round((job.match_score || 0.60) * 100);
@@ -2680,7 +2690,12 @@
           <button class="btn btn-secondary btn-sm btn-view-proof" data-shot="${escapeHtml(job.proof_screenshot)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" data-reason="${escapeHtml(job.failure_reason || '')}" style="flex: 1; min-width: 74px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; color: #10B981; border-color: rgba(16, 185, 129, 0.4); cursor: pointer;" title="View verified application proof screenshot">
             Proof 📸
           </button>` : ''}
-          <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 82px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Open verified direct ATS application form">
+          ${isEasy ? `
+          <a href="${escapeHtml(linkedinUrl || rawApplyUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1.2; min-width: 120px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #34D399; border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.08);" title="Open Easy Apply application directly on LinkedIn">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.64 1.64 0 1 0 0-3.28 1.64 1.64 0 0 0 0 3.28m1.4 9.74v-8.37H5.06v8.37z"/></svg>
+            Easy Apply on LinkedIn ↗
+          </a>` : `
+          <a href="${escapeHtml(openFormHref)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1; min-width: 82px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #38BDF8; border-color: rgba(56, 189, 248, 0.45); background: rgba(56, 189, 248, 0.08);" title="Open verified direct ATS application form">
             Apply Form ↗
           </a>
           ${linkedinUrl ? `
@@ -2688,6 +2703,7 @@
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.64 1.64 0 1 0 0-3.28 1.64 1.64 0 0 0 0 3.28m1.4 9.74v-8.37H5.06v8.37z"/></svg>
             LinkedIn ↗
           </a>` : ''}
+          `}
           <button class="btn btn-primary btn-sm btn-apply-single" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" style="flex: 1.1; min-width: 100px; padding: 7px 9px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; font-weight: 700;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
             Apply ⚡
@@ -2816,8 +2832,15 @@
     const modalApply = document.getElementById("modal-apply-link");
     const modalLinkedIn = document.getElementById("modal-linkedin-link");
 
+    const isEasy = (
+      job.apply_type === 'Easy Apply' ||
+      job.is_easy_apply === true ||
+      job.platform_category === 'linkedin' ||
+      (job.platform || '').toLowerCase().includes('easy apply')
+    );
+
     if (modalBadge) {
-      modalBadge.innerHTML = getPlatformBadgeHtml(job.platform, job.platform_category);
+      modalBadge.innerHTML = getPlatformBadgeHtml(job.platform, job.platform_category, isEasy);
     }
     if (modalTitle) modalTitle.textContent = job.title;
     if (modalSubtitle) modalSubtitle.textContent = `${job.company} • ${job.location || "Remote"}`;
@@ -2826,13 +2849,28 @@
       modalDesc.textContent = cleanDesc || "No detailed job description captured.";
     }
     const stableId = job.stable_id || job.id || job.job_id || "";
+    const liDigits = (String(stableId).match(/\d{6,15}/) || String(job.id || '').match(/\d{6,15}/) || [])[0];
+    const liUrl = job.linkedin_url || (liDigits ? `https://www.linkedin.com/jobs/view/${liDigits}/` : '');
+
     if (modalApply) {
-      modalApply.href = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+      if (isEasy) {
+        modalApply.href = liUrl || job.apply_url || "https://www.linkedin.com/jobs/";
+        modalApply.innerHTML = `<span>Easy Apply on LinkedIn ↗</span>`;
+        modalApply.style.color = "#34D399";
+        modalApply.style.borderColor = "rgba(16, 185, 129, 0.45)";
+        modalApply.style.background = "rgba(16, 185, 129, 0.08)";
+      } else {
+        modalApply.href = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
+        modalApply.innerHTML = `<span>Apply Form ↗</span>`;
+        modalApply.style.color = "#38BDF8";
+        modalApply.style.borderColor = "rgba(56, 189, 248, 0.45)";
+        modalApply.style.background = "rgba(56, 189, 248, 0.08)";
+      }
     }
     if (modalLinkedIn) {
-      const liDigits = (String(stableId).match(/\d{6,15}/) || String(job.id || '').match(/\d{6,15}/) || [])[0];
-      const liUrl = job.linkedin_url || (liDigits ? `https://www.linkedin.com/jobs/view/${liDigits}/` : '');
-      if (liUrl) {
+      if (isEasy) {
+        modalLinkedIn.style.display = "none";
+      } else if (liUrl) {
         modalLinkedIn.href = liUrl;
         modalLinkedIn.style.display = "inline-flex";
       } else {

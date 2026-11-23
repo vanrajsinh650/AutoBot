@@ -148,10 +148,16 @@ async def run_direct_chrome_search(
                 if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
                     try:
                         detailed_job = await asyncio.wait_for(nav.fetch_job_details(job), timeout=14.0)
-                        ext_url = getattr(detailed_job, "external_apply_url", None)
-                        if ext_url and not any(li in str(ext_url).lower() for li in ("linkedin.com", "lnkd.in")):
-                            final_apply_url = ext_url
-                            logger.info(f"[{worker_tag}] 🎯 Extracted outbound direct ATS apply link for '{job.title}' @ '{job.company}': {final_apply_url}")
+                        job.is_easy_apply = getattr(detailed_job, "is_easy_apply", job.is_easy_apply)
+                        if job.is_easy_apply:
+                            final_apply_url = job.url
+                            job.external_apply_url = None
+                            logger.info(f"[{worker_tag}] ⚡ Confirmed in-app LinkedIn Easy Apply for '{job.title}' @ '{job.company}'")
+                        else:
+                            ext_url = getattr(detailed_job, "external_apply_url", None)
+                            if ext_url and not any(li in str(ext_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                                final_apply_url = ext_url
+                                logger.info(f"[{worker_tag}] 🎯 Extracted outbound direct ATS apply link for '{job.title}' @ '{job.company}': {final_apply_url}")
                     except (asyncio.TimeoutError, Exception) as ex:
                         logger.debug(f"[{worker_tag}] fetch_job_details fallback/timeout: {ex}")
 

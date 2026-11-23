@@ -571,8 +571,10 @@ def get_apply_portals(
         app_url = row_dict.get("application_url") or row_dict.get("app_url") or ""
         src_name = row_dict.get("source_name") or ""
         is_easy = bool(
-            raw.get("is_easy_apply") 
-            or row_dict.get("app_apply_type") == "easy_apply" 
+            raw.get("is_easy_apply") is True
+            or row_dict.get("app_apply_type") == "easy_apply"
+            or raw.get("apply_type") in ("easy_apply", "Easy Apply")
+            or "easy apply" in str(raw.get("platform", "")).lower()
             or "easy apply" in src_name.lower()
         )
 
@@ -699,12 +701,13 @@ def get_apply_portals(
             "company": company,
             "location": row_dict.get("location") or "Remote",
             "description": row_dict.get("description") or "",
-            "apply_url": app_url,
+            "apply_url": linkedin_url if is_easy else app_url,
             "linkedin_url": linkedin_url,
             "source_name": src_name,
-            "platform": plat_name,
-            "platform_category": plat_cat,
+            "platform": "LinkedIn (Easy Apply)" if is_easy else plat_name,
+            "platform_category": "linkedin" if is_easy else plat_cat,
             "apply_type": "Easy Apply" if is_easy else "External Apply",
+            "is_easy_apply": is_easy,
             "match_score": computed_score,
             "status": row_dict.get("application_status") or "discovered",
             "proof_screenshot": row_dict.get("proof_screenshot") or "",

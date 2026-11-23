@@ -2158,7 +2158,7 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
         if extracted_id:
             row = conn.execute(
                 """
-                SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
+                SELECT j.id, j.stable_id, j.title, j.company, j.application_url, j.raw_data, j.source_name, a.url as app_url, a.apply_type as app_apply_type
                 FROM jobs j
                 LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
                 WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ? OR j.stable_id = ? OR j.application_url LIKE ?
@@ -2170,7 +2170,7 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
         else:
             row = conn.execute(
                 """
-                SELECT j.id, j.stable_id, j.title, j.company, j.application_url, a.url as app_url
+                SELECT j.id, j.stable_id, j.title, j.company, j.application_url, j.raw_data, j.source_name, a.url as app_url, a.apply_type as app_apply_type
                 FROM jobs j
                 LEFT JOIN applications a ON (j.stable_id = a.job_id OR CAST(j.id AS TEXT) = a.job_id) AND (a.user_id = ? OR a.user_id = 1)
                 WHERE j.stable_id = ? OR CAST(j.id AS TEXT) = ?
@@ -2186,6 +2186,24 @@ async def open_job_form_handler(request: web.Request) -> web.Response:
             stable_identifier = r_dict.get("stable_id") or str(r_dict.get("id"))
             title = r_dict.get("title") or ""
             company = r_dict.get("company") or ""
+
+            raw_obj = {}
+            try:
+                if r_dict.get("raw_data"):
+                    raw_obj = json.loads(r_dict["raw_data"])
+            except Exception:
+                raw_obj = {}
+
+            is_easy = bool(
+                raw_obj.get("is_easy_apply") is True
+                or raw_obj.get("apply_type") in ("Easy Apply", "easy_apply")
+                or r_dict.get("app_apply_type") == "easy_apply"
+                or "easy apply" in str(raw_obj.get("platform", "")).lower()
+                or "easy apply" in (r_dict.get("source_name") or "").lower()
+            )
+            if is_easy:
+                canonical_linkedin = f"https://www.linkedin.com/jobs/view/{extracted_id}/" if extracted_id else (target_url or "https://www.linkedin.com/jobs/")
+                raise web.HTTPFound(location=canonical_linkedin)
 
     from src.browser.linkedin_apply_extractor import (
         decode_linkedin_apply_url,
