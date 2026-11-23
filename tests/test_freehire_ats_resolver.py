@@ -80,3 +80,34 @@ def test_company_careers_resolver_uses_freehire(mock_freehire):
         current_url="https://www.linkedin.com/jobs/view/9999999/",
     )
     assert res == "https://boards.greenhouse.io/sample/jobs/999"
+
+
+def test_is_authwall_url_detection():
+    """Verify is_authwall_url correctly identifies LinkedIn authwall and redirect URLs."""
+    from src.browser.popup_handler import is_authwall_url
+
+    assert is_authwall_url("https://www.linkedin.com/authwall?trk=qf&sessionRedirect=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2F4493294199%2F")
+    assert is_authwall_url("https://www.linkedin.com/login-wall?trk=bf")
+    assert not is_authwall_url("https://www.linkedin.com/jobs/view/4493294199/")
+    assert not is_authwall_url("https://careers.gevernova.com/engineer-platform-npi/job/R5058359")
+
+
+def test_is_valid_direct_ats_url_company_alignment():
+    """Verify is_valid_direct_ats_url checks company alignment and rejects unrelated domains."""
+    from src.browser.company_careers_resolver import is_valid_direct_ats_url
+
+    # MSD URL should be rejected for Edge Motion Controls
+    msd_url = "https://jobs.msd.com/gb/en/job/R339798/Associate-Specialist-Manufacturing-Automation"
+    ok, reason = is_valid_direct_ats_url(msd_url, title="Service Engineer", company="Edge Motion Controls Pvt. Ltd.")
+    assert not ok
+    assert "company" in reason.lower()
+
+    # GE Vernova URL should be accepted for GE Vernova
+    ge_url = "https://careers.gevernova.com/engineer-platform-npi/job/R5058359"
+    ok_ge, _ = is_valid_direct_ats_url(ge_url, title="Engineer - Platform NPI", company="GE Vernova")
+    assert ok_ge
+
+    # Multi-tenant Greenhouse URL matching company
+    gh_url = "https://boards.greenhouse.io/stripe/jobs/12345"
+    ok_gh, _ = is_valid_direct_ats_url(gh_url, title="Software Engineer", company="Stripe, Inc.")
+    assert ok_gh

@@ -219,7 +219,11 @@ def sanitize_ats_url(url: str) -> str:
     return clean
 
 
-def is_valid_direct_ats_url(url: str, title: Optional[str] = None) -> Tuple[bool, str]:
+def is_valid_direct_ats_url(
+    url: str,
+    title: Optional[str] = None,
+    company: Optional[str] = None,
+) -> Tuple[bool, str]:
     """
     Strictly validate that a URL is a real, live direct job application requisition:
     - Must be HTTP(S).
@@ -230,6 +234,7 @@ def is_valid_direct_ats_url(url: str, title: Optional[str] = None) -> Tuple[bool
       NEVER a bare root like /Ecolab_External or /en-US/careers which causes maintenance redirects.
     - Not a bare corporate homepage or generic /careers splash page with no job id or query.
     - If title is provided, verifies there is no blatant title mismatch with the URL slug.
+    - If company is provided, verifies that the ATS domain/slug belongs to that company.
     """
     if not url or not isinstance(url, str):
         return False, "Empty URL"
@@ -297,6 +302,22 @@ def is_valid_direct_ats_url(url: str, title: Optional[str] = None) -> Tuple[bool
         if "quality" in clean_lower and "quality" not in t_clean and "sdet" not in t_clean and "test" not in t_clean and "software-quality" in clean_lower:
             return False, f"Job title '{title}' mismatches URL slug"
 
+    # Company alignment check if company is provided
+    if company:
+        c_clean = company.strip().lower()
+        stopwords = {
+            "pvt", "ltd", "inc", "llc", "corp", "limited", "co", "private",
+            "technologies", "technology", "solutions", "services", "global",
+            "india", "the", "group", "holdings", "systems", "and", "&"
+        }
+        tokens = [t for t in re.findall(r"[a-z0-9]+", c_clean) if len(t) >= 3 and t not in stopwords]
+        if not tokens:
+            tokens = [t for t in re.findall(r"[a-z0-9]+", c_clean) if t not in stopwords]
+        if tokens:
+            has_company_token = any(tok in clean_lower for tok in tokens)
+            if not has_company_token:
+                return False, f"URL domain/slug does not belong to company '{company}'"
+
     return True, "Valid Direct ATS Requisition"
 
 
@@ -358,7 +379,7 @@ def discover_direct_job_ats_url(
             raw_links = re.findall(r"uddg=([^&\"]+)", html)
             for raw_l in raw_links:
                 candidate_url = urllib.parse.unquote(raw_l).strip()
-                is_valid, _ = is_valid_direct_ats_url(candidate_url)
+                is_valid, _ = is_valid_direct_ats_url(candidate_url, title=clean_title, company=clean_company)
                 if not is_valid:
                     continue
 
@@ -368,7 +389,7 @@ def discover_direct_job_ats_url(
                     probe_req = urllib.request.Request(sanitized, headers=headers)
                     with urllib.request.urlopen(probe_req, timeout=2.5) as probe_resp:
                         final_url = probe_resp.geturl()
-                        val_ok, _ = is_valid_direct_ats_url(final_url)
+                        val_ok, _ = is_valid_direct_ats_url(final_url, title=clean_title, company=clean_company)
                         if val_ok:
                             return sanitize_ats_url(final_url)
                 except Exception:
@@ -458,7 +479,7 @@ def resolve_company_direct_apply_url(
     if auto_discover and clean_comp and clean_title:
         discovered = discover_direct_job_ats_url(company=clean_comp, title=clean_title, location=location)
         if discovered:
-            is_valid, _ = is_valid_direct_ats_url(discovered)
+            is_valid, _ = is_valid_direct_ats_url(discovered, title=clean_title, company=clean_comp)
             if is_valid:
                 return sanitize_ats_url(discovered)
 

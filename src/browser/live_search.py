@@ -147,13 +147,13 @@ async def run_direct_chrome_search(
                 # invoke fetch_job_details to extract the outbound direct ATS link (Workday, iCIMS, Greenhouse, etc.)
                 if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
                     try:
-                        detailed_job = await nav.fetch_job_details(job)
+                        detailed_job = await asyncio.wait_for(nav.fetch_job_details(job), timeout=14.0)
                         ext_url = getattr(detailed_job, "external_apply_url", None)
                         if ext_url and not any(li in str(ext_url).lower() for li in ("linkedin.com", "lnkd.in")):
                             final_apply_url = ext_url
                             logger.info(f"[{worker_tag}] 🎯 Extracted outbound direct ATS apply link for '{job.title}' @ '{job.company}': {final_apply_url}")
-                    except Exception as ex:
-                        logger.debug(f"[{worker_tag}] fetch_job_details fallback failed: {ex}")
+                    except (asyncio.TimeoutError, Exception) as ex:
+                        logger.debug(f"[{worker_tag}] fetch_job_details fallback/timeout: {ex}")
 
                 # If still a LinkedIn URL, resolve direct company career portal (Zoho, Workday, etc.)
                 if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
@@ -255,6 +255,12 @@ async def run_direct_chrome_search(
         active_managers.append(mgr)
 
         try:
+            # Stagger parallel browser starts to eliminate simultaneous IP burst requests to LinkedIn CDN
+            if worker_id > 1:
+                stagger_delay = (worker_id - 1) * 3.5
+                logger.info(f"[{worker_tag}] Staggering browser start by {stagger_delay:.1f}s to prevent IP authwalls...")
+                await asyncio.sleep(stagger_delay)
+
             _notify("info", f"🌐 [{worker_tag}] Launching Chrome instance for: {', '.join(assigned_kws)}...")
             await mgr.start()
             nav = LinkedInNavigator(manager=mgr, cfg=cfg, env=env)

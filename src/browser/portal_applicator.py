@@ -19,7 +19,11 @@ from src.browser.linkedin_apply_extractor import (
     resolve_direct_apply_url_from_page,
 )
 from src.browser.manager import BrowserManager
-from src.browser.popup_handler import dismiss_sign_in_popup
+from src.browser.popup_handler import (
+    dismiss_sign_in_popup,
+    is_authwall_url,
+    recover_from_authwall,
+)
 from src.storage.db import get_db_connection, get_db_path, init_db, save_application
 from src.utils.config import AppConfig, get_config, get_env
 from src.utils.logger import logger
@@ -318,7 +322,14 @@ async def apply_to_portals(
                     temp_page = None
                     try:
                         temp_page = await context.new_page()
-                        await temp_page.goto(target_url, wait_until="domcontentloaded", timeout=20000)
+                        await temp_page.goto(
+                            target_url,
+                            referer="https://www.google.com/search?q=linkedin+jobs",
+                            wait_until="domcontentloaded",
+                            timeout=15000,
+                        )
+                        if is_authwall_url(temp_page.url):
+                            await recover_from_authwall(temp_page, fallback_url=target_url)
                         await dismiss_sign_in_popup(temp_page)
                         decoded_target = await resolve_direct_apply_url_from_page(temp_page, timeout_ms=8000)
 
@@ -328,6 +339,42 @@ async def apply_to_portals(
                                 ".jobs-apply-button:has-text('Easy Apply'), button[aria-label*='Easy Apply'], .jobs-s-apply button"
                             )
                             if easy_btn:
+                                # Check if session cookie exists
+                                has_session = False
+                                try:
+                                    cookies = await context.cookies()
+                                    has_session = any(c.get("name") == "li_at" and c.get("value") for c in cookies)
+                                except Exception:
+                                    pass
+
+                                if not has_session:
+                                    _notify(
+                                        "warning",
+                                        f"({idx}/{len(jobs_to_apply)}) ⚠ LinkedIn Easy Apply for '{title}' @ '{company}' requires user login.",
+                                        {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "requires_manual"},
+                                    )
+                                    save_application(
+                                        job_id=job_stable_id,
+                                        job_title=title,
+                                        company=company,
+                                        location=job.get("location") or "Remote",
+                                        apply_type="easy_apply",
+                                        match_score=0.9,
+                                        status="requires_manual",
+                                        url=target_url,
+                                        notes="LinkedIn Easy Apply requires login. Connect LinkedIn session to auto-apply.",
+                                        db_path=active_db,
+                                        user_id=user_id,
+                                        failure_reason="LinkedIn Easy Apply requires login",
+                                    )
+                                    failed += 1
+                                    results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": "requires_manual", "reason": "LinkedIn Easy Apply requires login"})
+                                    await temp_page.close()
+                                    temp_page = None
+                                    if idx < len(jobs_to_apply):
+                                        await asyncio.sleep(2.0)
+                                    continue
+
                                 _notify("info", f"({idx}/{len(jobs_to_apply)}) Discovered Easy Apply button on LinkedIn page for '{title}' @ '{company}'. Running Easy Apply...")
                                 easy_actuator = EasyApplyActuator(
                                     page=temp_page,
@@ -414,15 +461,18 @@ async def apply_to_portals(
 
                 # Fallback to direct company ATS resolver if not extracted from page
                 if not decoded_target:
-                    from src.browser.company_careers_resolver import resolve_company_direct_apply_url
+                    from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
                     resolved_ats = resolve_company_direct_apply_url(
                         title=title,
                         company=company,
                         current_url=target_url,
                         location=job.get("location") or "",
+                        auto_discover=True,
                     )
                     if resolved_ats and resolved_ats.startswith(("http://", "https://")) and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
-                        decoded_target = resolved_ats
+                        is_val, _ = is_valid_direct_ats_url(resolved_ats, title=title, company=company)
+                        if is_val:
+                            decoded_target = resolved_ats
 
                 if decoded_target:
                     _notify("success", f"🎯 Extracted direct form link for {company}: {decoded_target}")
@@ -445,6 +495,20 @@ async def apply_to_portals(
                         "warning",
                         f"({idx}/{len(jobs_to_apply)}) Could not extract direct external ATS link for '{title}' @ '{company}'. Target is still on LinkedIn.",
                         {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "requires_manual"},
+                    )
+                    save_application(
+                        job_id=job_stable_id,
+                        job_title=title,
+                        company=company,
+                        location=job.get("location") or "Remote",
+                        apply_type="external_apply",
+                        match_score=0.9,
+                        status="requires_manual",
+                        url=target_url,
+                        notes="Could not resolve direct ATS link from LinkedIn (manual completion required)",
+                        db_path=active_db,
+                        user_id=user_id,
+                        failure_reason="Could not resolve direct ATS link from LinkedIn",
                     )
                     failed += 1
                     results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": "requires_manual", "reason": "Could not resolve direct ATS link from LinkedIn"})

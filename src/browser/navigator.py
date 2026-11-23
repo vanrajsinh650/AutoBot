@@ -33,7 +33,12 @@ from src.browser.linkedin_apply_extractor import (
     resolve_direct_apply_url_from_page,
 )
 from src.browser.manager import BrowserManager
-from src.browser.popup_handler import dismiss_sign_in_popup, install_popup_observer
+from src.browser.popup_handler import (
+    dismiss_sign_in_popup,
+    install_popup_observer,
+    is_authwall_url,
+    recover_from_authwall,
+)
 from src.storage.db import save_scraped_job
 from src.utils.config import AppConfig, EnvSettings, get_config, get_env
 from src.utils.human_behavior import (
@@ -335,10 +340,21 @@ class LinkedInNavigator:
             except Exception:
                 continue
 
+        if is_authwall_url(self.page.url):
+            logger.warning("[browser]Detected authwall in open_jobs_section. Recovering...")
+            await recover_from_authwall(self.page, fallback_url=self.JOBS_URL)
+
         if not clicked or "/jobs" not in self.page.url:
             try:
-                await self.page.goto(self.JOBS_URL, wait_until="domcontentloaded", timeout=20000)
+                await self.page.goto(
+                    self.JOBS_URL,
+                    referer="https://www.google.com/search?q=linkedin+jobs",
+                    wait_until="domcontentloaded",
+                    timeout=20000,
+                )
                 await human_delay(1000, 2000)
+                if is_authwall_url(self.page.url):
+                    await recover_from_authwall(self.page, fallback_url=self.JOBS_URL)
             except Exception as e:
                 logger.debug(f"Direct jobs navigation fallback: {e}")
 
@@ -523,8 +539,16 @@ class LinkedInNavigator:
             pass
 
         try:
-            await self.page.goto(url, wait_until="domcontentloaded", timeout=25000)
+            await self.page.goto(
+                url,
+                referer="https://www.google.com/search?q=linkedin+jobs",
+                wait_until="domcontentloaded",
+                timeout=25000,
+            )
             await human_delay(1500, 2500)
+            if is_authwall_url(self.page.url):
+                logger.warning(f"[browser]Detected authwall during search. Attempting recovery...")
+                await recover_from_authwall(self.page, fallback_url=url, keyword=keyword, location=location)
         except Exception as e:
             logger.warning(f"Search navigation warning: {e}")
 
@@ -797,7 +821,33 @@ class LinkedInNavigator:
             pass
 
         try:
-            await self.page.goto(job.url, wait_until="domcontentloaded", timeout=15000)
+            await self.page.goto(
+                job.url,
+                referer="https://www.google.com/search?q=linkedin+jobs",
+                wait_until="domcontentloaded",
+                timeout=12000,
+            )
+            if is_authwall_url(self.page.url):
+                logger.warning(f"[browser]Detected authwall on job details for '{job.title}'. Attempting recovery...")
+                recovered = await recover_from_authwall(self.page, fallback_url=job.url)
+                if not recovered or is_authwall_url(self.page.url):
+                    logger.info(f"[browser]LinkedIn guest authwall active for '{job.title}'. Bypassing via FreeHire & Direct ATS Resolver...")
+                    from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
+                    resolved_ats = resolve_company_direct_apply_url(
+                        title=job.title,
+                        company=job.company,
+                        current_url=job.url,
+                        location=job.location or "",
+                        auto_discover=True,
+                    )
+                    if resolved_ats and resolved_ats != job.url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                        is_val, _ = is_valid_direct_ats_url(resolved_ats, title=job.title, company=job.company)
+                        if is_val:
+                            job.external_apply_url = resolved_ats
+                            job.is_easy_apply = False
+                            logger.info(f"[browser]🎯 Bypassed authwall via direct ATS resolver: {resolved_ats}")
+                    return job
+
             await dismiss_sign_in_popup(self.page)
             from src.browser.cookie_handler import dismiss_cookie_banners
             await dismiss_cookie_banners(self.page, policy=getattr(getattr(self.cfg, "browser", None), "cookie_policy", "auto_accept"))

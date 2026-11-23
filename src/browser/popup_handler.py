@@ -335,6 +335,14 @@ async def dismiss_sign_in_popup(
     return dismissed
 
 
+def is_authwall_url(url: Optional[str]) -> bool:
+    """Check if a URL indicates a LinkedIn guest authwall or login wall redirect."""
+    if not url or not isinstance(url, str):
+        return False
+    u = url.lower()
+    return "authwall" in u or "sessionredirect=" in u or "login-wall" in u
+
+
 async def recover_from_authwall(
     page: Any,
     fallback_url: Optional[str] = None,
@@ -343,13 +351,13 @@ async def recover_from_authwall(
 ) -> bool:
     """
     Recover from LinkedIn's /authwall redirect page by extracting the target job role
-    and navigating to the public jobs view or search view with Google referer.
+    or search redirect and navigating to the public jobs view or search view with Google referer.
     """
     if not page or not hasattr(page, "url"):
         return False
 
     current_url = getattr(page, "url", "")
-    if "authwall" not in current_url.lower():
+    if not is_authwall_url(current_url):
         return False
 
     logger.warning(f"[authwall-handler]Detected LinkedIn authwall ({current_url}). Initiating bypass recovery...")
@@ -357,6 +365,7 @@ async def recover_from_authwall(
     from urllib.parse import parse_qs, quote_plus, unquote, urlparse
     import re
 
+    redirect_target = ""
     job_id = None
     try:
         parsed = urlparse(current_url)
@@ -369,34 +378,47 @@ async def recover_from_authwall(
     except Exception:
         pass
 
-    kw = (keyword or "Software Engineer").strip()
-    loc = (location or "India").strip()
-
     recovery_url = None
-    if job_id:
-        recovery_url = (
-            f"https://www.linkedin.com/jobs/search/?currentJobId={job_id}"
-            f"&keywords={quote_plus(kw)}&location={quote_plus(loc)}"
-        )
-    elif fallback_url and "authwall" not in fallback_url.lower():
+    if redirect_target and redirect_target.startswith("http") and not is_authwall_url(redirect_target):
+        recovery_url = redirect_target
+    elif job_id:
+        recovery_url = f"https://www.linkedin.com/jobs/view/{job_id}/"
+    elif fallback_url and not is_authwall_url(fallback_url):
         recovery_url = fallback_url
     else:
+        kw = (keyword or "Software Engineer").strip()
+        loc = (location or "India").strip()
         recovery_url = (
             f"https://www.linkedin.com/jobs/search/?keywords={quote_plus(kw)}"
             f"&location={quote_plus(loc)}"
         )
 
     try:
-        logger.info(f"[authwall-handler]Redirecting to public job view: {recovery_url}")
+        logger.info(f"[authwall-handler]Redirecting to public view via Google referer: {recovery_url}")
+        try:
+            if hasattr(page, "set_extra_http_headers"):
+                await page.set_extra_http_headers({
+                    "Referer": "https://www.google.com/search?q=linkedin+jobs",
+                    "Sec-Fetch-Site": "cross-site",
+                    "Sec-Fetch-Mode": "navigate",
+                })
+        except Exception:
+            pass
+
         await page.goto(
             recovery_url,
-            referer="https://www.google.com/",
+            referer="https://www.google.com/search?q=linkedin+jobs",
             wait_until="domcontentloaded",
-            timeout=25000,
+            timeout=18000,
         )
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(1.2)
         # Dismiss any popup modal that appears on recovery
         await dismiss_sign_in_popup(page)
+
+        final_url = getattr(page, "url", "")
+        if is_authwall_url(final_url):
+            logger.warning(f"[authwall-handler]Still on authwall after recovery attempt: {final_url}")
+            return False
         return True
     except Exception as e:
         logger.warning(f"[authwall-handler]Authwall recovery navigation error: {e}")
