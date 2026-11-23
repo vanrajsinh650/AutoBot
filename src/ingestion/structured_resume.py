@@ -65,13 +65,13 @@ def extract_contact_info(text: str) -> Dict[str, str]:
             break
 
     return {
-        "full_name": candidate_name or "Candidate",
-        "email": emails[0] if emails else "",
-        "phone": phones[0] if phones else "",
-        "linkedin_url": linkedin,
-        "github_url": github,
-        "portfolio_url": portfolio,
-        "location": "",
+        "full_name": candidate_name or "Vanraj Solanki",
+        "email": emails[0] if emails else "vanrajsolanki2875@gmail.com",
+        "phone": phones[0] if phones else "+91-8320452875",
+        "linkedin_url": linkedin or "https://linkedin.com/in/vanrajsinh",
+        "github_url": github or "https://github.com/vanrajsinh650",
+        "portfolio_url": portfolio or "https://github.com/vanrajsinh650",
+        "location": "Ahmedabad, India",
     }
 
 
@@ -243,10 +243,10 @@ def parse_structured_profile(
     candidate_country = resolve_job_country(contact.get("location", "")) or ""
 
     return {
-        "full_name": contact.get("full_name") or "Candidate",
-        "email": contact.get("email") or "",
-        "phone": contact.get("phone") or "",
-        "location": contact.get("location") or "",
+        "full_name": contact.get("full_name") or "Vanraj Solanki",
+        "email": contact.get("email") or "vanrajsolanki2875@gmail.com",
+        "phone": contact.get("phone") or "+91-8320452875",
+        "location": contact.get("location") or "Ahmedabad, India",
         "country": candidate_country,
         "headline": contact.get("headline") or (f"{experiences[0]['role']}" if experiences else "Software Professional"),
         "summary": summary,

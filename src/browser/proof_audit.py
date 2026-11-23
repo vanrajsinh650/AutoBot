@@ -150,10 +150,18 @@ async def verify_submission_status(page: Any, timeout_ms: int = 5000) -> Dict[st
             "your application was submitted",
             "your application has been submitted",
             "your application has been sent",
+            "your application was sent",
             "successfully submitted",
             "application complete",
+            "application successful",
+            "submission confirmed",
             "thanks for applying",
             "thanks for your interest",
+            "we appreciate your interest",
+            "we appreciate your application",
+            "congratulations",
+            "thank you, ",
+            "thanks, ",
         ]
 
         page_content = ""

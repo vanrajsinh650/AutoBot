@@ -1106,9 +1106,12 @@
           </div>
           <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #E2E8F0; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="portals-dryrun-checkbox" style="cursor: pointer; width: 15px; height: 15px; accent-color: var(--primary);" checked>
-              <span>Dry Run (Simulate Form Fill)</span>
+              <input type="checkbox" id="portals-dryrun-checkbox" style="cursor: pointer; width: 15px; height: 15px; accent-color: var(--primary);">
+              <span style="font-weight: 600;">Dry Run Simulation</span>
             </label>
+            <span id="dryrun-mode-badge" style="font-size: 11px; padding: 3px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; letter-spacing: 0.3px;">
+              ⚡ LIVE SUBMIT MODE
+            </span>
             <button id="btn-apply-selected" class="btn btn-primary btn-sm" style="display: flex; align-items: center; gap: 7px; opacity: 0.5; pointer-events: none; transition: all 0.2s; font-weight: 700; padding: 8px 16px;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
               <span id="btn-apply-selected-text">Apply to Selected (0) ⚡</span>

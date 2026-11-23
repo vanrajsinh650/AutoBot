@@ -88,60 +88,95 @@ def answer_question_with_groq(
     candidate = candidate_info or {}
     q_lower = (question or "").lower()
 
-    # Fast heuristics for standard questions
-    if any(k in q_lower for k in ("work auth", "authorized", "legal", "eligible")):
+    # 1. Negative screening questions (Instant "No" - relatives, former employee, referral, termination, crime, conflict)
+    negative_screening_patterns = (
+        "relative", "friend", "family", "nepotism",
+        "previous", "prior", "former employee", "previously employed", "worked for", "worked at", "applied before",
+        "applied on any previous", "referred", "referral", "employee referral",
+        "terminated", "terminate", "resign", "dismissed", "fired", "disciplinary", "misconduct",
+        "convict", "criminal", "felony", "misdemeanor", "law violation", "arrested",
+        "conflict", "non-compete", "restrictive covenant",
+        "government", "public official", "politically exposed",
+        "sponsor", "visa sponsorship", "require sponsorship", "require visa",
+    )
+    if any(k in q_lower for k in negative_screening_patterns):
         if options:
             for o in options:
-                if any(y in o.lower() for y in ("yes", "authorized", "eligible")):
-                    return o
-        return "Yes"
-    if any(k in q_lower for k in ("sponsor", "visa")):
-        if options:
-            for o in options:
-                if any(n in o.lower() for n in ("no", "do not", "will not")):
+                o_low = o.lower()
+                if any(n in o_low for n in ("no", "none", "neither", "false", "never", "not applicable", "n/a", "decline")):
                     return o
         return "No"
-    if any(k in q_lower for k in ("18", "age", "adult")):
+
+    # 2. Positive screening questions (Instant "Yes" - work auth, legal right, 18+, background consent, relocate)
+    positive_screening_patterns = (
+        "work auth", "authorized", "legal right", "eligible to work", "legally eligible",
+        "18", "age", "adult", "legal age",
+        "background", "drug", "screening consent", "check consent",
+        "relocat", "travel", "willing to relocate",
+    )
+    if any(k in q_lower for k in positive_screening_patterns):
         if options:
             for o in options:
-                if "yes" in o.lower():
-                    return o
-        return "Yes"
-    if any(k in q_lower for k in ("background", "drug")):
-        if options:
-            for o in options:
-                if "yes" in o.lower():
-                    return o
-        return "Yes"
-    if any(k in q_lower for k in ("relocat", "travel")):
-        if options:
-            for o in options:
-                if "yes" in o.lower():
+                o_low = o.lower()
+                if any(y in o_low for y in ("yes", "authorized", "eligible", "agree", "consent", "willing")):
                     return o
         return "Yes"
 
+    # 3. Notice period & Availability
+    if any(k in q_lower for k in ("notice period", "availability", "how soon can you start", "available to start", "start date", "earliest start")):
+        if options:
+            for o in options:
+                o_low = o.lower()
+                if any(imm in o_low for imm in ("immediate", "immediately", "15", "1-2 weeks", "2 weeks", "less than 1 month")):
+                    return o
+            return options[0]
+        return "Immediate"
+
+    # 4. Salary / CTC / Compensation
+    if any(k in q_lower for k in ("salary", "compensation", "ctc", "expected monthly", "expected annual", "expected pay", "basic salary")):
+        expected_val = str(candidate.get("expected_salary") or "100000")
+        if options:
+            for o in options:
+                if any(c in o.lower() for c in ("100,000", "100000", "10-15", "competitive", "negotiable")):
+                    return o
+            return options[0]
+        return expected_val
+
+    # 5. Job Title / Current Role (ONLY when explicitly requested!)
+    if any(k in q_lower for k in ("current title", "job title", "current role", "designation", "position title", "current position")):
+        return candidate.get("current_title", "Software & Automation Engineer")
+
     # Use Groq LLM for domain-specific, complex, or unknown questions
     candidate_summary = (
-        f"Name: {candidate.get('full_name', 'Vanraj Solanki')}\n"
-        f"Email: {candidate.get('email', 'vanrajsolanki2875@gmail.com')}\n"
-        f"Phone: {candidate.get('phone', '+91-8320452875')}\n"
-        f"Location: {candidate.get('location', 'India')}\n"
-        f"Role: Software & Automation Engineer (Python, TypeScript, React, Playwright, APIs)\n"
-        f"Experience: 3+ years in software engineering, backend systems, and automation\n"
+        f"Candidate Full Name: {candidate.get('full_name', 'Vanraj Solanki')}\n"
+        f"Candidate Email: {candidate.get('email', 'vanrajsolanki2875@gmail.com')}\n"
+        f"Candidate Phone: {candidate.get('phone', '+91-8320452875')}\n"
+        f"Candidate Location: {candidate.get('location', 'Ahmedabad, India')}\n"
+        f"Current Job Title: {candidate.get('current_title', 'Software & Automation Engineer')}\n"
+        f"Years of Experience: 3+ years in software engineering and automation\n"
         f"Education: Bachelor's Degree in Computer Science / IT\n"
         f"Notice Period: Immediate / 15 days\n"
         f"Work Authorization: Authorized in India, no sponsorship required\n"
-        f"Veteran: Not a protected veteran\n"
-        f"Disability: No disability / Decline to state"
+        f"Screening Defaults:\n"
+        f"- Friends or relatives employed at company: No\n"
+        f"- Previously applied or former employee: No\n"
+        f"- Referred by employee: No\n"
+        f"- Terminated or asked to resign: No\n"
+        f"- Criminal convictions / record: No\n"
+        f"- Conflict of interest / non-compete: No\n"
+        f"- Veteran: Not a protected veteran\n"
+        f"- Disability: No disability / Decline to state"
     )
 
     if options:
         prompt = (
             f"You are AutoBot Job Application Form Assistant.\n"
-            f"Candidate Profile:\n{candidate_summary}\n\n"
+            f"Candidate Profile & Verified Answers:\n{candidate_summary}\n\n"
             f"Question: \"{question}\"\n"
             f"Options: {json.dumps(options)}\n\n"
-            f"Pick the SINGLE BEST matching option string from the options list that accurately represents the candidate.\n"
+            f"RULES:\n"
+            f"1. Pick the SINGLE BEST matching option string from the options list that accurately represents the candidate.\n"
+            f"2. For screening questions regarding relatives, former employment, referrals, termination, or misconduct, select the negative ('No' / 'None') option.\n"
             f"Output strictly a JSON object: {{\"best_option\": \"<exact string from options>\"}}"
         )
         res = call_groq_json(prompt, timeout=4.5)
@@ -157,9 +192,12 @@ def answer_question_with_groq(
     else:
         prompt = (
             f"You are AutoBot Job Application Form Assistant.\n"
-            f"Candidate Profile:\n{candidate_summary}\n\n"
+            f"Candidate Profile & Verified Answers:\n{candidate_summary}\n\n"
             f"Form Question/Field Label: \"{question}\"\n"
-            f"Provide the exact, concise string to type into this input field.\n"
+            f"RULES:\n"
+            f"1. If this is a Yes/No screening question (relatives, former employee, referral, termination, crime), answer 'No'.\n"
+            f"2. NEVER output the candidate's job title or technical skills unless the field label explicitly asks for current job title or skills.\n"
+            f"3. Provide only the exact, concise string to type into this input field.\n"
             f"Output strictly a JSON object: {{\"answer\": \"<value>\"}}"
         )
         res = call_groq_json(prompt, timeout=4.5)

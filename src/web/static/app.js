@@ -1564,6 +1564,24 @@
       });
     }
 
+    const dryRunCb = document.getElementById("portals-dryrun-checkbox");
+    const modeBadge = document.getElementById("dryrun-mode-badge");
+    if (dryRunCb && modeBadge) {
+      dryRunCb.addEventListener("change", () => {
+        if (dryRunCb.checked) {
+          modeBadge.style.background = "rgba(245, 158, 11, 0.15)";
+          modeBadge.style.color = "#F59E0B";
+          modeBadge.style.borderColor = "rgba(245, 158, 11, 0.3)";
+          modeBadge.textContent = "🛡️ DRY-RUN SIMULATION (NO SUBMIT)";
+        } else {
+          modeBadge.style.background = "rgba(16, 185, 129, 0.15)";
+          modeBadge.style.color = "#10B981";
+          modeBadge.style.borderColor = "rgba(16, 185, 129, 0.3)";
+          modeBadge.textContent = "⚡ LIVE SUBMIT MODE";
+        }
+      });
+    }
+
     const btnDeleteSelected = document.getElementById("btn-delete-selected");
     if (btnDeleteSelected) {
       btnDeleteSelected.addEventListener("click", () => deleteSelectedPortals());
