@@ -180,6 +180,22 @@ async def run_direct_chrome_search(
                 else:
                     status_label = "skipped_low_fit"
                     _notify("info", f"[{worker_tag}] ⏭ Filtered low-fit role: '{job.title}' ({match_pct}% < {int(min_score_threshold*100)}%)")
+                    # Still attempt quick direct ATS resolution so direct form link is available if candidate chooses to apply
+                    if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                        try:
+                            from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
+                            resolved_ats = resolve_company_direct_apply_url(
+                                title=job.title,
+                                company=job.company,
+                                current_url=final_apply_url,
+                                auto_discover=True,
+                            )
+                            if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                                is_val, _ = is_valid_direct_ats_url(resolved_ats)
+                                if is_val:
+                                    final_apply_url = resolved_ats
+                        except Exception:
+                            pass
 
                 try:
                     save_scraped_job(

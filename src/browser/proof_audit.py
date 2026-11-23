@@ -80,21 +80,22 @@ async def capture_proof_screenshot(
                 const b = document.createElement('div');
                 b.id = 'autobot-audit-banner';
                 b.style.position = 'fixed';
-                b.style.top = '12px';
+                b.style.bottom = '10px';
                 b.style.left = '50%';
                 b.style.transform = 'translateX(-50%)';
                 b.style.backgroundColor = '{banner_bg}';
                 b.style.color = '#FFFFFF';
-                b.style.border = '2px solid {banner_border}';
-                b.style.borderRadius = '8px';
-                b.style.padding = '8px 18px';
-                b.style.fontSize = '12.5px';
+                b.style.border = '1.5px solid {banner_border}';
+                b.style.borderRadius = '6px';
+                b.style.padding = '5px 14px';
+                b.style.fontSize = '11.5px';
                 b.style.fontFamily = 'monospace, sans-serif';
                 b.style.zIndex = '2147483647';
-                b.style.boxShadow = '0 8px 30px rgba(0,0,0,0.85)';
+                b.style.boxShadow = '0 4px 16px rgba(0,0,0,0.85)';
                 b.style.textAlign = 'center';
-                b.style.lineHeight = '1.4';
-                b.innerHTML = '<strong style="font-size:14px;">{banner_title}</strong><div style="font-size:11px; opacity:0.95; margin-top:2px;">{subtext}</div>';
+                b.style.lineHeight = '1.3';
+                b.style.pointerEvents = 'none';
+                b.innerHTML = '<strong style="font-size:12px;">{banner_title}</strong><div style="font-size:10px; opacity:0.9; margin-top:1px;">{subtext}</div>';
                 document.body ? document.body.appendChild(b) : document.documentElement.appendChild(b);
             }}""")
             await asyncio.sleep(0.3)
