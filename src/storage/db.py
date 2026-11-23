@@ -956,13 +956,14 @@ def get_stats(
         "interview": 0,
         "offer": 0,
         "rejected": 0,
+        "skipped_low_fit": 0,
+        "requires_manual": 0,
     }
     for row in rows:
         st = row["status"]
-        if st in stats:
-            stats[st] = row["cnt"]
-        else:
-            stats[st] = row["cnt"]
+        stats[st] = row["cnt"]
+        if st != "skipped" and (st.startswith("skipped") or st.startswith("rejected")):
+            stats["skipped"] = stats.get("skipped", 0) + row["cnt"]
     return stats
 
 

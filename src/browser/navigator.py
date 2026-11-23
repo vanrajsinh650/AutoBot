@@ -449,90 +449,9 @@ class LinkedInNavigator:
         page: int = 1,
         job_types: Optional[List[str]] = None,
     ) -> List[JobPosting]:
-        """Navigate to search results and extract JobPosting models with visual cursor presence."""
-        # 1. First ensure we are in the Jobs section
-        await self.open_jobs_section()
-
-        # 2. Check for on-screen search inputs for visual typing
-        keyword_selectors = [
-            "input.jobs-search-box__text-input[aria-label*='Search by title']",
-            "input[id*='jobs-search-box-keyword']",
-            "input.jobs-search-box__text-input",
-            "input[aria-label*='Search by title']",
-            "input[placeholder*='title, skill']",
-        ]
-        location_selectors = [
-            "input.jobs-search-box__text-input[aria-label*='City']",
-            "input[id*='jobs-search-box-location']",
-            "input[aria-label*='City, state']",
-            "input[placeholder*='City, state']",
-        ]
-        search_btn_selectors = [
-            "button.jobs-search-box__submit-button",
-            "button[type='submit'].jobs-search-box__submit-button",
-            "button[type='submit'][aria-label*='Search']",
-            "button.jobs-search-box__submit-button:has-text('Search')",
-        ]
-
-        kw_elem = None
-        loc_elem = None
-        btn_elem = None
-
-        for sel in keyword_selectors:
-            try:
-                el = await self.page.query_selector(sel)
-                if el and await el.is_visible():
-                    kw_elem = el
-                    break
-            except Exception:
-                pass
-
-        for sel in location_selectors:
-            try:
-                el = await self.page.query_selector(sel)
-                if el and await el.is_visible():
-                    loc_elem = el
-                    break
-            except Exception:
-                pass
-
-        for sel in search_btn_selectors:
-            try:
-                el = await self.page.query_selector(sel)
-                if el and await el.is_visible():
-                    btn_elem = el
-                    break
-            except Exception:
-                pass
-
-        used_visual_search = False
-        if kw_elem and page == 1:
-            try:
-                logger.info(f"[browser]🔍 Entering search keyword '{keyword}' with visual cursor...[/browser]")
-                await visual_type(self.page, kw_elem, keyword, action_text=f"Searching: {keyword}", clear_first=True)
-                await human_delay(400, 800)
-
-                if loc_elem and location:
-                    logger.info(f"[browser]📍 Entering location '{location}' with visual cursor...[/browser]")
-                    await visual_type(self.page, loc_elem, location, action_text=f"Location: {location}", clear_first=True)
-                    await human_delay(400, 800)
-
-                if btn_elem:
-                    logger.info("[browser]🖱 Clicking Search button with visual cursor...[/browser]")
-                    await visual_click(self.page, btn_elem, action_text="Clicking Search", delay_after=1.0)
-                elif hasattr(self.page, "keyboard"):
-                    await self.page.keyboard.press("Enter")
-
-                try:
-                    await self.page.wait_for_load_state("domcontentloaded", timeout=12000)
-                except Exception:
-                    pass
-                await human_delay(1500, 2500)
-                used_visual_search = True
-            except Exception as ex:
-                logger.debug(f"Visual search input error: {ex}")
-
-        # Always navigate to the filtered search URL to guarantee non-senior (f_E=1%2C2) results
+        """Navigate directly to filtered search results and extract JobPosting models with visual cursor presence."""
+        # Always navigate directly to the targeted filtered search URL.
+        # Avoid navigating to generic /jobs/ homepage which redirects to default US trending jobs.
         url = self.build_search_url(keyword, location, page, job_types=job_types)
         logger.info(f"[browser]🔍 Searching: '{keyword}' in '{location}' with strict entry-level filters (page {page})...[/browser]")
         try:

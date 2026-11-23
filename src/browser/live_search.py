@@ -132,55 +132,54 @@ async def run_direct_chrome_search(
                 match_score = eval_res["match_score"]
                 match_pct = eval_res["match_percentage"]
 
+                # Resolve direct apply URL
+                final_apply_url = getattr(job, "external_apply_url", None) or getattr(job, "apply_url", None) or job.url
+
                 if match_score >= min_score_threshold:
                     found_jobs.append(job)
                     status_label = "discovered"
                     _notify("info", f"[{worker_tag}] 🎯 Matched: '{job.title}' @ '{job.company}' ({match_pct}% fit >= {int(min_score_threshold*100)}% threshold)")
+
+                    # Resolve direct apply URL strictly for MATCHING jobs (avoids 20s wasted delay per low-fit job)
+                    if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                        try:
+                            detailed_job = await asyncio.wait_for(nav.fetch_job_details(job), timeout=12.0)
+                            job.is_easy_apply = getattr(detailed_job, "is_easy_apply", job.is_easy_apply)
+                            if job.is_easy_apply:
+                                final_apply_url = job.url
+                                job.external_apply_url = None
+                                logger.info(f"[{worker_tag}] ⚡ Confirmed in-app LinkedIn Easy Apply for '{job.title}' @ '{job.company}'")
+                            else:
+                                ext_url = getattr(detailed_job, "external_apply_url", None)
+                                if ext_url and not any(li in str(ext_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                                    final_apply_url = ext_url
+                                    logger.info(f"[{worker_tag}] 🎯 Extracted outbound direct ATS apply link for '{job.title}' @ '{job.company}': {final_apply_url}")
+                        except (asyncio.TimeoutError, Exception) as ex:
+                            logger.debug(f"[{worker_tag}] fetch_job_details fallback/timeout: {ex}")
+
+                    # If still a LinkedIn URL, resolve direct company career portal (Zoho, Workday, etc.)
+                    if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
+                        try:
+                            from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
+                            resolved_ats = resolve_company_direct_apply_url(
+                                title=job.title,
+                                company=job.company,
+                                current_url=final_apply_url,
+                                auto_discover=True,
+                            )
+                            if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
+                                # Reject search-results pages — they are not specific job requisitions
+                                is_val, reason = is_valid_direct_ats_url(resolved_ats)
+                                if is_val:
+                                    final_apply_url = resolved_ats
+                                    logger.info(f"[{worker_tag}] 🎯 Resolved direct ATS apply portal for '{job.title}' @ '{job.company}': {final_apply_url}")
+                                else:
+                                    logger.info(f"[{worker_tag}] ⚠️ Rejected invalid ATS URL for '{job.title}' @ '{job.company}': {resolved_ats} ({reason}) — keeping LinkedIn source URL")
+                        except Exception as ex_ats:
+                            logger.debug(f"[{worker_tag}] Direct ATS portal resolution error: {ex_ats}")
                 else:
                     status_label = "skipped_low_fit"
-                    logger.info(f"[{worker_tag}] ⏭ Filtered low-fit role: '{job.title}' ({match_pct}% < {int(min_score_threshold*100)}%)")
-
-                # Resolve direct apply URL
-                final_apply_url = getattr(job, "external_apply_url", None) or getattr(job, "apply_url", None) or job.url
-
-                # If matching role is an external apply job and apply_url still points to LinkedIn,
-                # invoke fetch_job_details to extract the outbound direct ATS link (Workday, iCIMS, Greenhouse, etc.)
-                if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
-                    try:
-                        detailed_job = await asyncio.wait_for(nav.fetch_job_details(job), timeout=14.0)
-                        job.is_easy_apply = getattr(detailed_job, "is_easy_apply", job.is_easy_apply)
-                        if job.is_easy_apply:
-                            final_apply_url = job.url
-                            job.external_apply_url = None
-                            logger.info(f"[{worker_tag}] ⚡ Confirmed in-app LinkedIn Easy Apply for '{job.title}' @ '{job.company}'")
-                        else:
-                            ext_url = getattr(detailed_job, "external_apply_url", None)
-                            if ext_url and not any(li in str(ext_url).lower() for li in ("linkedin.com", "lnkd.in")):
-                                final_apply_url = ext_url
-                                logger.info(f"[{worker_tag}] 🎯 Extracted outbound direct ATS apply link for '{job.title}' @ '{job.company}': {final_apply_url}")
-                    except (asyncio.TimeoutError, Exception) as ex:
-                        logger.debug(f"[{worker_tag}] fetch_job_details fallback/timeout: {ex}")
-
-                # If still a LinkedIn URL, resolve direct company career portal (Zoho, Workday, etc.)
-                if not job.is_easy_apply and any(li in str(final_apply_url).lower() for li in ("linkedin.com", "lnkd.in")):
-                    try:
-                        from src.browser.company_careers_resolver import resolve_company_direct_apply_url, is_valid_direct_ats_url
-                        resolved_ats = resolve_company_direct_apply_url(
-                            title=job.title,
-                            company=job.company,
-                            current_url=final_apply_url,
-                            auto_discover=True,
-                        )
-                        if resolved_ats and resolved_ats != final_apply_url and not any(li in resolved_ats.lower() for li in ("linkedin.com", "lnkd.in")):
-                            # Reject search-results pages — they are not specific job requisitions
-                            is_val, reason = is_valid_direct_ats_url(resolved_ats)
-                            if is_val:
-                                final_apply_url = resolved_ats
-                                logger.info(f"[{worker_tag}] 🎯 Resolved direct ATS apply portal for '{job.title}' @ '{job.company}': {final_apply_url}")
-                            else:
-                                logger.info(f"[{worker_tag}] ⚠️ Rejected invalid ATS URL for '{job.title}' @ '{job.company}': {resolved_ats} ({reason}) — keeping LinkedIn source URL")
-                    except Exception as ex_ats:
-                        logger.debug(f"[{worker_tag}] Direct ATS portal resolution error: {ex_ats}")
+                    _notify("info", f"[{worker_tag}] ⏭ Filtered low-fit role: '{job.title}' ({match_pct}% < {int(min_score_threshold*100)}%)")
 
                 try:
                     save_scraped_job(

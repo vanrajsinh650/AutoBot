@@ -108,16 +108,7 @@ class BrowserBridge:
             )
 
         jobs = await self.navigator.search_jobs(keyword, location, page)
-
-        enriched_jobs = []
-        for job in jobs:
-            if len(job.description) < 100:
-                enriched_job = await self.navigator.fetch_job_details(job)
-                enriched_jobs.append(enriched_job)
-            else:
-                enriched_jobs.append(job)
-
-        return enriched_jobs
+        return jobs
 
     async def application_executor(
         self,

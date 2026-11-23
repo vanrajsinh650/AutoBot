@@ -332,6 +332,7 @@
           updatePortalCardStatus(data.stable_id, data.status);
         }
         loadMissionFeaturedJobs();
+        loadStatus();
       } catch (err) {
         console.error("SSE portal_update parse error:", err);
       }
