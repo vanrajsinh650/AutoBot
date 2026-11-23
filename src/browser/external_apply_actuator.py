@@ -919,8 +919,8 @@ class ExternalApplyActuator:
             ("input[name*='location' i], input[placeholder*='location' i]", "Location", candidate.get("location", "India")),
             ("input[name*='postal' i], input[name*='zip' i], input[placeholder*='postal' i], input[placeholder*='zip' i], input[data-automation-id*='postalCode']", "Postal Code", candidate.get("postal_code", "380015")),
             ("input[name*='address' i], input[placeholder*='address' i], input[data-automation-id*='addressSection_addressLine1']", "Address", candidate.get("street_address", "132 Feet Ring Road")),
-            ("input[name*='company' i], input[placeholder*='current company' i], input[name='org']", "Current Company", candidate.get("current_company", "Route Mobile Limited")),
-            ("input[name*='title' i], input[placeholder*='current title' i]", "Current Title", candidate.get("current_title", "Software & Automation Engineer")),
+            ("input[name='company'], input[name='currentCompany'], input[name='employer'], input[name='org'], input[placeholder*='current company' i]", "Current Company", candidate.get("current_company", "Route Mobile Limited")),
+            ("input[name='jobTitle'], input[name='currentJobTitle'], input[name='current_title'], input[name='job_title'], input[name='title'], input[placeholder*='current title' i], input[placeholder*='job title' i]", "Current Title", candidate.get("current_title", "Software & Automation Engineer")),
             ("input[name*='notice' i], input[placeholder*='notice period' i]", "Notice Period", candidate.get("notice_period", "Immediate")),
         ]
 
@@ -1054,7 +1054,14 @@ class ExternalApplyActuator:
                         )
 
                         if best_answer:
-                            matched = next((o for o in opts if o["text"].lower() == best_answer.lower() or best_answer.lower() in o["text"].lower()), None)
+                            matched = next((o for o in opts if o["text"].strip().lower() == best_answer.strip().lower()), None)
+                            if not matched:
+                                matched = next((o for o in opts if best_answer.strip().lower() in o["text"].strip().lower() or o["text"].strip().lower() in best_answer.strip().lower()), None)
+                            if not matched and any(n in best_answer.lower() for n in ("no", "none", "neither", "never")):
+                                matched = next((o for o in opts if any(w in o["text"].lower().split() for w in ("no", "none", "never", "not"))), None)
+                            if not matched and any(y in best_answer.lower() for y in ("yes", "agree", "authorized")):
+                                matched = next((o for o in opts if any(w in o["text"].lower().split() for w in ("yes", "agree", "authorized"))), None)
+
                             target_val = matched["value"] if matched else opts[0]["value"]
                             res = sel.select_option(value=target_val) if hasattr(sel, "select_option") else None
                             if inspect.isawaitable(res):

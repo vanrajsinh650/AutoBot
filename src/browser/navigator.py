@@ -760,22 +760,23 @@ class LinkedInNavigator:
         # 1. First check if details for THIS specific job are already rendered in the right-hand panel
         try:
             panel_title_el = await self.page.query_selector(
-                ".jobs-unified-top-card__job-title, .job-details-jobs-unified-top-card__job-title, .job-view-layout h1, .jobs-search__job-details h1"
+                ".jobs-unified-top-card__job-title, .job-details-jobs-unified-top-card__job-title, .job-view-layout h1, .jobs-search__job-details h1, .topcard__title"
             )
             panel_title = (await panel_title_el.inner_text()).strip().lower() if panel_title_el else ""
             clean_job_title = job.title.strip().lower()
 
             panel_company_el = await self.page.query_selector(
-                ".jobs-unified-top-card__company-name, .topcard__org-name-link, .job-details-jobs-unified-top-card__company-name"
+                ".jobs-unified-top-card__company-name, .topcard__org-name-link, .job-details-jobs-unified-top-card__company-name, .topcard__flavor, .base-search-card__subtitle, .top-card-layout__first-sub-headline a, a.topcard__org-name-link"
             )
             panel_company = (await panel_company_el.inner_text()).strip().lower() if panel_company_el else ""
             clean_company = job.company.strip().lower()
 
-            company_matches = not panel_company or not clean_company or (clean_company in panel_company or panel_company in clean_company)
+            # Company MUST be explicitly present and match. Never assume match if company element is missing!
+            company_matches = bool(panel_company and clean_company and (clean_company in panel_company or panel_company in clean_company))
             title_matches = bool(clean_job_title and panel_title and (clean_job_title == panel_title or clean_job_title in panel_title or panel_title in clean_job_title))
-            url_matches = bool(job.job_id and job.job_id.isdigit() and job.job_id in (self.page.url or ""))
+            url_matches = bool(job.job_id and job.job_id.isdigit() and (f"currentJobId={job.job_id}" in (self.page.url or "") or f"/view/{job.job_id}" in (self.page.url or "")))
 
-            is_same_job = (title_matches and company_matches) or (url_matches and company_matches)
+            is_same_job = company_matches and (title_matches or url_matches)
 
             if is_same_job:
                 desc_el = await self.page.query_selector(
@@ -888,6 +889,14 @@ class LinkedInNavigator:
                 "[class*='description__content']"
             )
             if desc_el:
+                page_url = self.page.url or ""
+                # Verify loaded page matches current job to prevent cross-job description bleeding
+                if job.job_id and job.job_id.isdigit() and job.job_id not in page_url:
+                    page_title = (await self.page.title() or "").lower()
+                    if clean_company not in page_title and clean_job_title not in page_title:
+                        logger.warning(f"[browser]Page title/URL does not match job '{job.title}' @ '{job.company}'. Skipping stale description capture.")
+                        return job
+
                 await visual_scroll(
                     self.page,
                     distance=350,

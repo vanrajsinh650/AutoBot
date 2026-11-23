@@ -96,7 +96,7 @@ async def apply_to_portals(
                     row = conn.execute(
                         """
                         SELECT j.*, a.status AS app_status, a.apply_type AS app_apply_type,
-                               a.url AS app_url, a.notes AS app_notes
+                               a.url AS app_url, a.notes AS app_notes, a.match_score AS app_match_score
                         FROM jobs j
                         LEFT JOIN applications a ON (a.job_id = j.stable_id OR a.job_id = CAST(j.id AS TEXT))
                         WHERE j.id = ?
@@ -108,7 +108,7 @@ async def apply_to_portals(
                     row = conn.execute(
                         """
                         SELECT j.*, a.status AS app_status, a.apply_type AS app_apply_type,
-                               a.url AS app_url, a.notes AS app_notes
+                               a.url AS app_url, a.notes AS app_notes, a.match_score AS app_match_score
                         FROM jobs j
                         LEFT JOIN applications a ON (a.job_id = j.stable_id OR a.job_id = CAST(j.id AS TEXT))
                         WHERE j.stable_id = ? OR j.id = ?
@@ -177,6 +177,32 @@ async def apply_to_portals(
             target_url = job.get("application_url") or job.get("app_url") or ""
             job_stable_id = job.get("stable_id") or str(job.get("id"))
 
+            # Determine genuine match score from job evaluation or database record
+            job_match_score = 0.0
+            app_score = job.get("app_match_score")
+            if app_score is not None and float(app_score) > 0 and round(float(app_score), 2) != 0.90:
+                job_match_score = round(float(app_score), 2)
+            else:
+                try:
+                    rd = json.loads(job.get("raw_data") or "{}") if isinstance(job.get("raw_data"), str) else (job.get("raw_data") or {})
+                    if rd.get("match_score") and float(rd["match_score"]) > 0:
+                        job_match_score = round(float(rd["match_score"]), 2)
+                except Exception:
+                    pass
+                if not job_match_score:
+                    try:
+                        from src.matching.evaluator import evaluate_scraped_job_fit
+                        eval_fit = evaluate_scraped_job_fit(
+                            title=title,
+                            company=company,
+                            description=job.get("description") or "",
+                            user_id=user_id,
+                            db_path=active_db,
+                        )
+                        job_match_score = eval_fit.get("match_score", 0.70)
+                    except Exception:
+                        job_match_score = round(float(app_score), 2) if app_score is not None and float(app_score) > 0 else 0.70
+
             if not target_url:
                 _notify("warning", f"({idx}/{len(jobs_to_apply)}) No apply URL for '{title}' @ '{company}'. Skipping.", {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "skipped"})
                 failed += 1
@@ -244,7 +270,7 @@ async def apply_to_portals(
                             company=company,
                             location=job.get("location") or "Remote",
                             apply_type="easy_apply",
-                            match_score=0.9,
+                            match_score=job_match_score,
                             status=status,
                             url=target_url,
                             notes=note,
@@ -268,7 +294,7 @@ async def apply_to_portals(
                             company=company,
                             location=job.get("location") or "Remote",
                             apply_type="easy_apply",
-                            match_score=0.9,
+                            match_score=job_match_score,
                             status=fail_status,
                             url=target_url,
                             notes=fail_desc,
@@ -359,7 +385,7 @@ async def apply_to_portals(
                                         company=company,
                                         location=job.get("location") or "Remote",
                                         apply_type="easy_apply",
-                                        match_score=0.9,
+                                        match_score=job_match_score,
                                         status="requires_manual",
                                         url=target_url,
                                         notes="LinkedIn Easy Apply requires login. Connect LinkedIn session to auto-apply.",
@@ -405,7 +431,7 @@ async def apply_to_portals(
                                         company=company,
                                         location=job.get("location") or "Remote",
                                         apply_type="easy_apply",
-                                        match_score=0.9,
+                                        match_score=job_match_score,
                                         status=status,
                                         url=target_url,
                                         notes=note,
@@ -429,7 +455,7 @@ async def apply_to_portals(
                                         company=company,
                                         location=job.get("location") or "Remote",
                                         apply_type="easy_apply",
-                                        match_score=0.9,
+                                        match_score=job_match_score,
                                         status=fail_status,
                                         url=target_url,
                                         notes=fail_desc,
@@ -502,7 +528,7 @@ async def apply_to_portals(
                         company=company,
                         location=job.get("location") or "Remote",
                         apply_type="external_apply",
-                        match_score=0.9,
+                        match_score=job_match_score,
                         status="requires_manual",
                         url=target_url,
                         notes="Could not resolve direct ATS link from LinkedIn (manual completion required)",
@@ -554,7 +580,7 @@ async def apply_to_portals(
                         company=company,
                         location=job.get("location") or "Remote",
                         apply_type="external_apply",
-                        match_score=0.9,
+                        match_score=job_match_score,
                         status=status,
                         url=target_url,
                         notes=note,
@@ -578,7 +604,7 @@ async def apply_to_portals(
                         company=company,
                         location=job.get("location") or "Remote",
                         apply_type="external_apply",
-                        match_score=0.9,
+                        match_score=job_match_score,
                         status=fail_status,
                         url=target_url,
                         notes=fail_desc,
