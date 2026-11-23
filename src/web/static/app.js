@@ -2310,7 +2310,15 @@
         wrap.style.borderColor = "rgba(16, 185, 129, 0.45)";
       }
       html += `<option value="all" style="background: #0F172A; color: #FFFFFF;">All Direct External Forms (${liExtCount || extCount || 0})</option>`;
-      html += `<option value="LinkedIn (External Form)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (External Form) (${liExtCount || extCount || 0})</option>`;
+      if (platforms && typeof platforms === "object" && Object.keys(platforms).length > 0) {
+        for (const [platName, count] of Object.entries(platforms)) {
+          if (count > 0 && !platName.includes("Easy Apply")) {
+            html += `<option value="${escapeHtml(platName)}" style="background: #0F172A; color: #FFFFFF;">${escapeHtml(platName)} (${count})</option>`;
+          }
+        }
+      } else {
+        html += `<option value="LinkedIn (External Form)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (External Form) (${liExtCount || extCount || 0})</option>`;
+      }
     } else if (category === "linkedin_easy" || category === "linkedin-easy") {
       if (wrap) {
         wrap.style.display = "flex";
@@ -2323,12 +2331,20 @@
         wrap.style.display = "flex";
         wrap.style.borderColor = "var(--border)";
       }
-      html += `<option value="all" style="background: #0F172A; color: #FFFFFF;">All Opportunities (${total || 0})</option>`;
-      if ((liExtCount || extCount || 0) > 0) {
-        html += `<option value="LinkedIn (External Form)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (External Form) (${liExtCount || extCount || 0})</option>`;
-      }
-      if ((liEasyCount || 0) > 0) {
-        html += `<option value="LinkedIn (Easy Apply)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (Easy Apply) (${liEasyCount || 0})</option>`;
+      html += `<option value="all" style="background: #0F172A; color: #FFFFFF;">All Platforms (${total || 0})</option>`;
+      if (platforms && typeof platforms === "object" && Object.keys(platforms).length > 0) {
+        for (const [platName, count] of Object.entries(platforms)) {
+          if (count > 0) {
+            html += `<option value="${escapeHtml(platName)}" style="background: #0F172A; color: #FFFFFF;">${escapeHtml(platName)} (${count})</option>`;
+          }
+        }
+      } else {
+        if ((liExtCount || extCount || 0) > 0) {
+          html += `<option value="LinkedIn (External Form)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (External Form) (${liExtCount || extCount || 0})</option>`;
+        }
+        if ((liEasyCount || 0) > 0) {
+          html += `<option value="LinkedIn (Easy Apply)" style="background: #0F172A; color: #FFFFFF;">LinkedIn (Easy Apply) (${liEasyCount || 0})</option>`;
+        }
       }
     }
 

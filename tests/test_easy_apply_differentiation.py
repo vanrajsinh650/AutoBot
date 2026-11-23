@@ -24,6 +24,42 @@ def test_detect_apply_platform_easy_vs_external():
     assert plat_ext == "LinkedIn (External Form)"
     assert cat_ext == "external"
 
+    # Greenhouse ATS
+    plat_gh, cat_gh = detect_apply_platform(
+        url="https://boards.greenhouse.io/cloudflare/jobs/7695702",
+        source_name="Greenhouse",
+        is_easy_apply=False,
+    )
+    assert plat_gh == "Greenhouse"
+    assert cat_gh == "greenhouse"
+
+    # Lever ATS
+    plat_lev, cat_lev = detect_apply_platform(
+        url="https://jobs.lever.co/leverdemo/ad208490-4052-4f91-a57e-433f2d1e484b",
+        source_name="Lever",
+        is_easy_apply=False,
+    )
+    assert plat_lev == "Lever"
+    assert cat_lev == "lever"
+
+    # Ashby ATS
+    plat_ash, cat_ash = detect_apply_platform(
+        url="https://jobs.ashbyhq.com/ramp/34413f8d-26bf-4bbc-8ade-eb309a0e2245",
+        source_name="Ashby",
+        is_easy_apply=False,
+    )
+    assert plat_ash == "Ashby"
+    assert cat_ash == "ashby"
+
+    # Workday ATS
+    plat_wd, cat_wd = detect_apply_platform(
+        url="https://ghc.wd1.myworkdayjobs.com/Kaplan_Careers/job/Bangalore-KA-India/AI-Software-Engineer",
+        source_name="Workday",
+        is_easy_apply=False,
+    )
+    assert plat_wd == "Workday"
+    assert cat_wd == "workday"
+
 def test_detect_easy_apply_from_html_signals():
     # Onsite tracking signal -> Easy Apply
     html_easy = '<button data-tracking-control-name="public_jobs_apply-link-onsite" class="apply-button apply-button--default">Easy Apply</button>'

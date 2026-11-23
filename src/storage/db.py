@@ -292,10 +292,9 @@ def detect_apply_platform(
     is_easy_apply: bool = False,
 ) -> Tuple[str, str]:
     """
-    Detect the opportunity type for LinkedIn.
-    AutoBot is strictly focused on LinkedIn:
-    - 'LinkedIn (Easy Apply)' (in-app 1-click apply) with category 'linkedin'
-    - 'LinkedIn (External Form)' (direct external form behind LinkedIn Apply) with category 'external'
+    Detect the specific ATS or job platform and its category.
+    Supports: Greenhouse, Lever, Ashby, Workday, SmartRecruiters, BambooHR, iCIMS,
+    Oracle Cloud, LinkedIn (Easy Apply), and LinkedIn (External Form).
     """
     u = (url or "").lower().strip()
     s = (source_name or "").lower().strip()
@@ -309,10 +308,41 @@ def detect_apply_platform(
     except Exception:
         pass
 
+    # 1. Easy Apply on LinkedIn
     if is_easy_apply or "easy_apply" in u or "easy_apply" in s or "easy apply" in s:
         return ("LinkedIn (Easy Apply)", "linkedin")
 
-    return ("LinkedIn (External Form)", "external")
+    # 2. LinkedIn External Apply (Only Apply / External Form)
+    if s == "linkedin":
+        return ("LinkedIn (External Form)", "external")
+
+    # 3. Dedicated ATS Platforms
+    if "greenhouse.io" in u or "greenhouse" in s or "gh_jid" in u or "gh_src" in u:
+        return ("Greenhouse", "greenhouse")
+    if "lever.co" in u or "lever" in s:
+        return ("Lever", "lever")
+    if "ashbyhq.com" in u or "ashby" in s:
+        return ("Ashby", "ashby")
+    if "myworkdayjobs.com" in u or "workday" in u or "workday" in s:
+        return ("Workday", "workday")
+    if "smartrecruiters.com" in u or "smartrecruiters" in s:
+        return ("SmartRecruiters", "smartrecruiters")
+    if "bamboohr.com" in u or "bamboohr" in s:
+        return ("BambooHR", "bamboohr")
+    if "icims.com" in u or "icims" in s:
+        return ("iCIMS", "icims")
+    if "oraclecloud.com" in u or "taleo.net" in u or "oracle" in s:
+        return ("Oracle Cloud", "oracle")
+
+    # 4. LinkedIn External Apply fallback
+    if "linkedin.com" in u or "lnkd.in" in u:
+        return ("LinkedIn (External Form)", "external")
+
+    # 5. Fallback for other direct company forms
+    if s and s != "linkedin":
+        return (source_name.title(), "external")
+
+    return ("Direct Company Form", "external")
 
 
 def save_scraped_job(
@@ -632,23 +662,22 @@ def get_apply_portals(
             or plat_name.startswith("LinkedIn")
             or is_li_easy
         )
-        # AutoBot is strictly LinkedIn only. Exclude any non-LinkedIn platform jobs.
-        if not is_from_linkedin:
-            continue
 
-        is_li_ext = not is_li_easy
+        is_li_ext = is_from_linkedin and not is_li_easy
 
         if is_li_easy:
             linkedin_easy_count += 1
             linkedin_count += 1
-        else:
+        elif is_from_linkedin:
             linkedin_ext_count += 1
             linkedin_count += 1
+            external_count += 1
+        else:
             external_count += 1
 
         platform_breakdown[plat_name] = platform_breakdown.get(plat_name, 0) + 1
 
-        # 1. Platform Category filter (e.g. linkedin vs external, or specific tabs)
+        # 1. Platform Category filter (e.g. linkedin vs external vs greenhouse vs lever vs ashby)
         if platform_category and platform_category.lower() != "all":
             req_cat = platform_category.lower().strip()
             if req_cat in ("linkedin_external", "linkedin-external", "linkedin_ext", "external_linkedin"):
@@ -658,15 +687,27 @@ def get_apply_portals(
                 if not is_li_easy:
                     continue
             elif req_cat in ("external", "external_ats", "ats"):
-                if plat_cat != "external":
+                if plat_cat != "external" and not is_li_ext and plat_cat not in ("greenhouse", "lever", "ashby", "workday", "smartrecruiters", "bamboohr", "icims", "oracle"):
                     continue
             elif req_cat in ("linkedin", "linkedin_only", "linkedin_all"):
                 if not is_from_linkedin:
                     continue
-            elif req_cat not in ("linkedin", "external") and req_cat not in plat_name.lower():
+            elif req_cat == "greenhouse":
+                if plat_cat != "greenhouse" and "greenhouse" not in plat_name.lower():
+                    continue
+            elif req_cat == "lever":
+                if plat_cat != "lever" and "lever" not in plat_name.lower():
+                    continue
+            elif req_cat == "ashby":
+                if plat_cat != "ashby" and "ashby" not in plat_name.lower():
+                    continue
+            elif req_cat == "workday":
+                if plat_cat != "workday" and "workday" not in plat_name.lower():
+                    continue
+            elif req_cat not in plat_name.lower() and req_cat != plat_cat:
                 continue
 
-        # 2. Specific Platform Name filter (e.g. LinkedIn (Easy Apply), LinkedIn (External Form))
+        # 2. Specific Platform Name filter (e.g. Greenhouse, Lever, Ashby, Workday, LinkedIn (Easy Apply), LinkedIn (External Form))
         if platform_name and platform_name.lower() != "all":
             req_plat = platform_name.lower().strip()
             if req_plat in ("linkedin (easy apply)", "linkedin easy apply", "easy apply"):
@@ -676,9 +717,9 @@ def get_apply_portals(
                 if not is_li_ext:
                     continue
             elif req_plat in ("linkedin", "linkedin_all"):
-                if not (is_li_easy or is_li_ext or plat_cat == "linkedin"):
+                if not is_from_linkedin:
                     continue
-            elif req_plat not in plat_name.lower() and req_plat != plat_name.lower():
+            elif req_plat != plat_name.lower() and req_plat not in plat_name.lower():
                 continue
 
         # Determine canonical LinkedIn source posting URL where job was scraped
