@@ -447,6 +447,54 @@ async def test_api_portals_apply_direct_success(client: TestClient, monkeypatch)
     assert data["dry_run"] is True
 
 
+@pytest.mark.asyncio
+async def test_api_portals_apply_direct_auto_prepend_https(client: TestClient, monkeypatch):
+    """Verify 1-Click apply automatically prepends https:// if omitted by user."""
+    from unittest.mock import AsyncMock
+
+    mock_apply = AsyncMock(return_value={"success": True, "total": 1, "succeeded": 1, "failed": 0})
+    monkeypatch.setattr("src.browser.portal_applicator.apply_to_portals", mock_apply)
+
+    payload = {
+        "url": "boards.greenhouse.io/cloudflare/jobs/7695702",
+        "dry_run": True,
+        "background": True,
+    }
+    resp = await client.post("/api/portals/apply-direct", json=payload)
+    assert resp.status == 200
+    data = await resp.json()
+    assert data["success"] is True
+    assert "job_id" in data
+    assert data["company"] == "Cloudflare"
+
+
+@pytest.mark.asyncio
+async def test_api_portals_apply_direct_preserves_in_portals(client: TestClient, monkeypatch):
+    """Verify directly applied custom job links appear in the portals list and are preserved."""
+    from unittest.mock import AsyncMock
+
+    mock_apply = AsyncMock(return_value={"success": True, "total": 1, "succeeded": 1, "failed": 0})
+    monkeypatch.setattr("src.browser.portal_applicator.apply_to_portals", mock_apply)
+
+    payload = {
+        "url": "https://jobs.ashbyhq.com/ramp/34413f8d-26bf-4bbc-8ade-eb309a0e2245",
+        "dry_run": True,
+        "background": True,
+    }
+    resp = await client.post("/api/portals/apply-direct", json=payload)
+    assert resp.status == 200
+    data = await resp.json()
+    assert data["success"] is True
+    job_id = data["job_id"]
+
+    # Now verify it appears in /api/apply-portals
+    portals_resp = await client.get("/api/apply-portals")
+    assert portals_resp.status == 200
+    portals_data = await portals_resp.json()
+    job_ids = [j.get("stable_id") or str(j.get("id")) for j in portals_data["jobs"]]
+    assert job_id in job_ids
+
+
 def test_resolve_search_keywords_unit():
     """Verify resolve_search_keywords prioritizes user keywords and falls back to deep resume analysis."""
     from src.matching.keyword_expansion import resolve_search_keywords

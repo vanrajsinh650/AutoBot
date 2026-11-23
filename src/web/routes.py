@@ -548,6 +548,9 @@ async def apply_direct_link_handler(request: web.Request) -> web.Response:
         data = {}
 
     target_url = (data.get("url") or "").strip()
+    if target_url and not target_url.startswith(("http://", "https://")):
+        if "." in target_url and not target_url.startswith("/"):
+            target_url = "https://" + target_url
     if not target_url or not target_url.startswith(("http://", "https://")):
         return web.json_response({"error": "Please provide a valid job URL starting with http:// or https://"}, status=400)
 

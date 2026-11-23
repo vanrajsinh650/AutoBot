@@ -174,7 +174,7 @@ async def apply_to_portals(
         for idx, job in enumerate(jobs_to_apply, start=1):
             title = job.get("title") or "Unknown Role"
             company = job.get("company") or "Company"
-            target_url = job.get("application_url") or job.get("app_url") or ""
+            target_url = job.get("application_url") or job.get("app_url") or job.get("url") or job.get("source_url") or ""
             job_stable_id = job.get("stable_id") or str(job.get("id"))
 
             # Determine genuine match score from job evaluation or database record
@@ -286,8 +286,8 @@ async def apply_to_portals(
                         results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True, "proof_screenshot": proof_shot})
                     else:
                         failed += 1
-                        fail_desc = outcome.get("description") or "Easy Apply requires manual answers or completion."
-                        fail_status = outcome.get("status") or "requires_manual"
+                        fail_desc = fail_desc or "Easy Apply requires manual answers or completion."
+                        fail_status = fail_status or "requires_manual"
                         save_application(
                             job_id=job_stable_id,
                             job_title=title,
@@ -447,8 +447,8 @@ async def apply_to_portals(
                                     results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": status, "success": True, "proof_screenshot": proof_shot})
                                 else:
                                     failed += 1
-                                    fail_desc = outcome.get("description") or "Easy Apply requires manual answers or completion."
-                                    fail_status = outcome.get("status") or "requires_manual"
+                                    fail_desc = fail_desc or "Easy Apply requires manual answers or completion."
+                                    fail_status = fail_status or "requires_manual"
                                     save_application(
                                         job_id=job_stable_id,
                                         job_title=title,

@@ -415,15 +415,15 @@ def save_scraped_job(
     is_senior, senior_kw = is_senior_or_blacklisted_title(clean_title)
     is_aligned, align_reason = check_resume_technology_alignment(clean_title, clean_desc, user_id=user_id, db_path=db_path)
 
-    if is_senior:
+    if match_score is not None:
+        final_match_score = float(match_score)
+        final_status = status or "discovered"
+    elif is_senior:
         final_match_score = 0.0
         final_status = "rejected_seniority"
     elif not is_aligned:
         final_match_score = 0.0
         final_status = "rejected_tech_mismatch"
-    elif match_score is not None:
-        final_match_score = float(match_score)
-        final_status = status or "discovered"
     else:
         try:
             eval_res = evaluate_scraped_job_fit(
@@ -581,15 +581,22 @@ def get_apply_portals(
         company = (row_dict.get("company") or "Unknown Company").strip()
 
         # 1. Master resume alignment gate (Reject senior roles & foreign tech stacks not in resume)
-        from src.matching.evaluator import is_job_matching_resume
-        is_matched, reject_reason = is_job_matching_resume(
-            title=title,
-            description=row_dict.get("description") or "",
-            user_id=user_id,
-            db_path=db_path,
+        # Always allow user-directed or directly applied jobs
+        is_direct = (
+            job_key.startswith("direct_")
+            or row_dict.get("source_name") in ("Direct ATS", "User Import", "Manual")
+            or row_dict.get("application_status") in ("applied", "applying", "dry_run")
         )
-        if not is_matched:
-            continue
+        if not is_direct:
+            from src.matching.evaluator import is_job_matching_resume
+            is_matched, reject_reason = is_job_matching_resume(
+                title=title,
+                description=row_dict.get("description") or "",
+                user_id=user_id,
+                db_path=db_path,
+            )
+            if not is_matched:
+                continue
 
         raw = {}
         try:

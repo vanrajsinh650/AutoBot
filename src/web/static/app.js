@@ -2606,14 +2606,18 @@
   }
 
   async function executeDirectUrlApply(rawUrl, dryRun, triggerBtn) {
-    const url = (rawUrl || "").trim();
+    let url = (rawUrl || "").trim();
     if (!url) {
       showToast("Please enter a valid job URL to apply", "warning");
       return;
     }
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      showToast("URL must start with http:// or https://", "error");
-      return;
+      if (url.includes(".") && !url.includes(" ")) {
+        url = "https://" + url;
+      } else {
+        showToast("URL must start with http:// or https://", "error");
+        return;
+      }
     }
 
     if (state.audioEnabled && sfx) sfx.click();
