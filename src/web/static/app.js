@@ -2339,6 +2339,7 @@
     platforms: {},
     loading: false,
     selectedIds: new Set(),
+    grandTotals: null,  // cached grand totals (unfiltered) for metric cards
   };
 
   function updatePlatformPills(platforms, currentPlatform) {
@@ -2550,7 +2551,7 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Update summary metric cards
+      // Update summary metric cards — always show GRAND TOTALS (unfiltered)
       const elTotal = document.getElementById("stat-apply-total");
       const elExt = document.getElementById("stat-apply-external");
       const elLiExt = document.getElementById("stat-apply-linkedin-ext");
@@ -2560,11 +2561,28 @@
       const cntLiExt = document.getElementById("cnt-tab-linkedin-ext");
       const cntLiEasy = document.getElementById("cnt-tab-linkedin-easy");
 
-      if (elTotal) elTotal.textContent = data.total || 0;
-      if (elExt) elExt.textContent = data.external_count || 0;
-      if (elLiExt) elLiExt.textContent = data.linkedin_external_count || 0;
-      if (elLiEasy) elLiEasy.textContent = data.linkedin_easy_count || 0;
+      // Cache grand totals on first unfiltered load; keep showing them even when filtered
+      const isUnfiltered = (!portalsState.category || portalsState.category === "all")
+        && (!portalsState.platform || portalsState.platform === "all")
+        && (!portalsState.search)
+        && (!portalsState.minScore || portalsState.minScore === "0" || portalsState.minScore === "0.00");
+      if (isUnfiltered || !portalsState.grandTotals) {
+        portalsState.grandTotals = {
+          total: data.total || 0,
+          external: data.external_count || 0,
+          liExt: data.linkedin_external_count || 0,
+          liEasy: data.linkedin_easy_count || 0,
+        };
+      }
+      const gt = portalsState.grandTotals;
 
+      // Metric cards always show grand totals
+      if (elTotal) elTotal.textContent = gt.total;
+      if (elExt) elExt.textContent = gt.external;
+      if (elLiExt) elLiExt.textContent = gt.liExt;
+      if (elLiEasy) elLiEasy.textContent = gt.liEasy;
+
+      // Tab counts reflect current filtered result
       if (cntAll) cntAll.textContent = data.total || 0;
       if (cntExt) cntExt.textContent = data.external_count || 0;
       if (cntLiExt) cntLiExt.textContent = data.linkedin_external_count || 0;
@@ -2884,22 +2902,47 @@
     if (matchPct >= 80) matchBadgeClass = "badge-match-high";
     else if (matchPct < 60) matchBadgeClass = "badge-match-low";
 
+    // Status badge mapping — explicit class per status
+    const statusBadgeClass = ({
+      'applied': 'badge-applied',
+      'applying': 'badge-applying',
+      'dry_run': 'badge-dry-run',
+      'dry-run': 'badge-dry-run',
+      'failed': 'badge-failed',
+      'requires_manual': 'badge-manual',
+      'challenge_detected': 'badge-manual',
+      'skipped_low_fit': 'badge-skipped',
+      'skipped': 'badge-skipped',
+      'discovered': 'badge-discovered',
+      'evaluated': 'badge-discovered',
+    })[job.status] || 'badge-discovered';
+
+    // Visually dim cards with low fit or skipped status
+    const isLowFit = job.status === 'skipped_low_fit' || matchPct < 50;
+    const cardDimClass = isLowFit ? 'portal-card-dimmed' : '';
+
+    // Truncate failure_reason to avoid overflow
+    const rawFailReason = job.failure_reason || '';
+    const truncFailReason = rawFailReason.length > 110 ? rawFailReason.slice(0, 110) + '…' : rawFailReason;
+
     return `
-      <div class="portal-card ${isSelected ? 'is-selected' : ''}" data-idx="${idx}" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}">
+      <div class="portal-card ${cardDimClass} ${isSelected ? 'is-selected' : ''}" data-idx="${idx}" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}">
         <div>
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <input type="checkbox" class="portal-card-checkbox" data-id="${escapeHtml(jobId)}" data-idx="${idx}" ${isSelected ? 'checked' : ''} title="Select this portal for automated application">
+          <!-- Row 1: Checkbox + Platform Badge -->
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 7px; min-width: 0;">
+            <input type="checkbox" class="portal-card-checkbox" data-id="${escapeHtml(jobId)}" data-idx="${idx}" ${isSelected ? 'checked' : ''} title="Select this portal for automated application" style="flex-shrink: 0;">
+            <div style="flex: 1; min-width: 0; overflow: hidden;">
               ${badgeHtml}
             </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span class="badge ${matchBadgeClass}" style="font-size: 11px; padding: 2px 7px;">
-                ⚡ ${matchPct}% Match
-              </span>
-              <span class="badge portal-status-badge ${job.status === 'applied' ? 'badge-applied' : (job.status === 'applying' ? 'badge-applying' : 'badge-dry-run')}" style="font-size: 10.5px;">
-                ${escapeHtml(job.status || 'discovered')}
-              </span>
-            </div>
+          </div>
+          <!-- Row 2: Match % + Status Badge -->
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;">
+            <span class="badge ${matchBadgeClass}" style="font-size: 11px; padding: 2px 7px; flex-shrink: 0;">
+              ⚡ ${matchPct}% Match
+            </span>
+            <span class="badge portal-status-badge ${statusBadgeClass}" style="font-size: 10px; padding: 2px 7px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.3px;">
+              ${escapeHtml((job.status || 'discovered').replace(/_/g, ' '))}
+            </span>
           </div>
 
           <h3 style="font-size: 15.5px; font-weight: 700; color: #FFFFFF; margin: 0 0 5px 0; line-height: 1.35;">
@@ -2915,10 +2958,10 @@
           <div class="portal-desc-snippet">
             ${escapeHtml(snippet)}
           </div>
-          ${job.failure_reason && job.status !== 'applied' && job.status !== 'dry_run' ? `
-          <div style="margin-top: 8px; padding: 6px 10px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; font-size: 11px; color: #FCA5A5; display: flex; align-items: flex-start; gap: 6px; line-height: 1.35;">
-            <span>⚠️</span>
-            <span>${escapeHtml(job.failure_reason)}</span>
+          ${rawFailReason && job.status !== 'applied' && job.status !== 'dry_run' ? `
+          <div style="margin-top: 8px; padding: 6px 10px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; font-size: 11px; color: #FCA5A5; display: flex; align-items: flex-start; gap: 6px; line-height: 1.4; word-break: break-word; overflow: hidden;">
+            <span style="flex-shrink: 0;">⚠️</span>
+            <span title="${escapeHtml(rawFailReason)}">${escapeHtml(truncFailReason)}</span>
           </div>` : ''}
         </div>
 
@@ -3427,6 +3470,7 @@
 
       showToast(`All opportunities deleted (${data.deleted_count || 0} removed).`, "success");
       portalsState.selectedIds.clear();
+      portalsState.grandTotals = null;  // force re-fetch of grand totals
       updateBatchBarState();
       loadApplyPortals();
     } catch (err) {

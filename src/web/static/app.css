@@ -1529,9 +1529,15 @@ textarea.form-input {
 }
 
 .badge-skipped {
-  background: var(--rose-subtle);
-  color: var(--rose-text);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(107, 114, 128, 0.15);
+  color: #9CA3AF;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+.badge-discovered {
+  background: rgba(55, 65, 81, 0.2);
+  color: #6B7280;
+  border: 1px solid rgba(55, 65, 81, 0.35);
 }
 
 .badge-applying {
@@ -1658,6 +1664,23 @@ textarea.form-input {
   border-color: #ffffff;
   background: rgba(255, 255, 255, 0.06);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Dimmed cards for low-fit / skipped_low_fit */
+.portal-card-dimmed {
+  opacity: 0.62;
+}
+.portal-card-dimmed:hover {
+  opacity: 0.88;
+}
+
+/* Prevent platform badge button from overflowing card header */
+.btn-filter-platform {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .portal-card-checkbox {
