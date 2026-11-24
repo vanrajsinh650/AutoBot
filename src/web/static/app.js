@@ -1255,21 +1255,33 @@
     // Watch Bot (Visible vs Background) Toggle Sync
     const watchBotEl = document.getElementById("watch-bot-checkbox");
     if (watchBotEl) {
+      const savedWatchBot = localStorage.getItem("autobot_watch_bot");
+      if (savedWatchBot !== null) {
+        watchBotEl.checked = savedWatchBot === "true";
+      } else {
+        watchBotEl.checked = true; // Default to visible Chrome
+      }
       if (els.bgModeCheckbox) {
         els.bgModeCheckbox.checked = !watchBotEl.checked;
       }
-      watchBotEl.addEventListener("change", () => {
-        if (els.bgModeCheckbox) {
-          els.bgModeCheckbox.checked = !watchBotEl.checked;
-        }
+      const updateWatchBotLabel = () => {
         const label = document.getElementById("watch-bot-label");
         if (label) {
           label.textContent = watchBotEl.checked ? "Watch Bot (Visible)" : "Background (Silent)";
         }
+      };
+      updateWatchBotLabel();
+
+      watchBotEl.addEventListener("change", () => {
+        localStorage.setItem("autobot_watch_bot", watchBotEl.checked ? "true" : "false");
+        if (els.bgModeCheckbox) {
+          els.bgModeCheckbox.checked = !watchBotEl.checked;
+        }
+        updateWatchBotLabel();
         if (state.audioEnabled && sfx) sfx.click();
         showToast(
           watchBotEl.checked
-            ? "👁️ Bot will open a visible window during application so you can watch"
+            ? "👁️ Bot will open visible Google Chrome so you can watch form filling"
             : "🔇 Bot will apply silently in background mode",
           "info"
         );
@@ -2893,8 +2905,16 @@
     const badgeHtml = getPlatformBadgeHtml(job.platform, job.platform_category, isEasy);
     const rawApplyUrl = job.apply_url || job.source_url || "#";
     const openFormHref = `/api/jobs/${encodeURIComponent(stableId)}/open-form`;
-    const linkedinDigits = (String(stableId).match(/\d{6,15}/) || String(jobId).match(/\d{6,15}/) || [])[0];
-    const linkedinUrl = job.linkedin_url || (linkedinDigits ? `https://www.linkedin.com/jobs/view/${linkedinDigits}/` : (job.url && job.url.includes('linkedin.com') ? job.url : ''));
+    const isFromLinkedIn = Boolean(
+      isEasy ||
+      job.platform_category === 'linkedin' ||
+      (job.platform || '').toLowerCase().includes('linkedin') ||
+      (job.source_name || '').toLowerCase().includes('linkedin') ||
+      (job.url && job.url.includes('linkedin.com')) ||
+      (job.apply_url && job.apply_url.includes('linkedin.com'))
+    );
+    const linkedinDigits = isFromLinkedIn ? ((String(stableId).startsWith("urn:li:") || String(stableId).includes("linkedin")) ? (String(stableId).match(/\d{6,15}/) || [])[0] : null) : null;
+    const linkedinUrl = isFromLinkedIn ? (job.linkedin_url || (linkedinDigits ? `https://www.linkedin.com/jobs/view/${linkedinDigits}/` : (job.url && job.url.includes('linkedin.com') ? job.url : ''))) : '';
     const descText = (job.description || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     const snippet = descText.length > 200 ? descText.slice(0, 200) + "..." : descText || "No description preview available.";
     const matchPct = Math.round((job.match_score || 0.60) * 100);
@@ -3268,8 +3288,16 @@
       modalDesc.textContent = cleanDesc || "No detailed job description captured.";
     }
     const stableId = job.stable_id || job.id || job.job_id || "";
-    const liDigits = (String(stableId).match(/\d{6,15}/) || String(job.id || '').match(/\d{6,15}/) || [])[0];
-    const liUrl = job.linkedin_url || (liDigits ? `https://www.linkedin.com/jobs/view/${liDigits}/` : '');
+    const isFromLinkedInModal = Boolean(
+      isEasy ||
+      job.platform_category === 'linkedin' ||
+      (job.platform || '').toLowerCase().includes('linkedin') ||
+      (job.source_name || '').toLowerCase().includes('linkedin') ||
+      (job.url && job.url.includes('linkedin.com')) ||
+      (job.apply_url && job.apply_url.includes('linkedin.com'))
+    );
+    const liDigits = isFromLinkedInModal ? ((String(stableId).startsWith("urn:li:") || String(stableId).includes("linkedin")) ? (String(stableId).match(/\d{6,15}/) || [])[0] : null) : null;
+    const liUrl = isFromLinkedInModal ? (job.linkedin_url || (liDigits ? `https://www.linkedin.com/jobs/view/${liDigits}/` : '')) : '';
 
     if (modalApply) {
       if (isEasy) {

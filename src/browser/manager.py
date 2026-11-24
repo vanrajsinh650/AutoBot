@@ -49,8 +49,13 @@ class BrowserManager:
             self.headless = bool(self.env.headless)
 
         if not self.headless and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-            logger.info("[browser]No display server detected; running Chromium in headless mode.[/browser]")
-            self.headless = True
+            if Path("/tmp/.X11-unix/X0").exists():
+                os.environ["DISPLAY"] = ":0"
+            if Path("/run/user/1000/wayland-1").exists():
+                os.environ["WAYLAND_DISPLAY"] = "wayland-1"
+            if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+                logger.info("[browser]No display server detected; running Chromium in headless mode.[/browser]")
+                self.headless = True
 
         # Determine requested backend
         resolved_backend = (

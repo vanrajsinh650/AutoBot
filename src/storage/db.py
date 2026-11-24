@@ -740,23 +740,25 @@ def get_apply_portals(
                 continue
 
         # Determine canonical LinkedIn source posting URL where job was scraped
+        # ONLY if the job is genuinely from LinkedIn or Easy Apply!
         linkedin_url = ""
-        sid = str(row_dict.get("stable_id") or "")
-        m_sid = re.search(r"(\d{6,15})", sid)
-        if m_sid:
-            linkedin_url = f"https://www.linkedin.com/jobs/view/{m_sid.group(1)}/"
-        elif raw.get("source_url") and any(li in str(raw.get("source_url")).lower() for li in ("linkedin.com", "lnkd.in")):
-            m_src = re.search(r"(\d{6,15})", str(raw.get("source_url")))
-            if m_src:
-                linkedin_url = f"https://www.linkedin.com/jobs/view/{m_src.group(1)}/"
-            else:
-                linkedin_url = str(raw.get("source_url"))
-        elif app_url and any(li in app_url.lower() for li in ("linkedin.com", "lnkd.in")):
-            m_app = re.search(r"(\d{6,15})", app_url)
-            if m_app:
-                linkedin_url = f"https://www.linkedin.com/jobs/view/{m_app.group(1)}/"
-            else:
-                linkedin_url = app_url
+        if is_from_linkedin:
+            sid = str(row_dict.get("stable_id") or "")
+            m_sid = re.search(r"(\d{6,15})", sid) if (sid.startswith("urn:li:") or "linkedin" in sid.lower()) else None
+            if m_sid:
+                linkedin_url = f"https://www.linkedin.com/jobs/view/{m_sid.group(1)}/"
+            elif raw.get("source_url") and any(li in str(raw.get("source_url")).lower() for li in ("linkedin.com", "lnkd.in")):
+                m_src = re.search(r"(\d{6,15})", str(raw.get("source_url")))
+                if m_src:
+                    linkedin_url = f"https://www.linkedin.com/jobs/view/{m_src.group(1)}/"
+                else:
+                    linkedin_url = str(raw.get("source_url"))
+            elif app_url and any(li in app_url.lower() for li in ("linkedin.com", "lnkd.in")):
+                m_app = re.search(r"(\d{6,15})", app_url)
+                if m_app:
+                    linkedin_url = f"https://www.linkedin.com/jobs/view/{m_app.group(1)}/"
+                else:
+                    linkedin_url = app_url
 
         final_apply_url = app_url
         if is_easy:
@@ -770,7 +772,7 @@ def get_apply_portals(
             "location": row_dict.get("location") or "Remote",
             "description": row_dict.get("description") or "",
             "apply_url": final_apply_url,
-            "linkedin_url": linkedin_url or (app_url if "linkedin.com" in app_url.lower() else ""),
+            "linkedin_url": linkedin_url if is_from_linkedin else "",
             "source_name": src_name,
             "platform": "LinkedIn (Easy Apply)" if is_easy else plat_name,
             "platform_category": "linkedin" if is_easy else plat_cat,
