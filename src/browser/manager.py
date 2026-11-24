@@ -49,10 +49,17 @@ class BrowserManager:
             self.headless = bool(self.env.headless)
 
         if not self.headless and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+            uid = os.getuid() if hasattr(os, "getuid") else 1000
+            if not os.environ.get("XDG_RUNTIME_DIR"):
+                user_run = Path(f"/run/user/{uid}")
+                if user_run.exists():
+                    os.environ["XDG_RUNTIME_DIR"] = str(user_run)
             if Path("/tmp/.X11-unix/X0").exists():
                 os.environ["DISPLAY"] = ":0"
-            if Path("/run/user/1000/wayland-1").exists():
-                os.environ["WAYLAND_DISPLAY"] = "wayland-1"
+            for wsock in Path(f"/run/user/{uid}").glob("wayland-*"):
+                if not wsock.name.endswith(".lock"):
+                    os.environ["WAYLAND_DISPLAY"] = wsock.name
+                    break
             if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
                 logger.info("[browser]No display server detected; running Chromium in headless mode.[/browser]")
                 self.headless = True

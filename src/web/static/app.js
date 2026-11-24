@@ -2573,32 +2573,34 @@
       const cntLiExt = document.getElementById("cnt-tab-linkedin-ext");
       const cntLiEasy = document.getElementById("cnt-tab-linkedin-easy");
 
-      // Cache grand totals on first unfiltered load; keep showing them even when filtered
-      const isUnfiltered = (!portalsState.category || portalsState.category === "all")
-        && (!portalsState.platform || portalsState.platform === "all")
-        && (!portalsState.search)
-        && (!portalsState.minScore || portalsState.minScore === "0" || portalsState.minScore === "0.00");
-      if (isUnfiltered || !portalsState.grandTotals) {
+      // Compute authentic grand totals
+      const directAtsVal = data.direct_ats_count != null ? data.direct_ats_count : (data.external_count || 0);
+      const liExtVal = data.linkedin_external_count || 0;
+      const liEasyVal = data.linkedin_easy_count || 0;
+      const serverGrandTotal = data.grand_total != null ? data.grand_total : (directAtsVal + liExtVal + liEasyVal);
+
+      // Always maintain stable grand totals so metric cards remain rock-solid across filters
+      if (!portalsState.grandTotals || serverGrandTotal >= (portalsState.grandTotals.total || 0)) {
         portalsState.grandTotals = {
-          total: data.total || 0,
-          external: data.external_count || 0,
-          liExt: data.linkedin_external_count || 0,
-          liEasy: data.linkedin_easy_count || 0,
+          total: serverGrandTotal,
+          external: directAtsVal,
+          liExt: liExtVal,
+          liEasy: liEasyVal,
         };
       }
       const gt = portalsState.grandTotals;
 
-      // Metric cards always show grand totals
+      // Metric cards always show consistent grand totals
       if (elTotal) elTotal.textContent = gt.total;
       if (elExt) elExt.textContent = gt.external;
       if (elLiExt) elLiExt.textContent = gt.liExt;
       if (elLiEasy) elLiEasy.textContent = gt.liEasy;
 
-      // Tab counts reflect current filtered result
-      if (cntAll) cntAll.textContent = data.total || 0;
-      if (cntExt) cntExt.textContent = data.external_count || 0;
-      if (cntLiExt) cntLiExt.textContent = data.linkedin_external_count || 0;
-      if (cntLiEasy) cntLiEasy.textContent = data.linkedin_easy_count || 0;
+      // Category tab badges always reflect their respective category totals
+      if (cntAll) cntAll.textContent = gt.total;
+      if (cntExt) cntExt.textContent = gt.external;
+      if (cntLiExt) cntLiExt.textContent = gt.liExt;
+      if (cntLiEasy) cntLiEasy.textContent = gt.liEasy;
 
       portalsState.jobs = data.jobs || [];
       portalsState.platforms = data.platforms || {};

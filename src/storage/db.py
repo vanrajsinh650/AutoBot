@@ -505,6 +505,11 @@ def save_scraped_job(
     return stable_id
 
 
+# Module-level caches for fast in-memory job evaluation and candidate matching
+_EVAL_FIT_CACHE: Dict[str, float] = {}
+_RESUME_MATCH_CACHE: Dict[str, tuple[bool, str]] = {}
+
+
 def get_apply_portals(
     user_id: int,
     platform_category: Optional[str] = None,
@@ -560,7 +565,7 @@ def get_apply_portals(
     linkedin_count = 0
     linkedin_easy_count = 0
     linkedin_ext_count = 0
-    external_count = 0
+    direct_ats_count = 0
     platform_breakdown: Dict[str, int] = {}
     items: List[Dict[str, Any]] = []
 
@@ -598,13 +603,18 @@ def get_apply_portals(
         )
         if not is_direct:
             from src.matching.evaluator import is_job_matching_resume
-            is_matched, reject_reason = is_job_matching_resume(
-                title=title,
-                description=row_dict.get("description") or "",
-                candidate_skills=cached_skills,
-                user_id=user_id,
-                db_path=db_path,
-            )
+            match_key = f"{user_id}:{job_key}:{title}"
+            if match_key in _RESUME_MATCH_CACHE:
+                is_matched, reject_reason = _RESUME_MATCH_CACHE[match_key]
+            else:
+                is_matched, reject_reason = is_job_matching_resume(
+                    title=title,
+                    description=row_dict.get("description") or "",
+                    candidate_skills=cached_skills,
+                    user_id=user_id,
+                    db_path=db_path,
+                )
+                _RESUME_MATCH_CACHE[match_key] = (is_matched, reject_reason)
             if not is_matched:
                 continue
 
@@ -650,20 +660,25 @@ def get_apply_portals(
         if raw_score is not None and float(raw_score) > 0:
             computed_score = round(float(raw_score), 2)
         else:
-            try:
-                eval_res = evaluate_scraped_job_fit(
-                    title=title,
-                    company=company,
-                    description=row_dict.get("description") or "",
-                    user_id=user_id,
-                    db_path=db_path,
-                    profile=cached_profile,
-                    preferences=cached_preferences,
-                    evidence=cached_evidence,
-                )
-                computed_score = eval_res["match_score"]
-            except Exception:
-                computed_score = 0.70
+            fit_key = f"{user_id}:{job_key}:{title}:{company}"
+            if fit_key in _EVAL_FIT_CACHE:
+                computed_score = _EVAL_FIT_CACHE[fit_key]
+            else:
+                try:
+                    eval_res = evaluate_scraped_job_fit(
+                        title=title,
+                        company=company,
+                        description=row_dict.get("description") or "",
+                        user_id=user_id,
+                        db_path=db_path,
+                        profile=cached_profile,
+                        preferences=cached_preferences,
+                        evidence=cached_evidence,
+                    )
+                    computed_score = eval_res["match_score"]
+                except Exception:
+                    computed_score = 0.70
+                _EVAL_FIT_CACHE[fit_key] = computed_score
 
         # 3. Filter by min_match_score threshold (e.g. 0.60 or 0.80)
         if min_match_score is not None and min_match_score > 0.0:
@@ -688,9 +703,8 @@ def get_apply_portals(
         elif is_from_linkedin:
             linkedin_ext_count += 1
             linkedin_count += 1
-            external_count += 1
         else:
-            external_count += 1
+            direct_ats_count += 1
 
         platform_breakdown[plat_name] = platform_breakdown.get(plat_name, 0) + 1
 
@@ -785,14 +799,18 @@ def get_apply_portals(
             "created_at": row_dict.get("created_at") or "",
         })
 
+    grand_total = direct_ats_count + linkedin_easy_count + linkedin_ext_count
     paginated_items = items[offset : offset + limit]
 
     return {
-        "total": len(items),
-        "linkedin_count": linkedin_count,
+        "grand_total": grand_total,
+        "direct_ats_count": direct_ats_count,
+        "external_count": direct_ats_count,
+        "linkedin_count": linkedin_easy_count + linkedin_ext_count,
         "linkedin_easy_count": linkedin_easy_count,
         "linkedin_external_count": linkedin_ext_count,
-        "external_count": external_count,
+        "filtered_total": len(items),
+        "total": grand_total if (not platform_category or platform_category == "all") and (not platform_name or platform_name == "all") and not search_query else len(items),
         "platforms": platform_breakdown,
         "jobs": paginated_items,
     }
