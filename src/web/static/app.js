@@ -1442,6 +1442,50 @@
       });
     });
 
+    // Apply Portals View Mode Toggle (Grid vs Group by Platform)
+    const btnGrid = document.getElementById("btn-view-grid");
+    const btnGrouped = document.getElementById("btn-view-grouped");
+    function updateViewModeButtons() {
+      if (btnGrid && btnGrouped) {
+        if (portalsState.viewMode === "grouped") {
+          btnGrouped.classList.add("active");
+          btnGrouped.style.background = "var(--primary)";
+          btnGrouped.style.color = "#FFFFFF";
+          btnGrid.classList.remove("active");
+          btnGrid.style.background = "transparent";
+          btnGrid.style.color = "var(--text-muted)";
+        } else {
+          btnGrid.classList.add("active");
+          btnGrid.style.background = "var(--primary)";
+          btnGrid.style.color = "#FFFFFF";
+          btnGrouped.classList.remove("active");
+          btnGrouped.style.background = "transparent";
+          btnGrouped.style.color = "var(--text-muted)";
+        }
+      }
+    }
+    if (btnGrid) {
+      btnGrid.addEventListener("click", () => {
+        if (portalsState.viewMode === "grid") return;
+        portalsState.viewMode = "grid";
+        localStorage.setItem("autobot_portal_view_mode", "grid");
+        updateViewModeButtons();
+        if (state.audioEnabled && sfx) sfx.click();
+        renderApplyPortals(portalsState.jobs);
+      });
+    }
+    if (btnGrouped) {
+      btnGrouped.addEventListener("click", () => {
+        if (portalsState.viewMode === "grouped") return;
+        portalsState.viewMode = "grouped";
+        localStorage.setItem("autobot_portal_view_mode", "grouped");
+        updateViewModeButtons();
+        if (state.audioEnabled && sfx) sfx.click();
+        renderApplyPortals(portalsState.jobs);
+      });
+    }
+    updateViewModeButtons();
+
     // Apply Portals Platform dropdown
     const platformSelect = document.getElementById("portal-platform-select");
     if (platformSelect) {
@@ -2290,11 +2334,132 @@
     platform: "all",
     search: "",
     minScore: "0.60",
+    viewMode: localStorage.getItem("autobot_portal_view_mode") || "grid",
     jobs: [],
     platforms: {},
     loading: false,
     selectedIds: new Set(),
   };
+
+  function updatePlatformPills(platforms, currentPlatform) {
+    const container = document.getElementById("portal-dynamic-platform-pills");
+    if (!container) return;
+
+    if (!platforms || typeof platforms !== "object" || Object.keys(platforms).length === 0) {
+      container.innerHTML = "";
+      return;
+    }
+
+    const platformMeta = {
+      "Greenhouse": { icon: "🌿", color: "#34D399", bg: "rgba(16, 185, 129, 0.12)", border: "rgba(16, 185, 129, 0.35)", activeBg: "#10B981" },
+      "Ashby": { icon: "⚡", color: "#C084FC", bg: "rgba(168, 85, 247, 0.12)", border: "rgba(168, 85, 247, 0.35)", activeBg: "#A855F7" },
+      "Lever": { icon: "🟧", color: "#FB923C", bg: "rgba(249, 115, 22, 0.12)", border: "rgba(249, 115, 22, 0.35)", activeBg: "#F97316" },
+      "Workday": { icon: "🔷", color: "#60A5FA", bg: "rgba(59, 130, 246, 0.12)", border: "rgba(59, 130, 246, 0.35)", activeBg: "#3B82F6" },
+      "SmartRecruiters": { icon: "✨", color: "#F472B6", bg: "rgba(236, 72, 153, 0.12)", border: "rgba(236, 72, 153, 0.35)", activeBg: "#EC4899" },
+      "iCIMS": { icon: "🌐", color: "#22D3EE", bg: "rgba(6, 182, 212, 0.12)", border: "rgba(6, 182, 212, 0.35)", activeBg: "#06B6D4" },
+      "Oracle": { icon: "🔴", color: "#F87171", bg: "rgba(239, 68, 68, 0.12)", border: "rgba(239, 68, 68, 0.35)", activeBg: "#EF4444" },
+    };
+
+    let pillsHtml = "";
+    for (const [name, count] of Object.entries(platforms)) {
+      if (count <= 0) continue;
+      // Hide generic LinkedIn items from dynamic pills as they already have dedicated primary tabs
+      if (name.includes("Easy Apply") || name.includes("External Form")) continue;
+
+      const meta = platformMeta[name] || {
+        icon: "🌐",
+        color: "#38BDF8",
+        bg: "rgba(56, 189, 248, 0.12)",
+        border: "rgba(56, 189, 248, 0.35)",
+        activeBg: "var(--primary)"
+      };
+
+      const isActive = (currentPlatform && currentPlatform.toLowerCase() === name.toLowerCase());
+      const activeStyle = isActive
+        ? `background: ${meta.activeBg}; color: #FFFFFF; border: 1px solid ${meta.activeBg}; box-shadow: 0 0 10px ${meta.border}; font-weight: 700;`
+        : `background: ${meta.bg}; color: ${meta.color}; border: 1px solid ${meta.border}; font-weight: 600;`;
+
+      pillsHtml += `
+        <button class="platform-pill-btn ${isActive ? 'active' : ''}" data-platform="${escapeHtml(name)}" title="Filter directly for ${escapeHtml(name)} (${count} roles)" style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 9999px; font-size: 12px; cursor: pointer; transition: all 0.2s ease; ${activeStyle}">
+          <span>${meta.icon}</span>
+          <span>${escapeHtml(name)}</span>
+          <span style="background: rgba(0,0,0,0.3); border-radius: 9999px; padding: 1px 7px; font-size: 11px;">${count}</span>
+        </button>
+      `;
+    }
+
+    container.innerHTML = pillsHtml;
+
+    container.querySelectorAll(".platform-pill-btn").forEach((pill) => {
+      pill.addEventListener("click", () => {
+        const plat = pill.getAttribute("data-platform");
+        if (portalsState.platform && portalsState.platform.toLowerCase() === plat.toLowerCase()) {
+          setPlatformFilter("all");
+        } else {
+          setPlatformFilter(plat);
+        }
+      });
+    });
+  }
+
+  function setPlatformFilter(platformName) {
+    if (state.audioEnabled && sfx) sfx.click();
+    portalsState.platform = platformName || "all";
+
+    // Synchronize the platform select dropdown
+    const select = document.getElementById("portal-platform-select");
+    if (select) {
+      let found = false;
+      for (const opt of select.options) {
+        if (opt.value.toLowerCase() === (platformName || "").toLowerCase()) {
+          select.value = opt.value;
+          found = true;
+          break;
+        }
+      }
+      if (!found && platformName === "all") {
+        select.value = "all";
+      }
+    }
+
+    // Synchronize category tabs visual state
+    document.querySelectorAll(".platform-tab").forEach((t) => {
+      const cat = t.getAttribute("data-category");
+      if (platformName && platformName !== "all") {
+        const isEasy = platformName.toLowerCase().includes("easy apply");
+        const isLiExt = platformName.toLowerCase().includes("external form");
+        if (isEasy && cat === "linkedin_easy") {
+          t.classList.add("active");
+          t.style.background = "var(--primary)";
+          t.style.color = "#ffffff";
+        } else if (isLiExt && cat === "linkedin_external") {
+          t.classList.add("active");
+          t.style.background = "var(--primary)";
+          t.style.color = "#ffffff";
+        } else if (!isEasy && !isLiExt && cat === "external") {
+          t.classList.add("active");
+          t.style.background = "var(--primary)";
+          t.style.color = "#ffffff";
+        } else {
+          t.classList.remove("active");
+          t.style.background = "transparent";
+          t.style.color = "var(--text-muted)";
+        }
+      } else {
+        if (cat === (portalsState.category || "all")) {
+          t.classList.add("active");
+          t.style.background = "var(--primary)";
+          t.style.color = "#ffffff";
+        } else {
+          t.classList.remove("active");
+          t.style.background = "transparent";
+          t.style.color = "var(--text-muted)";
+        }
+      }
+    });
+
+    loadApplyPortals();
+  }
 
   function updatePlatformDropdown(platforms, category, total, liCount, extCount, liExtCount, liEasyCount) {
     const select = document.getElementById("portal-platform-select");
@@ -2419,6 +2584,9 @@
         data.linkedin_easy_count
       );
 
+      // Render Dynamic Platform Pills in the filter bar
+      updatePlatformPills(portalsState.platforms, portalsState.platform);
+
       renderApplyPortals(portalsState.jobs);
       updateBatchBarState();
     } catch (err) {
@@ -2439,20 +2607,45 @@
 
     if (isEasy) {
       const iconSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>`;
-      return `<span class="platform-badge platform-badge-linkedin" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 600;">${iconSvg} LinkedIn (Easy Apply)</span>`;
+      return `<button type="button" class="platform-badge platform-badge-linkedin btn-filter-platform" data-platform="LinkedIn (Easy Apply)" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; border-radius: 9999px; padding: 3px 9px; font-size: 11px;" title="Click to filter only LinkedIn (Easy Apply) roles">${iconSvg} LinkedIn (Easy Apply)</button>`;
     }
 
     let atsName = "LinkedIn (External Form)";
-    if (p.includes("workday")) atsName = "Workday (External ATS)";
-    else if (p.includes("icims")) atsName = "iCIMS (External ATS)";
-    else if (p.includes("greenhouse")) atsName = "Greenhouse (External ATS)";
-    else if (p.includes("lever")) atsName = "Lever (External ATS)";
-    else if (p.includes("oracle")) atsName = "Oracle Cloud (External ATS)";
-    else if (p.includes("smartrecruiters")) atsName = "SmartRecruiters (External ATS)";
-    else if (p.includes("ashby")) atsName = "Ashby (External ATS)";
-
+    let filterPlat = "LinkedIn (External Form)";
+    let badgeStyle = "background: rgba(56, 189, 248, 0.12); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35);";
     const extSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
-    return `<span class="platform-badge platform-badge-linkedin-ext" style="background: rgba(56, 189, 248, 0.12); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.35); font-weight: 600;">${extSvg} ${escapeHtml(atsName)}</span>`;
+
+    if (p.includes("greenhouse")) {
+      atsName = "Greenhouse (External ATS)";
+      filterPlat = "Greenhouse";
+      badgeStyle = "background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4);";
+    } else if (p.includes("ashby")) {
+      atsName = "Ashby (External ATS)";
+      filterPlat = "Ashby";
+      badgeStyle = "background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.4);";
+    } else if (p.includes("lever")) {
+      atsName = "Lever (External ATS)";
+      filterPlat = "Lever";
+      badgeStyle = "background: rgba(249, 115, 22, 0.15); color: #FB923C; border: 1px solid rgba(249, 115, 22, 0.4);";
+    } else if (p.includes("workday")) {
+      atsName = "Workday (External ATS)";
+      filterPlat = "Workday";
+      badgeStyle = "background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.4);";
+    } else if (p.includes("smartrecruiters")) {
+      atsName = "SmartRecruiters (External ATS)";
+      filterPlat = "SmartRecruiters";
+      badgeStyle = "background: rgba(236, 72, 153, 0.15); color: #F472B6; border: 1px solid rgba(236, 72, 153, 0.4);";
+    } else if (p.includes("icims")) {
+      atsName = "iCIMS (External ATS)";
+      filterPlat = "iCIMS";
+      badgeStyle = "background: rgba(6, 182, 212, 0.15); color: #22D3EE; border: 1px solid rgba(6, 182, 212, 0.4);";
+    } else if (p.includes("oracle")) {
+      atsName = "Oracle Cloud (External ATS)";
+      filterPlat = "Oracle";
+      badgeStyle = "background: rgba(239, 68, 68, 0.15); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.4);";
+    }
+
+    return `<button type="button" class="platform-badge platform-badge-linkedin-ext btn-filter-platform" data-platform="${escapeHtml(filterPlat)}" style="${badgeStyle} font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; border-radius: 9999px; padding: 3px 9px; font-size: 11px;" title="Click to filter only ${escapeHtml(filterPlat)} roles">${extSvg} ${escapeHtml(atsName)}</button>`;
   }
 
   function updateBatchBarState() {
@@ -2777,49 +2970,185 @@
       return;
     }
 
-    const isAllTab = (!portalsState.category || portalsState.category === "all");
-    const extJobsWithIdx = [];
-    const easyJobsWithIdx = [];
-
-    jobs.forEach((j, idx) => {
-      const isEasy = (j.platform_category === "linkedin" || (j.platform || "").toLowerCase().includes("easy apply"));
-      if (isEasy) {
-        easyJobsWithIdx.push({ job: j, idx });
-      } else {
-        extJobsWithIdx.push({ job: j, idx });
-      }
-    });
-
     let html = "";
-    if (isAllTab && extJobsWithIdx.length > 0 && easyJobsWithIdx.length > 0) {
-      html += `
-        <div style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; margin-top: 4px; margin-bottom: 4px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 10px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 17px;">🌐</span>
-            <span style="font-size: 14.5px; font-weight: 700; color: #FFFFFF;">Direct External Form Portals (ATS & Careers)</span>
-            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-size: 11.5px; padding: 2px 8px; border-radius: 9999px;">${extJobsWithIdx.length} roles</span>
-          </div>
-          <div style="font-size: 12px; color: var(--text-muted);">External ATS portals (Ashby, Workday, Greenhouse, Lever, Oracle)</div>
-        </div>
-      `;
-      html += extJobsWithIdx.map(item => renderPortalCardHtml(item.job, item.idx)).join("");
+    if (portalsState.viewMode === "grouped") {
+      const groups = {};
+      jobs.forEach((j, idx) => {
+        let pName = "Direct ATS";
+        const p = (j.platform || "").toLowerCase();
+        const isEasy = (j.apply_type === 'Easy Apply' || j.is_easy_apply === true || j.platform_category === 'linkedin' || p.includes('easy apply'));
+        if (isEasy) {
+          pName = "LinkedIn (Easy Apply)";
+        } else if (p.includes("greenhouse")) {
+          pName = "Greenhouse";
+        } else if (p.includes("ashby")) {
+          pName = "Ashby";
+        } else if (p.includes("lever")) {
+          pName = "Lever";
+        } else if (p.includes("workday")) {
+          pName = "Workday";
+        } else if (p.includes("smartrecruiters")) {
+          pName = "SmartRecruiters";
+        } else if (p.includes("icims")) {
+          pName = "iCIMS";
+        } else if (p.includes("oracle")) {
+          pName = "Oracle Cloud";
+        } else if (p.includes("linkedin")) {
+          pName = "LinkedIn (External Form)";
+        } else if (j.platform) {
+          pName = j.platform;
+        }
+        if (!groups[pName]) groups[pName] = [];
+        groups[pName].push({ job: j, idx });
+      });
 
-      html += `
-        <div style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; margin-top: 24px; margin-bottom: 4px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 10px;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 17px;">⚡</span>
-            <span style="font-size: 14.5px; font-weight: 700; color: #FFFFFF;">LinkedIn Easy Apply Portals</span>
-            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; font-size: 11.5px; padding: 2px 8px; border-radius: 9999px;">${easyJobsWithIdx.length} roles</span>
+      const platformMeta = {
+        "Greenhouse": { icon: "🌿", color: "#34D399", border: "rgba(16, 185, 129, 0.4)", bg: "rgba(16, 185, 129, 0.15)", desc: "Direct Greenhouse ATS forms with verified field mapping & submission endpoints" },
+        "Ashby": { icon: "⚡", color: "#C084FC", border: "rgba(168, 85, 247, 0.4)", bg: "rgba(168, 85, 247, 0.15)", desc: "Ashby HQ applicant portals with automated candidate resume injection" },
+        "Lever": { icon: "🟧", color: "#FB923C", border: "rgba(249, 115, 22, 0.4)", bg: "rgba(249, 115, 22, 0.15)", desc: "Lever modern ATS opportunities with instant candidate profile sync" },
+        "Workday": { icon: "🔷", color: "#60A5FA", border: "rgba(59, 130, 246, 0.4)", bg: "rgba(59, 130, 246, 0.15)", desc: "Enterprise Workday portal forms with deep field mapping & automation" },
+        "SmartRecruiters": { icon: "✨", color: "#F472B6", border: "rgba(236, 72, 153, 0.4)", bg: "rgba(236, 72, 153, 0.15)", desc: "SmartRecruiters 1-click apply compatible careers pages" },
+        "iCIMS": { icon: "🌐", color: "#22D3EE", border: "rgba(6, 182, 212, 0.4)", bg: "rgba(6, 182, 212, 0.15)", desc: "iCIMS talent cloud direct application links" },
+        "Oracle Cloud": { icon: "🔴", color: "#F87171", border: "rgba(239, 68, 68, 0.4)", bg: "rgba(239, 68, 68, 0.15)", desc: "Oracle Cloud enterprise career portals" },
+        "LinkedIn (Easy Apply)": { icon: "⚡", color: "#34D399", border: "rgba(16, 185, 129, 0.4)", bg: "rgba(16, 185, 129, 0.15)", desc: "1-Click native Easy Apply application forms on LinkedIn" },
+        "LinkedIn (External Form)": { icon: "🌐", color: "#38BDF8", border: "rgba(56, 189, 248, 0.4)", bg: "rgba(56, 189, 248, 0.15)", desc: "External company application forms linked from LinkedIn postings" },
+      };
+
+      for (const [pName, itemsList] of Object.entries(groups)) {
+        const meta = platformMeta[pName] || {
+          icon: "🌐",
+          color: "#38BDF8",
+          border: "rgba(56, 189, 248, 0.4)",
+          bg: "rgba(56, 189, 248, 0.15)",
+          desc: `Direct application forms hosted on ${escapeHtml(pName)}`
+        };
+
+        html += `
+          <div style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; margin-top: 20px; margin-bottom: 8px; background: rgba(15, 23, 42, 0.9); border: 1px solid ${meta.border}; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.25); flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 22px;">${meta.icon}</span>
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 15.5px; font-weight: 700; color: #FFFFFF;">${escapeHtml(pName)}</span>
+                  <span class="badge" style="background: ${meta.bg}; color: ${meta.color}; font-weight: 700; font-size: 11px; padding: 2px 9px; border-radius: 9999px;">
+                    ${itemsList.length} roles
+                  </span>
+                </div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                  ${meta.desc}
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-secondary btn-sm btn-group-select-all" data-platform="${escapeHtml(pName)}" style="font-size: 11.5px; padding: 5px 12px; font-weight: 600;">
+                Select All in ${escapeHtml(pName)}
+              </button>
+              <button class="btn btn-secondary btn-sm btn-filter-only-platform" data-platform="${escapeHtml(pName)}" style="font-size: 11.5px; padding: 5px 12px; color: ${meta.color}; border-color: ${meta.border}; font-weight: 600;">
+                Filter only ${escapeHtml(pName)}
+              </button>
+            </div>
           </div>
-          <div style="font-size: 12px; color: var(--text-muted);">1-Click in-app application forms on LinkedIn</div>
-        </div>
-      `;
-      html += easyJobsWithIdx.map(item => renderPortalCardHtml(item.job, item.idx)).join("");
+        `;
+        html += itemsList.map(item => renderPortalCardHtml(item.job, item.idx)).join("");
+      }
     } else {
-      html = jobs.map((job, idx) => renderPortalCardHtml(job, idx)).join("");
+      const isAllTab = (!portalsState.category || portalsState.category === "all");
+      const extJobsWithIdx = [];
+      const easyJobsWithIdx = [];
+
+      jobs.forEach((j, idx) => {
+        const isEasy = (j.platform_category === "linkedin" || (j.platform || "").toLowerCase().includes("easy apply"));
+        if (isEasy) {
+          easyJobsWithIdx.push({ job: j, idx });
+        } else {
+          extJobsWithIdx.push({ job: j, idx });
+        }
+      });
+
+      if (isAllTab && extJobsWithIdx.length > 0 && easyJobsWithIdx.length > 0) {
+        html += `
+          <div style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; margin-top: 4px; margin-bottom: 4px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 17px;">🌐</span>
+              <span style="font-size: 14.5px; font-weight: 700; color: #FFFFFF;">Direct External Form Portals (ATS & Careers)</span>
+              <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38BDF8; font-size: 11.5px; padding: 2px 8px; border-radius: 9999px;">${extJobsWithIdx.length} roles</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted);">External ATS portals (Ashby, Workday, Greenhouse, Lever, Oracle)</div>
+          </div>
+        `;
+        html += extJobsWithIdx.map(item => renderPortalCardHtml(item.job, item.idx)).join("");
+
+        html += `
+          <div style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; margin-top: 24px; margin-bottom: 4px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 17px;">⚡</span>
+              <span style="font-size: 14.5px; font-weight: 700; color: #FFFFFF;">LinkedIn Easy Apply Portals</span>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; font-size: 11.5px; padding: 2px 8px; border-radius: 9999px;">${easyJobsWithIdx.length} roles</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted);">1-Click in-app application forms on LinkedIn</div>
+          </div>
+        `;
+        html += easyJobsWithIdx.map(item => renderPortalCardHtml(item.job, item.idx)).join("");
+      } else {
+        html = jobs.map((job, idx) => renderPortalCardHtml(job, idx)).join("");
+      }
     }
 
     grid.innerHTML = html;
+
+    // Attach click listeners to clickable platform badges
+    grid.querySelectorAll(".btn-filter-platform").forEach((badge) => {
+      badge.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const plat = badge.getAttribute("data-platform");
+        if (plat) setPlatformFilter(plat);
+      });
+    });
+
+    // Attach click listeners to grouped view platform buttons
+    grid.querySelectorAll(".btn-filter-only-platform").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const plat = btn.getAttribute("data-platform");
+        if (plat) setPlatformFilter(plat);
+      });
+    });
+
+    grid.querySelectorAll(".btn-group-select-all").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const plat = (btn.getAttribute("data-platform") || "").toLowerCase();
+        const groupJobs = jobs.filter((j) => {
+          const p = (j.platform || "").toLowerCase();
+          const isEasy = (j.apply_type === 'Easy Apply' || j.is_easy_apply === true || j.platform_category === 'linkedin' || p.includes('easy apply'));
+          if (plat.includes("easy apply")) return isEasy;
+          if (plat.includes("external form")) return (!isEasy && (p.includes("linkedin") || j.platform_category === "linkedin"));
+          return p.includes(plat);
+        });
+
+        const allSelected = groupJobs.length > 0 && groupJobs.every((j) => {
+          const id = String(j.id != null ? j.id : (j.job_id || ""));
+          return portalsState.selectedIds.has(id);
+        });
+
+        groupJobs.forEach((j) => {
+          const id = String(j.id != null ? j.id : (j.job_id || ""));
+          if (id) {
+            if (allSelected) {
+              portalsState.selectedIds.delete(id);
+            } else {
+              portalsState.selectedIds.add(id);
+            }
+          }
+        });
+
+        renderApplyPortals(portalsState.jobs);
+        updateBatchBarState();
+      });
+    });
 
     // Attach click listeners to "View Details" buttons
     grid.querySelectorAll(".btn-view-desc").forEach((btn) => {

@@ -1030,53 +1030,77 @@
             <div class="portal-stat-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
               <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Opportunities</div>
               <div id="stat-apply-total" style="font-size: 26px; font-weight: 800; color: #FFFFFF; margin-top: 4px;">0</div>
-              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">All scraped & added roles</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">All active & discovered roles</div>
             </div>
             <div class="portal-stat-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
               <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #FFFFFF;"></span>
-                Direct External Form Links
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #10B981;"></span>
+                Direct ATS Portals
               </div>
-              <div id="stat-apply-linkedin-ext" style="font-size: 26px; font-weight: 800; color: #FFFFFF; margin-top: 4px;">0</div>
-              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">ATS Forms (Ashby, Workday, Greenhouse)</div>
+              <div id="stat-apply-external" style="font-size: 26px; font-weight: 800; color: #34D399; margin-top: 4px;">0</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Greenhouse, Ashby, Lever, Workday</div>
             </div>
             <div class="portal-stat-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
               <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #A1A1AA;"></span>
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6366F1;"></span>
                 LinkedIn (Easy Apply)
               </div>
-              <div id="stat-apply-linkedin-easy" style="font-size: 26px; font-weight: 800; color: #FFFFFF; margin-top: 4px;">0</div>
+              <div id="stat-apply-linkedin-easy" style="font-size: 26px; font-weight: 800; color: #818CF8; margin-top: 4px;">0</div>
               <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">In-app 1-click apply forms</div>
+            </div>
+            <div class="portal-stat-card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px;">
+              <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38BDF8;"></span>
+                LinkedIn External Forms
+              </div>
+              <div id="stat-apply-linkedin-ext" style="font-size: 26px; font-weight: 800; color: #38BDF8; margin-top: 4px;">0</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Outbound apply on company site</div>
             </div>
           </div>
         </div>
 
         <!-- Filters & Category Navigation -->
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; margin-bottom: 20px;">
-          <!-- Category Tabs -->
-          <div class="platform-tabs-container" style="display: flex; gap: 8px; background: rgba(15, 23, 42, 0.7); padding: 5px; border-radius: 10px; border: 1px solid var(--border); flex-wrap: wrap;">
+          <!-- Category Tabs & Dynamic Platform Pills -->
+          <div id="portal-platform-tabs-wrap" class="platform-tabs-container" style="display: flex; gap: 8px; background: rgba(15, 23, 42, 0.7); padding: 5px; border-radius: 10px; border: 1px solid var(--border); flex-wrap: wrap; align-items: center;">
             <button class="platform-tab active" data-category="all" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--primary); color: #ffffff; transition: all 0.2s;">
               All Opportunities (<span id="cnt-tab-all">0</span>)
-            </button>
-            <button class="platform-tab" data-category="linkedin_external" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
-              Direct External Form Links (<span id="cnt-tab-linkedin-ext">0</span>)
-            </button>
-            <button class="platform-tab" data-category="linkedin_easy" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
-              LinkedIn (Easy Apply) (<span id="cnt-tab-linkedin-easy">0</span>)
             </button>
             <button class="platform-tab" data-category="external" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
               Direct ATS Portals (<span id="cnt-tab-external">0</span>)
             </button>
+            <!-- Dynamic Platform Specific Pills -->
+            <div id="portal-dynamic-platform-pills" style="display: inline-flex; gap: 6px; flex-wrap: wrap;"></div>
+            <button class="platform-tab" data-category="linkedin_easy" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
+              LinkedIn (Easy Apply) (<span id="cnt-tab-linkedin-easy">0</span>)
+            </button>
+            <button class="platform-tab" data-category="linkedin_external" style="padding: 7px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.2s;">
+              LinkedIn (External) (<span id="cnt-tab-linkedin-ext">0</span>)
+            </button>
           </div>
 
-          <!-- Platform / Opportunity Filter Dropdown -->
-          <div id="portal-platform-filter-wrap" style="display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.7); padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); transition: all 0.2s;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary-text);"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-            <label for="portal-platform-select" style="font-size: 12px; color: var(--text-muted); font-weight: 600; white-space: nowrap;">Platform:</label>
-            <select id="portal-platform-select" style="background: transparent; color: #FFFFFF; border: none; font-size: 12.5px; font-weight: 600; cursor: pointer; outline: none;">
-              <option value="all" style="background: #0F172A; color: #FFFFFF;">All Platforms</option>
-            </select>
-          </div>
+          <!-- Controls: View Mode Toggle + Platform Filter Dropdown + Resume Fit Slider -->
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <!-- View Mode: Grid vs Group by Platform -->
+            <div id="portal-view-mode-toggle" style="display: flex; background: rgba(15, 23, 42, 0.7); padding: 3px; border-radius: 8px; border: 1px solid var(--border);">
+              <button id="btn-view-grid" class="btn-view-mode active" title="Standard Cards Grid" style="padding: 5px 11px; font-size: 12px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: #FFFFFF; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                Grid
+              </button>
+              <button id="btn-view-grouped" class="btn-view-mode" title="Group by Platform" style="padding: 5px 11px; font-size: 12px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; background: transparent; color: var(--text-muted); display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                Group by Platform
+              </button>
+            </div>
+
+            <!-- Platform / Opportunity Filter Dropdown -->
+            <div id="portal-platform-filter-wrap" style="display: flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.7); padding: 6px 12px; border-radius: 10px; border: 1px solid var(--border); transition: all 0.2s;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary-text);"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+              <label for="portal-platform-select" style="font-size: 12px; color: var(--text-muted); font-weight: 600; white-space: nowrap;">Platform:</label>
+              <select id="portal-platform-select" style="background: transparent; color: #FFFFFF; border: none; font-size: 12.5px; font-weight: 600; cursor: pointer; outline: none;">
+                <option value="all" style="background: #0F172A; color: #FFFFFF;">All Platforms</option>
+              </select>
+            </div>
 
           <!-- Interactive 1-100% Resume Match Threshold Filter -->
           <div style="display: flex; align-items: center; gap: 10px; background: rgba(15, 23, 42, 0.7); padding: 6px 14px; border-radius: 10px; border: 1px solid var(--border);">

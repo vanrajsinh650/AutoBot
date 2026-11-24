@@ -550,9 +550,9 @@ def get_apply_portals(
         params: List[Any] = [user_id]
 
         if search_query:
-            sql += " AND (LOWER(j.title) LIKE ? OR LOWER(j.company) LIKE ? OR LOWER(j.description) LIKE ?)"
+            sql += " AND (LOWER(j.title) LIKE ? OR LOWER(j.company) LIKE ? OR LOWER(j.description) LIKE ? OR LOWER(j.source_name) LIKE ? OR LOWER(j.application_url) LIKE ? OR LOWER(j.raw_data) LIKE ?)"
             q = f"%{search_query.strip().lower()}%"
-            params.extend([q, q, q])
+            params.extend([q, q, q, q, q, q])
 
         sql += " ORDER BY j.id DESC"
         rows = conn.execute(sql, params).fetchall()
@@ -565,9 +565,18 @@ def get_apply_portals(
     items: List[Dict[str, Any]] = []
 
     # Preload candidate profile once for fast in-memory scoring
-    cached_profile = get_candidate_profile(user_id, db_path)
-    cached_preferences = get_job_preferences(user_id, db_path)
-    cached_evidence = get_resume_evidence(user_id, None, db_path)
+    cached_profile = get_candidate_profile(user_id, db_path) or {}
+    cached_preferences = get_job_preferences(user_id, db_path) or {}
+    cached_evidence = get_resume_evidence(user_id, None, db_path) or {}
+    cached_skills = [
+        s.lower().strip()
+        for s in (
+            (cached_profile.get("technical_skills") or [])
+            + (cached_profile.get("primary_skills") or [])
+            + (cached_preferences.get("primary_skills") or [])
+        )
+        if s and str(s).strip()
+    ]
     seen_job_keys = set()
 
     for r in rows:
@@ -592,6 +601,7 @@ def get_apply_portals(
             is_matched, reject_reason = is_job_matching_resume(
                 title=title,
                 description=row_dict.get("description") or "",
+                candidate_skills=cached_skills,
                 user_id=user_id,
                 db_path=db_path,
             )
