@@ -303,3 +303,61 @@ async def test_apply_skips_login_gated_portal_when_configured(tmp_path):
             assert row["status"] == "requires_manual"
             assert "account" in row["failure_reason"].lower()
 
+
+@pytest.mark.asyncio
+async def test_apply_saves_blocker_proof_on_challenge_exception(tmp_path):
+    """When ExternalApplyActuator raises AntiBotChallengeDetected after capturing proof, portal_applicator persists proof_screenshot to DB."""
+    from src.application.workflows import AntiBotChallengeDetected
+
+    db_file = str(tmp_path / "challenge_proof.db")
+    init_db(db_file)
+
+    save_scraped_job(
+        title="Security Engineer",
+        company="Cloudflare",
+        location="Remote",
+        description="Security engineering at Cloudflare.",
+        apply_url="https://boards.greenhouse.io/cloudflare/jobs/123",
+        source_name="Cloudflare",
+        is_easy_apply=False,
+        job_id="cf_123",
+        user_id=1,
+        match_score=0.80,
+        db_path=db_file,
+    )
+
+    mock_actuator = MagicMock()
+    mock_actuator.last_outcome = {
+        "success": False,
+        "status": "challenge_detected",
+        "reason_code": "SECURITY_CHALLENGE",
+        "description": "Anti-bot challenge detected on portal",
+        "proof_screenshot": "logs/proofs/cf_123_blocked.png",
+    }
+    mock_actuator.apply = AsyncMock(side_effect=AntiBotChallengeDetected("Captcha blocking form"))
+
+    mock_browser_mgr = MagicMock()
+    mock_browser_mgr.start = AsyncMock()
+    mock_browser_mgr.close = AsyncMock()
+    mock_browser_mgr.context = MagicMock()
+
+    with patch("src.browser.portal_applicator.BrowserManager", return_value=mock_browser_mgr), \
+         patch("src.browser.portal_applicator.ExternalApplyActuator", return_value=mock_actuator):
+        res = await apply_to_portals(
+            job_ids=["cf_123"],
+            user_id=1,
+            dry_run=False,
+            headless=True,
+            db_path=db_file,
+        )
+
+    assert res["failed"] == 1
+    assert res["results"][0]["proof_screenshot"] == "logs/proofs/cf_123_blocked.png"
+    from src.storage.db import get_db_connection
+    with get_db_connection(db_file) as conn:
+        row = conn.execute("SELECT status, proof_screenshot, failure_reason FROM applications WHERE job_id = 'cf_123'").fetchone()
+        assert row is not None
+        assert row["status"] == "challenge_detected"
+        assert row["proof_screenshot"] == "logs/proofs/cf_123_blocked.png"
+        assert "challenge" in row["failure_reason"].lower()
+

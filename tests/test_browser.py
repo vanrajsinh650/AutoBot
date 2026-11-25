@@ -327,3 +327,19 @@ async def test_human_behavior_visual_type_masks_password():
             for param in args[1]:
                 if isinstance(param, str):
                     assert "super_secret_pw" not in param
+
+
+def test_browser_manager_rejects_brave(tmp_path):
+    """Verify BrowserManager strictly refuses Brave and falls back to chromium."""
+    from src.browser.manager import BrowserManager
+
+    mgr = BrowserManager(
+        backend="brave",
+        executable_path="/usr/bin/brave-browser",
+        session_file=tmp_path / "session.json",
+        user_data_dir=tmp_path / "user_data",
+        headless=True,
+    )
+    assert mgr.requested_backend == "chromium"
+    assert mgr.executable_path is None
+

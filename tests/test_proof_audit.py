@@ -7,6 +7,7 @@ Verifies:
 4. Proof screenshot capture and watermark badge injection.
 """
 
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 import pytest
 
@@ -131,3 +132,50 @@ async def test_capture_proof_screenshot(tmp_path):
         )
         assert dry_proof is not None
         assert "test_job_456_dry_run.png" in dry_proof
+
+
+@pytest.mark.asyncio
+async def test_verify_submission_status_cloudflare_company_with_validation_errors():
+    """Company name 'Cloudflare' or passive reCAPTCHA badge must not hide real validation errors."""
+    page = AsyncMock()
+    page.url = "https://boards.greenhouse.io/cloudflare/jobs/7579269"
+    page.evaluate.return_value = "About Cloudflare. Cloudflare's Candidate Privacy Policy. Protected by reCAPTCHA."
+
+    err_el = AsyncMock()
+    err_el.is_visible.return_value = True
+    err_el.inner_text.return_value = "Please enter your location"
+
+    async def mock_qsa(sel):
+        if sel == ".field-error":
+            return [err_el]
+        return []
+
+    page.query_selector_all.side_effect = mock_qsa
+    result = await verify_submission_status(page)
+    assert result["is_submitted"] is False
+    assert result["status"] == "requires_manual"
+    assert result["reason_code"] == "VALIDATION_ERROR"
+    assert "location" in result["description"].lower()
+
+
+@pytest.mark.asyncio
+async def test_capture_proof_screenshot_detects_unselected_comboboxes(monkeypatch, tmp_path):
+    monkeypatch.setattr("src.browser.proof_audit.PROOF_DIR", tmp_path)
+    page = AsyncMock()
+    page.content.return_value = "<html><body>Form with unfilled dropdowns</body></html>"
+    page.evaluate.return_value = "Are you currently based in Singapore (Unselected) | Sponsorship (Unselected)"
+    page.screenshot = AsyncMock()
+
+    proof_file = await capture_proof_screenshot(
+        page,
+        job_id="test_unselected_combo",
+        company="Cloudflare",
+        title="Security Engineer",
+        is_success=False,
+        reason="Application form submission incomplete",
+        status="requires_manual",
+    )
+    assert proof_file is not None
+    assert Path(proof_file).name == "test_unselected_combo_blocked.png"
+    assert page.screenshot.called
+

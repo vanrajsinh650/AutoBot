@@ -73,3 +73,82 @@ def test_eeoc_and_dropdown_options():
     assert answer_question_with_groq("Race / Ethnicity", options=["Hispanic/Latino", "Asian (Not Hispanic or Latino)", "White", "Decline"], candidate_info=candidate) == "Asian (Not Hispanic or Latino)"
     # Referral source
     assert answer_question_with_groq("How did you hear about this opportunity?", options=["Company Website", "LinkedIn", "Referral", "Other"], candidate_info=candidate) == "LinkedIn"
+
+
+def test_cloudflare_and_conditional_questions():
+    candidate = {
+        "full_name": "Vanraj Solanki",
+        "first_name": "Vanraj",
+        "last_name": "Solanki",
+        "city": "Ahmedabad",
+        "state": "Gujarat",
+        "country": "India",
+        "linkedin": "https://linkedin.com/in/vanrajsinh",
+        "github": "https://github.com/vanrajsinh650",
+        "university": "Gokul Global University",
+        "degree": "Bachelor of Computer Applications (BCA)",
+        "major": "Computer Applications",
+        "current_company": "DivineHindu",
+    }
+
+    # LinkedIn text box must return URL, never "No"
+    assert answer_question_with_groq(
+        "Would you like to include your LinkedIn profile, personal website or blog?",
+        candidate_info=candidate,
+    ) == "https://linkedin.com/in/vanrajsinh"
+
+    # Conditional follow-up text question must return N/A, not job title
+    assert answer_question_with_groq(
+        'If you answered "Yes" to having a relative currently employed at Entrata, please share the name and your relationship to them.',
+        candidate_info=candidate,
+    ) == "N/A"
+
+    # Multi-hub based question
+    assert answer_question_with_groq(
+        "Are you currently based in Singapore, Sydney, Tokyo, Seoul, or London?",
+        options=[
+            "I am based in Singapore",
+            "I am based in Sydney",
+            "I am based outside of these locations",
+        ],
+        candidate_info=candidate,
+    ) == "I am based outside of these locations"
+
+    # Combined based + relocation question
+    assert answer_question_with_groq(
+        "Are you currently based in Singapore or Sydney?",
+        options=[
+            "I am currently based in Singapore",
+            "I am currently based in Sydney",
+            "I am based outside of Singapore and Sydney, and would require relocation support",
+            "I am based outside of Singapore and Sydney, and am not willing to relocate",
+        ],
+        candidate_info=candidate,
+    ) == "I am based outside of Singapore and Sydney, and would require relocation support"
+
+    # Willingness to relocate multi-choice
+    assert answer_question_with_groq(
+        "Do you currently live or are you willing to relocate to the job’s location?",
+        options=[
+            "I currently live in this job's location.",
+            "I am willing to relocate to this job's location.",
+            "I do not live and not willing to relocate to this job's location.",
+        ],
+        candidate_info=candidate,
+    ) == "I am willing to relocate to this job's location."
+
+    # Sponsorship with false-citizenship guard vs standard Yes/No
+    assert answer_question_with_groq(
+        "Do you now or will you in the future require immigration sponsorship to work at Cloudflare in Singapore?",
+        options=["Yes", "No, I'm a Singapore Citizen.", "No, I'm a Permanent resident."],
+        candidate_info=candidate,
+    ) == "Yes"
+    assert answer_question_with_groq(
+        "Do you now or will you in the future require immigration sponsorship to work at Cloudflare?",
+        options=["Yes", "No"],
+        candidate_info=candidate,
+    ) == "No"
+
+    # Preferred names
+    assert answer_question_with_groq("Preferred First Name*", candidate_info=candidate) == "Vanraj"
+    assert answer_question_with_groq("Preferred Last Name*", candidate_info=candidate) == "Solanki"

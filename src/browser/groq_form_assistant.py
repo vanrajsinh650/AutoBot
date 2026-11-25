@@ -88,7 +88,109 @@ def answer_question_with_groq(
     candidate = candidate_info or {}
     q_lower = (question or "").lower()
 
-    # 1. Negative screening questions (Instant "No" - relatives, former employee, referral, termination, crime, conflict)
+    # 0a. Conditional follow-up text fields ("If you answered Yes...", "If yes, please...")
+    # We default to negative on prior screening checks, so conditional detail boxes take N/A (not job title).
+    if not options and any(
+        p in q_lower for p in (
+            "if you answered yes", "if you answered \"yes\"", "if you answered 'yes'",
+            "if yes,", "if yes please", "if you selected yes", "if applicable, please",
+            "if different than above", "please share the name and your relationship",
+            "name used during your employment",
+        )
+    ):
+        return "N/A"
+
+    # 0b. Referral source ("How did you hear about...") - must check BEFORE LinkedIn URL matching
+    if any(k in q_lower for k in ("how did you hear", "source of referral", "referral source", "where did you hear", "hear about")):
+        if options:
+            for o in options:
+                if "linkedin" in o.lower():
+                    return o
+            for o in options:
+                if any(s in o.lower() for s in ("job board", "career site", "company website", "online")):
+                    return o
+            return options[0]
+        return "LinkedIn"
+
+    # 0c. Candidate Social / Portfolio / Name / Education / Employer fields (BEFORE Yes/No patterns!)
+    if "linkedin" in q_lower:
+        if options:
+            for o in options:
+                if o.strip().lower().startswith("yes"):
+                    return o
+            return options[0]
+        return candidate.get("linkedin", "https://linkedin.com/in/vanrajsinh")
+
+    if "github" in q_lower:
+        if not options:
+            return candidate.get("github", "https://github.com/vanrajsinh650")
+
+    if any(k in q_lower for k in ("personal website", "portfolio", "website or blog", "blog", "website")):
+        if not options:
+            return candidate.get("portfolio", "https://github.com/vanrajsinh650")
+
+    if "preferred first" in q_lower:
+        return candidate.get("first_name", "Vanraj")
+    if "preferred last" in q_lower:
+        return candidate.get("last_name", "Solanki")
+    if any(k in q_lower for k in ("preferred name", "legal name")):
+        return candidate.get("full_name", "Vanraj Solanki")
+
+    if any(k in q_lower for k in ("school", "university", "college", "institution")):
+        if not options:
+            return candidate.get("university", "Gokul Global University")
+
+    if any(k in q_lower for k in ("degree", "qualification")) and "years" not in q_lower:
+        if options:
+            for o in options:
+                if any(d in o.lower() for d in ("bachelor", "bca", "b.sc", "undergraduate")):
+                    return o
+        else:
+            return candidate.get("degree", "Bachelor of Computer Applications (BCA)")
+
+    if any(k in q_lower for k in ("discipline", "major", "field of study")):
+        if options:
+            for o in options:
+                if any(m in o.lower() for m in ("computer", "software", "information technology")):
+                    return o
+        else:
+            return candidate.get("major", "Computer Applications")
+
+    if any(k in q_lower for k in ("current company", "current employer", "present employer")):
+        if not options:
+            return candidate.get("current_company", "DivineHindu")
+
+    # 0d. Geographic Location & Relocation checks ("Are you currently based in ...?", "willing to relocate")
+    candidate_city = (candidate.get("city") or "Ahmedabad").lower()
+    candidate_state = (candidate.get("state") or "Gujarat").lower()
+    candidate_country = (candidate.get("country") or "India").lower()
+
+    if any(k in q_lower for k in ("currently based in", "based in", "currently reside", "currently live", "live in")):
+        if options:
+            # First check if candidate's actual city/state/country is explicitly an option
+            for o in options:
+                o_low = o.lower()
+                if any(loc in o_low for loc in (candidate_city, candidate_state, candidate_country) if loc):
+                    return o
+            # Otherwise look for "outside ... relocate / relocation support" or "willing to relocate"
+            for o in options:
+                o_low = o.lower()
+                if ("relocat" in o_low or "support" in o_low) and ("willing" in o_low or "outside" in o_low or "require" in o_low) and "not willing" not in o_low and "do not live" not in o_low:
+                    return o
+            for o in options:
+                o_low = o.lower()
+                if any(out in o_low for out in ("outside", "not based", "neither", "other")) and "not willing" not in o_low:
+                    return o
+            # Binary Yes/No fallback based on whether candidate city/country is mentioned in question (skip if asking willingness to relocate)
+            if "relocat" not in q_lower:
+                cand_in_question = any(loc in q_lower for loc in (candidate_city, candidate_state, candidate_country) if loc)
+                target_word = "yes" if cand_in_question else "no"
+                for o in options:
+                    if target_word in o.lower().split() or o.lower().strip().startswith(target_word):
+                        return o
+
+    # 1. Negative screening questions (relatives, former employee, referral, termination, crime, conflict, sponsorship)
+    is_sponsorship_q = any(k in q_lower for k in ("sponsor", "visa sponsorship", "require sponsorship", "require visa", "immigration sponsorship"))
     negative_screening_patterns = (
         "relative", "friend", "family", "nepotism",
         "previous", "prior", "former employee", "previously employed", "worked for", "worked at", "applied before",
@@ -97,10 +199,25 @@ def answer_question_with_groq(
         "convict", "criminal", "felony", "misdemeanor", "law violation", "arrested",
         "conflict", "non-compete", "restrictive covenant",
         "government", "public official", "politically exposed",
-        "sponsor", "visa sponsorship", "require sponsorship", "require visa",
+        "sponsor", "visa sponsorship", "require sponsorship", "require visa", "immigration sponsorship",
     )
     if any(k in q_lower for k in negative_screening_patterns):
         if options:
+            # On sponsorship questions, never falsely claim foreign citizenship/PR when plain "No" is absent
+            citizenship_tokens = ("citizen", "permanent resident", "green card", "national", "passport")
+            # Pass 1: clean non-citizenship "No" options
+            for o in options:
+                o_low = o.lower()
+                if any(n in o_low for n in ("no", "none", "neither", "false", "never", "not applicable", "n/a", "decline")):
+                    if is_sponsorship_q and any(ct in o_low for ct in citizenship_tokens):
+                        if candidate_country not in o_low:
+                            continue
+                    return o
+            # Pass 2: if sponsorship options only have "Yes" vs false foreign citizenship, choose "Yes" truthfully
+            if is_sponsorship_q:
+                for o in options:
+                    if o.strip().lower().startswith("yes"):
+                        return o
             for o in options:
                 o_low = o.lower()
                 if any(n in o_low for n in ("no", "none", "neither", "false", "never", "not applicable", "n/a", "decline")):
@@ -118,6 +235,8 @@ def answer_question_with_groq(
         if options:
             for o in options:
                 o_low = o.lower()
+                if "not willing" in o_low or "do not require relocation" in o_low and "already live" in o_low:
+                    continue
                 if any(y in o_low for y in ("yes", "authorized", "eligible", "agree", "consent", "willing")):
                     return o
         return "Yes"
@@ -171,37 +290,59 @@ def answer_question_with_groq(
     if any(k in q_lower for k in ("race", "ethnicity", "ethnic origin")):
         if options:
             for o in options:
-                if any(r in o.lower() for r in ("asian", "south asian", "indian", "decline", "prefer not to say")):
+                o_low = o.lower()
+                if "american indian" in o_low:
+                    continue
+                if any(r in o_low for r in ("asian", "south asian")):
+                    return o
+            for o in options:
+                if any(d in o.lower() for d in ("decline", "prefer not to say", "do not wish")):
                     return o
             return options[0]
         return "Asian"
 
-    if any(k in q_lower for k in ("how did you hear", "source of referral", "referral source", "where did you hear")):
+    # 5c. Total years of work experience (non-skill-specific)
+    if any(k in q_lower for k in ("years of experience", "years of relevant", "total years", "work experience")) and "with " not in q_lower:
+        if not options:
+            return str(candidate.get("years_of_experience") or "1")
+
+    # 5d. Government ID / sensitive PII (PAN, SSN, Aadhaar, Passport) - never hallucinate
+    if any(k in q_lower for k in ("pan number", "pan card", "aadhaar", "ssn", "social security", "passport number")):
+        return ""
+
+    # 5e. Strict URL input guard: never return non-URL prose for <input type="url">
+    if field_type == "url":
+        if any(k in q_lower for k in ("video", "loom", "youtube", "recording")):
+            return ""
+        return candidate.get("portfolio", "https://github.com/vanrajsinh650")
+
+    # 5b. Pronouns & Relocation Referral moved above; handle Pronouns here
+    if "pronoun" in q_lower:
         if options:
             for o in options:
-                if "linkedin" in o.lower():
-                    return o
-            for o in options:
-                if any(s in o.lower() for s in ("job board", "career site", "company website", "online")):
+                if "he/him" in o.lower():
                     return o
             return options[0]
-        return "LinkedIn"
+        return "He/Him"
 
     # 6. Job Title / Current Role (ONLY when explicitly requested!)
     if any(k in q_lower for k in ("current title", "job title", "current role", "designation", "position title", "current position")):
-        return candidate.get("current_title", "Software & Automation Engineer")
+        return candidate.get("current_title", "Software & AI Automation Engineer")
 
     # Use Groq LLM for domain-specific, complex, or unknown questions
     candidate_summary = (
         f"Candidate Full Name: {candidate.get('full_name', 'Vanraj Solanki')}\n"
         f"Candidate Email: {candidate.get('email', 'vanrajsolanki2875@gmail.com')}\n"
         f"Candidate Phone: {candidate.get('phone', '+91-8320452875')}\n"
-        f"Candidate Location: {candidate.get('location', 'Ahmedabad, India')}\n"
-        f"Current Job Title: {candidate.get('current_title', 'Software & Automation Engineer')}\n"
-        f"Years of Experience: 3+ years in software engineering and automation\n"
-        f"Education: Bachelor's Degree in Computer Science / IT\n"
-        f"Notice Period: Immediate / 15 days\n"
-        f"Work Authorization: Authorized in India, no sponsorship required\n"
+        f"Candidate Location: {candidate.get('location', 'Ahmedabad, Gujarat, India')}\n"
+        f"LinkedIn: {candidate.get('linkedin', 'https://linkedin.com/in/vanrajsinh')}\n"
+        f"GitHub: {candidate.get('github', 'https://github.com/vanrajsinh650')}\n"
+        f"Current Company: {candidate.get('current_company', 'DivineHindu')}\n"
+        f"Current Job Title: {candidate.get('current_title', 'AI Executive Intern / Software & Automation Engineer')}\n"
+        f"Years of Experience: {candidate.get('years_of_experience', '1+')} years in Python backend systems, AI agents, and automation\n"
+        f"Education: {candidate.get('degree', 'Bachelor of Computer Applications (BCA)')} at {candidate.get('university', 'Gokul Global University')}\n"
+        f"Notice Period: {candidate.get('notice_period', 'Immediate')}\n"
+        f"Work Authorization: Authorized in India; willing to relocate internationally if supported\n"
         f"Screening Defaults:\n"
         f"- Friends or relatives employed at company: No\n"
         f"- Previously applied or former employee: No\n"

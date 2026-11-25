@@ -19,6 +19,12 @@ def isolated_test_database(tmp_path, monkeypatch):
     """
     test_db = tmp_path / "isolated_test.db"
     monkeypatch.setenv("AUTOBOT_DB_PATH", str(test_db))
+    monkeypatch.setenv("AUTOBOT_DATA_DIR", str(tmp_path / "data"))
+    try:
+        import src.browser.proof_audit as _proof_audit
+        monkeypatch.setattr(_proof_audit, "PROOF_DIR", tmp_path / "proofs")
+    except Exception:
+        pass
     
     # Initialize schema migrations on the temporary test database
     init_db(str(test_db))

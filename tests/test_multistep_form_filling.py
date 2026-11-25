@@ -117,3 +117,17 @@ def test_answer_question_with_groq_heuristics():
 
     ans3 = answer_question_with_groq("Are you 18 years of age or older?", options=["Yes", "No"])
     assert ans3 == "Yes"
+
+
+def test_safe_id_selector_and_real_candidate_profile():
+    """Verify UUIDs starting with digits and bracketed IDs produce valid attribute selectors."""
+    from src.browser.external_apply_actuator import _safe_id_selector, load_candidate_profile_info
+
+    assert _safe_id_selector("first_name") == "#first_name"
+    assert _safe_id_selector("642f7244-779f-447a") == '[id="642f7244-779f-447a"]'
+    assert _safe_id_selector("question_17772254008[]") == '[id="question_17772254008[]"]'
+
+    info = load_candidate_profile_info()
+    assert "Vanraj" in info["full_name"]
+    assert "Gokul" in info["university"]
+    assert "BCA" in info["degree"] or "Computer Applications" in info["degree"]

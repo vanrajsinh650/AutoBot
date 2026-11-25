@@ -72,6 +72,12 @@ class BrowserManager:
             or "chromium"
         )
         self.requested_backend = str(resolved_backend).lower().strip()
+        if "brave" in self.requested_backend:
+            logger.warning("[browser]⚠ Brave browser is strictly prohibited by system policy. Defaulting to chromium/Google Chrome.")
+            self.requested_backend = "chromium"
+        if self.executable_path and "brave" in str(self.executable_path).lower():
+            logger.warning("[browser]⚠ Custom executable cannot be Brave browser. Discarding custom path.")
+            self.executable_path = None
         self._active_application: bool = False
 
         # Instantiate backend

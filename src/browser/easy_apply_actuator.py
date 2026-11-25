@@ -183,12 +183,23 @@ class EasyApplyActuator:
             except Exception as e:
                 logger.warning(f"Navigation to job URL failed: {e}")
 
+        from src.browser.proof_audit import capture_proof_screenshot
+
         # 2. Click Easy Apply button
         if not await self._click_easy_apply_button():
             logger.warning("[browser]Could not find or click Easy Apply button.[/browser]")
+            blocker_path = await capture_proof_screenshot(
+                self.page, job.job_id, job.company, job.title,
+                is_success=False, reason="Could not find or open Easy Apply modal button",
+            )
+            self.last_outcome = {
+                "success": False,
+                "status": "requires_manual",
+                "reason_code": "BUTTON_NOT_FOUND",
+                "description": "Could not find or click Easy Apply button.",
+                "proof_screenshot": blocker_path or "",
+            }
             return False
-
-        from src.browser.proof_audit import capture_proof_screenshot
 
         # 3. Walk multi-step modal dialog
         for step in range(1, self.MAX_STEPS + 1):

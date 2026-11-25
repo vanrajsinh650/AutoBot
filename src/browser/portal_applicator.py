@@ -629,12 +629,30 @@ async def apply_to_portals(
 
             except AntiBotChallengeDetected as abc:
                 failed += 1
+                proof_shot, fail_desc, fail_status = _extract_outcome_meta(actuator)
+                fail_desc = fail_desc or f"Security challenge gate on {company}: {abc}"
+                fail_status = fail_status or "challenge_detected"
+                save_application(
+                    job_id=job_stable_id,
+                    job_title=title,
+                    company=company,
+                    location=job.get("location") or "Remote",
+                    apply_type="external_apply",
+                    match_score=job_match_score,
+                    status=fail_status,
+                    url=target_url,
+                    notes=fail_desc,
+                    db_path=active_db,
+                    user_id=user_id,
+                    proof_screenshot=proof_shot,
+                    failure_reason=fail_desc,
+                )
                 _notify(
                     "warning",
-                    f"({idx}/{len(jobs_to_apply)}) 🛑 Security challenge gate on {company}: {abc}. Saved for manual review.",
-                    {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "challenge_detected", "success": False},
+                    f"({idx}/{len(jobs_to_apply)}) 🛑 {fail_desc}. Saved for manual review.",
+                    {"job_id": job.get("id"), "stable_id": job_stable_id, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False, "title": title, "company": company},
                 )
-                results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": "challenge_detected", "success": False})
+                results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False})
 
             except LinkedInPolicyViolationError as lpe:
                 failed += 1
@@ -647,12 +665,30 @@ async def apply_to_portals(
 
             except Exception as ex:
                 failed += 1
+                proof_shot, fail_desc, fail_status = _extract_outcome_meta(actuator)
+                fail_desc = fail_desc or f"Error applying to '{title}' @ '{company}': {ex}"
+                fail_status = fail_status or "requires_manual"
+                save_application(
+                    job_id=job_stable_id,
+                    job_title=title,
+                    company=company,
+                    location=job.get("location") or "Remote",
+                    apply_type="external_apply",
+                    match_score=job_match_score,
+                    status=fail_status,
+                    url=target_url,
+                    notes=fail_desc,
+                    db_path=active_db,
+                    user_id=user_id,
+                    proof_screenshot=proof_shot,
+                    failure_reason=fail_desc,
+                )
                 _notify(
                     "error",
-                    f"({idx}/{len(jobs_to_apply)}) ❌ Error applying to '{title}' @ '{company}': {ex}",
-                    {"job_id": job.get("id"), "stable_id": job_stable_id, "status": "failed", "success": False},
+                    f"({idx}/{len(jobs_to_apply)}) ❌ {fail_desc}",
+                    {"job_id": job.get("id"), "stable_id": job_stable_id, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False, "title": title, "company": company},
                 )
-                results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": "failed", "success": False})
+                results.append({"job_id": job.get("id"), "stable_id": job_stable_id, "title": title, "company": company, "status": fail_status, "reason": fail_desc, "proof_screenshot": proof_shot, "success": False})
 
             # Polite human pacing between applications
             if idx < len(jobs_to_apply):

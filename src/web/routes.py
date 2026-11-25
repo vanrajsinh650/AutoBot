@@ -856,8 +856,9 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
                 status=400,
             )
 
-        # User-isolated storage directory
-        user_storage = (PROJECT_ROOT / "data" / "users" / str(user_id) / "resumes").resolve()
+        # User-isolated storage directory (respects AUTOBOT_DATA_DIR for test isolation)
+        data_root = Path(os.environ.get("AUTOBOT_DATA_DIR", str(PROJECT_ROOT / "data"))).resolve()
+        user_storage = (data_root / "users" / str(user_id) / "resumes").resolve()
         user_storage.mkdir(mode=0o700, parents=True, exist_ok=True)
         try:
             os.chmod(user_storage, 0o700)
@@ -906,9 +907,9 @@ async def upload_resume_handler(request: web.Request) -> web.Response:
         except Exception:
             pass
 
-        # Write to legacy data/resume/resume.pdf ONLY for default user 1
+        # Write to legacy data/resume/resume.pdf ONLY for default user 1 (scoped to data_root)
         if user_id == 1:
-            legacy_dest = PROJECT_ROOT / "data" / "resume" / f"resume{ext}"
+            legacy_dest = data_root / "resume" / f"resume{ext}"
             legacy_dest.parent.mkdir(parents=True, exist_ok=True)
             with open(legacy_dest, "wb") as f:
                 f.write(content_bytes)

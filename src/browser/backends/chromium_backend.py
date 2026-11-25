@@ -171,14 +171,21 @@ class ChromiumBackend(BrowserBackend):
 
     def _resolve_executable_path(self) -> Optional[str]:
         """
-        Locate system Google Chrome, Brave, or custom browser binary if available.
+        Locate system Google Chrome or custom browser binary if available.
         Prefers real system Google Chrome over testing Chromium for anti-bot evasion and human authenticity.
+        Strictly excludes and bans Brave.
         """
+        def _is_allowed(p: Optional[str]) -> bool:
+            if not p:
+                return False
+            # Never use Brave
+            if "brave" in p.lower():
+                return False
+            return Path(p).exists() or bool(shutil.which(p))
+
         # 1. Direct explicit instance argument
-        if self.custom_executable_path:
-            p = self.custom_executable_path
-            if Path(p).exists() or shutil.which(p):
-                return p
+        if self.custom_executable_path and _is_allowed(self.custom_executable_path):
+            return self.custom_executable_path
 
         # 2. Check explicit env var override or config override
         env_path = (
@@ -186,7 +193,7 @@ class ChromiumBackend(BrowserBackend):
             or os.environ.get("BROWSER_EXECUTABLE_PATH", "").strip()
             or getattr(getattr(self.cfg, "browser", None), "executable_path", "").strip()
         )
-        if env_path and (Path(env_path).exists() or shutil.which(env_path)):
+        if env_path and _is_allowed(env_path):
             return env_path
 
         # 3. Check if user explicitly opted out of system chrome
@@ -196,7 +203,8 @@ class ChromiumBackend(BrowserBackend):
         if not use_system_chrome:
             return None
 
-        # 4. Check for system Google Chrome / Brave binaries (Native, Flatpak Host Extra, Debian, Arch, Fedora)
+        # 4. Check for system Google Chrome / Chromium binaries (Native, Flatpak Host Extra, Debian, Arch, Fedora)
+        # Note: Brave is strictly barred and excluded.
         candidates = [
             # Direct host Google Chrome binary (runs natively with host user-namespace sandbox; eliminates --no-sandbox warning banner)
             "/var/lib/flatpak/app/com.google.Chrome/current/active/files/extra/chrome",
@@ -205,18 +213,12 @@ class ChromiumBackend(BrowserBackend):
             shutil.which("google-chrome"),
             "/var/lib/flatpak/exports/bin/com.google.Chrome",
             str(Path.home() / ".local/share/flatpak/exports/bin/com.google.Chrome"),
-            "/var/lib/flatpak/app/com.brave.Browser/current/active/files/extra/brave",
-            str(Path.home() / ".local/share/flatpak/app/com.brave.Browser/current/active/files/extra/brave"),
-            "/var/lib/flatpak/exports/bin/com.brave.Browser",
-            str(Path.home() / ".local/share/flatpak/exports/bin/com.brave.Browser"),
-            shutil.which("brave-browser"),
-            shutil.which("brave"),
             shutil.which("chromium-browser"),
             shutil.which("chromium"),
         ]
 
         for cand in candidates:
-            if cand and (Path(cand).exists() or shutil.which(cand)):
+            if _is_allowed(cand):
                 return cand
 
         return None

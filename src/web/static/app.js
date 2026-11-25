@@ -332,6 +332,9 @@
         if (data.stable_id) {
           updatePortalCardStatus(data.stable_id, data.status);
         }
+        if (data.status && data.status !== "applying") {
+          loadApplyPortals();
+        }
         loadMissionFeaturedJobs();
         loadStatus();
       } catch (err) {
@@ -3364,7 +3367,7 @@
     const subEl = document.getElementById("proof-modal-subtitle");
 
     const filename = String(screenshotPath).replace(/^.*[\\/]/, "");
-    const imgUrl = `/api/proofs/${encodeURIComponent(filename)}`;
+    const imgUrl = `/api/proofs/${encodeURIComponent(filename)}?t=${Date.now()}`;
 
     if (img) {
       img.src = imgUrl;
