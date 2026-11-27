@@ -1303,7 +1303,19 @@ class ExternalApplyActuator:
             except Exception:
                 box = None
 
-        if box and len(text) <= 90 and hasattr(el, "type"):
+        input_type = ""
+        if hasattr(el, "get_attribute"):
+            try:
+                it = await _eval_maybe_async(el.get_attribute("type"))
+                if isinstance(it, str):
+                    input_type = it.strip().lower()
+            except Exception:
+                input_type = ""
+
+        # Native masked browser inputs (date, time, month, week, color) scramble keystroke typing
+        use_direct_fill = input_type in {"date", "time", "datetime-local", "month", "week", "color"}
+
+        if box and not use_direct_fill and len(text) <= 90 and hasattr(el, "type"):
             try:
                 from src.utils.human_behavior import smooth_move_cursor
                 tx = box["x"] + box["width"] / 2.0 + random.uniform(-3.0, 3.0)
@@ -1321,6 +1333,12 @@ class ExternalApplyActuator:
                 if hasattr(el, "fill"):
                     await _eval_maybe_async(el.fill(text))
         else:
+            if box and hasattr(page, "mouse"):
+                try:
+                    from src.utils.human_behavior import smooth_move_cursor
+                    await smooth_move_cursor(page, box["x"] + box["width"] / 2.0, box["y"] + box["height"] / 2.0)
+                except Exception:
+                    pass
             if hasattr(el, "fill"):
                 await _eval_maybe_async(el.fill(text))
 
