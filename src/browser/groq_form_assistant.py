@@ -284,7 +284,10 @@ def _resolve_deterministic_or_learned(
         return _ok("Yes", reason="Eligibility / consent rule")
 
     # 3. Notice period & Availability
-    if any(k in q_lower for k in ("notice period", "availability", "how soon can you start", "available to start", "start date", "earliest start")):
+    if any(k in q_lower for k in ("notice period", "availability", "how soon can you start", "available to start", "start date", "earliest start", "available from")):
+        if field_type == "date":
+            from datetime import datetime, timedelta
+            return _ok((datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"), src="config", reason="Available start date")
         if options:
             for o in options:
                 o_low = o.lower()
@@ -345,22 +348,69 @@ def _resolve_deterministic_or_learned(
             return _need_user("Unrecognized race/ethnicity dropdown options")
         return _ok("Asian", reason="EEOC race")
 
-    # 5c. Total years of work experience (non-skill-specific)
+    # 5b. Country dropdowns / inputs ("Country", "Country of residence")
+    if any(k in q_lower for k in ("country", "country of residence", "location (country)")) and "dial" not in q_lower and "code" not in q_lower:
+        cand_country = str(candidate.get("country") or "India").strip()
+        if options:
+            for o in options:
+                o_low = o.lower().strip()
+                if o_low == cand_country.lower() or o_low.startswith(cand_country.lower() + " ") or o_low.startswith(cand_country.lower() + "("):
+                    return _ok(o, reason="Profile country")
+            for o in options:
+                if cand_country.lower() in o.lower():
+                    return _ok(o, reason="Profile country")
+        else:
+            return _ok(cand_country, reason="Profile country")
+
+    # 5c. Graduation Year / Start Date fields
+    if any(k in q_lower for k in ("graduation year", "year of graduation", "expected graduation")):
+        if not options:
+            return _ok(str(candidate.get("graduation_year") or "2025"), reason="Profile graduation year")
+
+    if field_type == "date" and any(k in q_lower for k in ("start date", "available from", "earliest start", "availability date")):
+        from datetime import datetime, timedelta
+        return _ok((datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"), src="config", reason="Available start date")
+
+    # 5d. Verified Skill / Technology Experience Questions ("experience with Python", "years of experience in FastAPI")
+    skill_list = candidate.get("skills") or []
+    if not skill_list:
+        try:
+            from src.storage.db import get_candidate_profile
+            prof = get_candidate_profile(uid, db_path=db_path) or {}
+            skill_list = list((prof.get("technical_skills") or []) + (prof.get("primary_skills") or []))
+        except Exception:
+            skill_list = []
+    skill_tokens = [str(s).strip().lower() for s in skill_list if len(str(s).strip()) >= 2]
+    matched_skill = next((sk for sk in skill_tokens if re.search(rf"(?<![a-z0-9]){re.escape(sk)}(?![a-z0-9])", q_lower)), None)
+    if matched_skill and any(k in q_lower for k in ("experience", "proficien", "familiar", "worked with", "knowledge of", "years")):
+        yoe = str(candidate.get("years_of_experience") or "1")
+        if options:
+            if any(o.strip().lower().startswith("yes") for o in options):
+                return _ok(next(o for o in options if o.strip().lower().startswith("yes")), src="profile", reason=f"Verified skill '{matched_skill}' in profile")
+            for o in options:
+                if yoe in o or "1-2" in o.lower() or "1+" in o.lower() or "less than 2" in o.lower():
+                    return _ok(o, src="profile", reason=f"Verified years with '{matched_skill}'")
+        else:
+            if "years" in q_lower or "how many" in q_lower or field_type == "number":
+                return _ok(yoe, src="profile", reason=f"Verified years with '{matched_skill}'")
+            return _ok("Yes", src="profile", reason=f"Verified skill '{matched_skill}' in profile")
+
+    # 5e. Total years of work experience (non-skill-specific)
     if any(k in q_lower for k in ("years of experience", "years of relevant", "total years", "work experience")) and "with " not in q_lower:
         if not options:
             return _ok(str(candidate.get("years_of_experience") or "1"), src="config", reason="Configured years of experience")
 
-    # 5d. Government ID / sensitive PII (PAN, SSN, Aadhaar, Passport) - NEVER hallucinate; pause for user
+    # 5f. Government ID / sensitive PII (PAN, SSN, Aadhaar, Passport) - NEVER hallucinate; pause for user
     if any(k in q_lower for k in ("pan number", "pan card", "aadhaar", "ssn", "social security", "passport number", "driver's license", "drivers license")):
         return _need_user("Sensitive government ID / PII requires explicit candidate input")
 
-    # 5e. Strict URL input guard: never return non-URL prose for <input type="url">
+    # 5g. Strict URL input guard: never return non-URL prose for <input type="url">
     if field_type == "url":
         if any(k in q_lower for k in ("video", "loom", "youtube", "recording")):
             return _need_user("Custom video/recording URL must be provided by candidate")
         return _ok(candidate.get("portfolio", "https://github.com/vanrajsinh650"), reason="Profile portfolio URL")
 
-    # 5b. Pronouns
+    # 5h. Pronouns
     if "pronoun" in q_lower:
         if options:
             for o in options:

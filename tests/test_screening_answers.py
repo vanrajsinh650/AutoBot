@@ -152,3 +152,19 @@ def test_cloudflare_and_conditional_questions():
     # Preferred names
     assert answer_question_with_groq("Preferred First Name*", candidate_info=candidate) == "Vanraj"
     assert answer_question_with_groq("Preferred Last Name*", candidate_info=candidate) == "Solanki"
+
+
+def test_country_skill_graduation_and_date_rules():
+    candidate = {
+        "country": "India",
+        "graduation_year": "2025",
+        "years_of_experience": "1",
+        "skills": ["Python", "FastAPI", "SQL", "Playwright", "Docker"],
+    }
+    assert answer_question_with_groq("Country*", options=["United States", "India", "United Kingdom"], candidate_info=candidate) == "India"
+    assert answer_question_with_groq("Graduation Year*", candidate_info=candidate) == "2025"
+    assert answer_question_with_groq("Do you have experience with Python?", options=["Yes", "No"], candidate_info=candidate) == "Yes"
+    assert answer_question_with_groq("How many years of experience do you have with FastAPI?", field_type="number", candidate_info=candidate) == "1"
+    date_ans = answer_question_with_groq("Earliest Start Date", field_type="date", candidate_info=candidate)
+    assert len(date_ans) == 10 and date_ans[4] == "-" and date_ans[7] == "-"
+

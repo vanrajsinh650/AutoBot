@@ -330,3 +330,40 @@ async def test_real_chromium_stop_on_unknown_question_teach_and_resubmit(tmp_pat
             await browser.close()
     finally:
         server.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_soft_challenge_terms_in_job_description_do_not_false_trigger():
+    """Security Engineer job descriptions mentioning '2FA', 'MFA', or 'security check' when a form is visible must not abort."""
+    from unittest.mock import AsyncMock, MagicMock
+    from src.application.workflows import AntiBotChallengeDetected
+
+    actuator = ExternalApplyActuator(context=MagicMock())
+    page = AsyncMock()
+    page.url = "https://boards.greenhouse.io/cloudflare/jobs/999"
+    page.title = AsyncMock(return_value="Security Engineer at Cloudflare")
+    page.evaluate = AsyncMock(return_value=(
+        "we are hiring a security engineer to work on 2fa, mfa, and security check pipelines. "
+        + "a" * 1600
+    ))
+    visible_input = AsyncMock()
+    visible_input.is_visible = AsyncMock(return_value=True)
+
+    async def _qs(sel):
+        if "email" in sel or "first_name" in sel:
+            return visible_input
+        return None
+
+    page.query_selector = AsyncMock(side_effect=_qs)
+    # Must complete without raising AntiBotChallengeDetected
+    await actuator.check_security_challenges(page)
+
+    # Now verify a genuine short blocking gate WITHOUT visible form DOES raise AntiBotChallengeDetected
+    page_blocked = AsyncMock()
+    page_blocked.url = "https://example.com/apply"
+    page_blocked.title = AsyncMock(return_value="Just a moment...")
+    page_blocked.evaluate = AsyncMock(return_value="verify you are human before continuing")
+    page_blocked.query_selector = AsyncMock(return_value=None)
+    with pytest.raises(AntiBotChallengeDetected):
+        await actuator.check_security_challenges(page_blocked)
+

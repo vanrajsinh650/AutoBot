@@ -300,7 +300,13 @@ class ChromiumBackend(BrowserBackend):
             "ignore_default_args": ["--enable-automation", "--no-sandbox"],
             "viewport": {"width": viewport_w, "height": viewport_h},
             "locale": "en-US",
+            "timezone_id": "Asia/Kolkata",
         }
+        if self.headless:
+            persistent_kwargs["user_agent"] = (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+            )
         if exec_path:
             persistent_kwargs["executable_path"] = exec_path
 

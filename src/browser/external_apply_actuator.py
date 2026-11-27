@@ -89,6 +89,11 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
         "degree": "Bachelor of Computer Applications (BCA)",
         "university": "Gokul Global University",
         "major": "Computer Applications",
+        "graduation_year": "2025",
+        "skills": [
+            "Python", "FastAPI", "Django", "Playwright", "REST APIs",
+            "PostgreSQL", "SQL", "Redis", "Docker", "Git", "JavaScript", "AI",
+        ],
         "gender": "Male",
         "veteran": "No",
         "disability": "No",
@@ -163,6 +168,13 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
                 info["portfolio"] = db_prof["portfolio_url"].strip()
             _apply_education_list(db_prof.get("education"))
             _apply_experience_list(db_prof.get("experience"))
+            skills_acc = []
+            for sk_key in ("technical_skills", "primary_skills", "secondary_skills"):
+                vals = db_prof.get(sk_key)
+                if isinstance(vals, list):
+                    skills_acc.extend(str(v).strip() for v in vals if str(v).strip())
+            if skills_acc:
+                info["skills"] = list(dict.fromkeys(skills_acc))
             headline = str(db_prof.get("headline") or "").strip()
             if headline and " - " in headline:
                 _apply_experience_list([{"role": headline}])
@@ -416,17 +428,50 @@ class ExternalApplyActuator:
                     )
 
             if hasattr(page, "evaluate") and callable(page.evaluate):
-                body_eval = page.evaluate("() => (document.body ? document.body.innerText.slice(0, 2000).toLowerCase() : '')")
+                body_eval = page.evaluate("() => (document.body ? document.body.innerText.slice(0, 2500).toLowerCase() : '')")
                 if inspect.isawaitable(body_eval):
                     body_eval = await body_eval
                 body_str = str(body_eval or "").lower()
-                for text in self.CHALLENGE_TEXTS:
-                    if text == "just a moment..." and "just a moment" not in title:
-                        continue
+
+                # Check first whether an application form is already visible on page
+                has_form = False
+                if hasattr(page, "query_selector") and callable(page.query_selector):
+                    form_input = page.query_selector("input[type='email'], #first_name, #email, input[name='name'], input[name='email']")
+                    if inspect.isawaitable(form_input):
+                        form_input = await form_input
+                    if form_input:
+                        has_form = bool(await _eval_maybe_async(getattr(form_input, "is_visible", None)))
+
+                hard_challenge_phrases = (
+                    "verify you are human",
+                    "robot or human",
+                    "access denied",
+                    "attention required! | cloudflare",
+                    "checking your browser before accessing",
+                )
+                soft_challenge_phrases = (
+                    "security check",
+                    "attention required",
+                    "two-factor authentication",
+                    "2fa",
+                    "mfa",
+                )
+                for text in hard_challenge_phrases:
                     if text in body_str:
                         raise AntiBotChallengeDetected(
                             "Anti-bot verification challenge detected on page. Halting execution immediately."
                         )
+                if "just a moment" in title and "just a moment..." in body_str:
+                    raise AntiBotChallengeDetected(
+                        "Anti-bot verification challenge detected on page. Halting execution immediately."
+                    )
+                # Soft terms (e.g. 'security check', '2fa', 'mfa') only indicate a gate when NO form is visible and page is short
+                if not has_form and len(body_str.strip()) < 1400:
+                    for text in soft_challenge_phrases:
+                        if text in body_str:
+                            raise AntiBotChallengeDetected(
+                                "Anti-bot / authentication security gate detected on page. Halting execution immediately."
+                            )
 
             # Check DOM for live interactive CAPTCHA puzzle or Turnstile challenge gates
             if hasattr(page, "query_selector") and callable(page.query_selector):
@@ -442,14 +487,6 @@ class ExternalApplyActuator:
                         raise AntiBotChallengeDetected(
                             "Interactive anti-bot CAPTCHA/Turnstile challenge element detected in DOM. Halting execution immediately."
                         )
-
-                # Check if a genuine job application form is already visible on the page
-                has_form = False
-                form_input = page.query_selector("input[type='email'], #first_name, #email, input[name='name'], input[name='email']")
-                if inspect.isawaitable(form_input):
-                    form_input = await form_input
-                if form_input:
-                    has_form = await _eval_maybe_async(getattr(form_input, "is_visible", None))
 
                 if not has_form:
                     captcha_elem = page.query_selector(
@@ -1240,6 +1277,103 @@ class ExternalApplyActuator:
         except Exception:
             return False
 
+    async def _human_fill_input(self, page: Any, ctx: Any, el: Any, value: str) -> None:
+        """
+        Populate an input element with human-like scrolling, pointer movement, focus,
+        realistic keystroke cadence, and React/Vue blur commitment.
+        Falls back cleanly to .fill() for long paragraphs or mock handles.
+        """
+        import random
+        text = str(value or "")
+        if not text:
+            return
+
+        if hasattr(el, "scroll_into_view_if_needed"):
+            try:
+                await _eval_maybe_async(el.scroll_into_view_if_needed(timeout=2500))
+            except Exception:
+                pass
+
+        box = None
+        if hasattr(el, "bounding_box"):
+            try:
+                b = await _eval_maybe_async(el.bounding_box())
+                if isinstance(b, dict) and isinstance(b.get("x"), (int, float)) and isinstance(b.get("y"), (int, float)):
+                    box = b
+            except Exception:
+                box = None
+
+        if box and len(text) <= 90 and hasattr(el, "type"):
+            try:
+                from src.utils.human_behavior import smooth_move_cursor
+                tx = box["x"] + box["width"] / 2.0 + random.uniform(-3.0, 3.0)
+                ty = box["y"] + box["height"] / 2.0 + random.uniform(-2.0, 2.0)
+                await smooth_move_cursor(page, tx, ty)
+            except Exception:
+                pass
+            try:
+                await _eval_maybe_async(el.click())
+                await human_delay(60, 140)
+                if hasattr(el, "fill"):
+                    await _eval_maybe_async(el.fill(""))
+                await _eval_maybe_async(el.type(text, delay=random.randint(22, 55)))
+            except Exception:
+                if hasattr(el, "fill"):
+                    await _eval_maybe_async(el.fill(text))
+        else:
+            if hasattr(el, "fill"):
+                await _eval_maybe_async(el.fill(text))
+
+        if hasattr(ctx, "evaluate"):
+            try:
+                ev = ctx.evaluate(
+                    "(el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); }",
+                    el,
+                )
+                if inspect.isawaitable(ev):
+                    await ev
+            except Exception:
+                pass
+
+    async def _configure_phone_country_code(self, page: Any, ctx: Any, country_name: str = "India", dial_code: str = "91") -> bool:
+        """Select matching country dial code on intl-tel-input widgets (e.g. India +91 instead of default US +1)."""
+        try:
+            if not hasattr(ctx, "query_selector"):
+                return False
+            flag_btn = await _eval_maybe_async(ctx.query_selector(".iti__selected-flag, button.iti__selected-country"))
+            if not flag_btn or not await _eval_maybe_async(getattr(flag_btn, "is_visible", None)):
+                return False
+
+            current_label = str(
+                await _eval_maybe_async(getattr(flag_btn, "get_attribute", lambda _: "")("aria-label"))
+                or await _eval_maybe_async(getattr(flag_btn, "get_attribute", lambda _: "")("title"))
+                or ""
+            ).lower()
+            if country_name.lower() in current_label or f"+{dial_code}" in current_label:
+                return True
+
+            await _eval_maybe_async(flag_btn.click())
+            await human_delay(200, 350)
+
+            search_inp = await _eval_maybe_async(ctx.query_selector(".iti__search-input"))
+            if search_inp and await _eval_maybe_async(getattr(search_inp, "is_visible", None)):
+                await _eval_maybe_async(search_inp.fill(country_name))
+                await human_delay(200, 300)
+
+            target_li = await _eval_maybe_async(
+                ctx.query_selector(f'li.iti__country[data-dial-code="{dial_code}"], li[data-country-code="in"]')
+            )
+            if target_li and await _eval_maybe_async(getattr(target_li, "is_visible", None)):
+                await _eval_maybe_async(target_li.click())
+                await human_delay(150, 250)
+                return True
+
+            if hasattr(page, "keyboard"):
+                await _eval_maybe_async(page.keyboard.press("Escape"))
+        except Exception:
+            pass
+        return False
+
     async def _fill_contact_fields(self, page: Any) -> int:
         """Fill common personal, contact, profile URL, and location autocomplete fields across all contexts."""
         candidate = getattr(self, "candidate_info", {}) or {}
@@ -1276,14 +1410,7 @@ class ExternalApplyActuator:
                             if not str(val or "").strip():
                                 val_to_fill = candidate.get("full_name", "Vanraj Solanki")
                                 if val_to_fill:
-                                    await el.fill(val_to_fill)
-                                    if hasattr(ctx, "evaluate"):
-                                        try:
-                                            ev = ctx.evaluate("(el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }", el)
-                                            if inspect.isawaitable(ev):
-                                                await ev
-                                        except Exception:
-                                            pass
+                                    await self._human_fill_input(page, ctx, el, val_to_fill)
                                     await human_delay(150, 300)
                                     filled_count += 1
                             full_name_filled = True
@@ -1403,14 +1530,17 @@ class ExternalApplyActuator:
 
                             curr_v = await _eval_maybe_async(getattr(el, "input_value", None))
                             if not str(curr_v or "").strip() and val_to_fill:
-                                await el.fill(val_to_fill)
-                                if hasattr(ctx, "evaluate"):
-                                    try:
-                                        ev = ctx.evaluate("(el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }", el)
-                                        if inspect.isawaitable(ev):
-                                            await ev
-                                    except Exception:
-                                        pass
+                                target_fill = val_to_fill
+                                if cand_key == "phone":
+                                    dial_digits = re.sub(r"[^\d]", "", str(candidate.get("country_code") or "91")) or "91"
+                                    iti_set = await self._configure_phone_country_code(
+                                        page, ctx,
+                                        country_name=str(candidate.get("country") or "India"),
+                                        dial_code=dial_digits,
+                                    )
+                                    if iti_set and candidate.get("phone_clean"):
+                                        target_fill = str(candidate["phone_clean"])
+                                await self._human_fill_input(page, ctx, el, target_fill)
                                 await human_delay(120, 220)
                                 filled_count += 1
                             filled_this_key = True
@@ -2106,14 +2236,10 @@ class ExternalApplyActuator:
                                 inp_el = await inp_el
 
                             if inp_el:
-                                res = inp_el.fill(ans)
-                                if inspect.isawaitable(res):
-                                    await res
+                                await self._human_fill_input(page, ctx, inp_el, ans)
                                 if hasattr(ctx, "evaluate"):
                                     ev = ctx.evaluate(
                                         """(el, textVal) => {
-                                            el.dispatchEvent(new Event('input', { bubbles: true }));
-                                            el.dispatchEvent(new Event('change', { bubbles: true }));
                                             const role = el.getAttribute('role') || '';
                                             const ariaAuto = el.getAttribute('aria-autocomplete') || '';
                                             if (role === 'combobox' || ariaAuto || el.classList.contains('select-combobox') || el.hasAttribute('data-ph-at-id')) {
