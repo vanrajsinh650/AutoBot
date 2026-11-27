@@ -226,7 +226,10 @@
     if (viewName === "applications") loadJobs();
     if (viewName === "apply-portals") loadApplyPortals();
     if (viewName === "profile") loadProfile();
-    if (viewName === "settings") loadConfig();
+    if (viewName === "settings") {
+      loadConfig();
+      loadLearnedQaMemory();
+    }
     if (viewName === "discovery") {
       loadDiscoveryJobs();
       loadSourceHealth();
@@ -2548,7 +2551,7 @@
     `;
 
     try {
-      let url = `/api/apply-portals?limit=100`;
+      let url = `/api/apply-portals?limit=0`;
       if (portalsState.category && portalsState.category !== "all") {
         url += `&category=${encodeURIComponent(portalsState.category)}`;
       }
@@ -2566,7 +2569,7 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      // Update summary metric cards — always show GRAND TOTALS (unfiltered)
+      // Update summary metric cards — always reflect accurate totals for active threshold
       const elTotal = document.getElementById("stat-apply-total");
       const elExt = document.getElementById("stat-apply-external");
       const elLiExt = document.getElementById("stat-apply-linkedin-ext");
@@ -2576,21 +2579,18 @@
       const cntLiExt = document.getElementById("cnt-tab-linkedin-ext");
       const cntLiEasy = document.getElementById("cnt-tab-linkedin-easy");
 
-      // Compute authentic grand totals
+      // Compute authentic grand totals from server response (no stale latching across threshold/deletes)
       const directAtsVal = data.direct_ats_count != null ? data.direct_ats_count : (data.external_count || 0);
       const liExtVal = data.linkedin_external_count || 0;
       const liEasyVal = data.linkedin_easy_count || 0;
       const serverGrandTotal = data.grand_total != null ? data.grand_total : (directAtsVal + liExtVal + liEasyVal);
 
-      // Always maintain stable grand totals so metric cards remain rock-solid across filters
-      if (!portalsState.grandTotals || serverGrandTotal >= (portalsState.grandTotals.total || 0)) {
-        portalsState.grandTotals = {
-          total: serverGrandTotal,
-          external: directAtsVal,
-          liExt: liExtVal,
-          liEasy: liEasyVal,
-        };
-      }
+      portalsState.grandTotals = {
+        total: serverGrandTotal,
+        external: directAtsVal,
+        liExt: liExtVal,
+        liEasy: liEasyVal,
+      };
       const gt = portalsState.grandTotals;
 
       // Metric cards always show consistent grand totals
@@ -2988,6 +2988,11 @@
             <span style="flex-shrink: 0;">⚠️</span>
             <span title="${escapeHtml(rawFailReason)}">${escapeHtml(truncFailReason)}</span>
           </div>` : ''}
+          ${job.pending_questions_count > 0 ? `
+          <div style="margin-top: 8px; padding: 6px 10px; background: rgba(245, 158, 11, 0.14); border: 1px solid rgba(245, 158, 11, 0.45); border-radius: 6px; font-size: 11px; color: #FCD34D; display: flex; align-items: center; gap: 6px; font-weight: 600;">
+            <span>🧠</span>
+            <span>Paused on ${job.pending_questions_count} new question(s) — click "Teach &amp; Fix" to instruct AutoBot</span>
+          </div>` : ''}
         </div>
 
         <div style="display: flex; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; align-items: center;">
@@ -2995,8 +3000,8 @@
             View Details
           </button>
           ${job.proof_screenshot ? `
-          <button class="btn btn-secondary btn-sm btn-view-proof" data-shot="${escapeHtml(job.proof_screenshot)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" data-reason="${escapeHtml(job.failure_reason || '')}" style="flex: 1; min-width: 74px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; color: #10B981; border-color: rgba(16, 185, 129, 0.4); cursor: pointer;" title="View verified application proof screenshot">
-            Proof 📸
+          <button class="btn btn-secondary btn-sm btn-view-proof" data-shot="${escapeHtml(job.proof_screenshot)}" data-id="${escapeHtml(jobId)}" data-stable-id="${escapeHtml(stableId)}" data-title="${escapeHtml(job.title)}" data-company="${escapeHtml(job.company)}" data-reason="${escapeHtml(job.failure_reason || '')}" style="flex: 1; min-width: 74px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; color: ${job.pending_questions_count > 0 ? '#FBBF24' : '#10B981'}; border-color: ${job.pending_questions_count > 0 ? 'rgba(245, 158, 11, 0.5)' : 'rgba(16, 185, 129, 0.4)'}; cursor: pointer;" title="View proof screenshot and teach AutoBot answers">
+            ${job.pending_questions_count > 0 ? 'Teach &amp; Fix 🧠' : 'Proof 📸'}
           </button>` : ''}
           ${isEasy ? `
           <a href="${escapeHtml(linkedinUrl || rawApplyUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="flex: 1.2; min-width: 120px; padding: 7px 8px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #34D399; border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.08);" title="Open Easy Apply application directly on LinkedIn">
@@ -3335,7 +3340,7 @@
       if (job.proof_screenshot) {
         modalProof.style.display = "inline-flex";
         modalProof.onclick = () => {
-          openProofModal(job.proof_screenshot, job.title, job.company, job.failure_reason);
+          openProofModal(job.proof_screenshot, job.title, job.company, job.failure_reason, id, stableId);
         };
       } else {
         modalProof.style.display = "none";
@@ -3359,12 +3364,143 @@
     if (modal) modal.style.display = "none";
   }
 
-  function openProofModal(screenshotPath, title, company, reason) {
+  let activeProofContext = { jobId: "", stableId: "", title: "", company: "" };
+
+  async function saveLearnedQaRuleFromUi(question, answer, options = [], fieldType = "text", note = "") {
+    const res = await authedFetch("/api/learned-qa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question,
+        answer,
+        options,
+        field_type: fieldType,
+        instruction_note: note,
+        job_id: activeProofContext.stableId || activeProofContext.jobId || "",
+        company: activeProofContext.company || "",
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    showToast(`🧠 AutoBot learned rule for "${question.slice(0, 42)}..." -> "${answer}"`, "success");
+    return data;
+  }
+
+  async function loadLearnedQaMemory() {
+    const container = document.getElementById("learned-qa-list-container");
+    if (!container) return;
+    try {
+      const res = await authedFetch("/api/learned-qa");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const rules = data.rules || [];
+      if (rules.length === 0) {
+        container.innerHTML = `<div style="font-size: 12.5px; color: var(--text-muted); padding: 10px;">No custom learned Q&amp;A rules yet. Teach AutoBot above or whenever it pauses on a new question.</div>`;
+        return;
+      }
+      container.innerHTML = rules.map((r) => `
+        <div class="learned-rule-row" data-rule-id="${r.id}" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; background: rgba(15,23,42,0.75); border: 1px solid var(--border); border-radius: 8px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 12.5px; font-weight: 600; color: #FFFFFF;">${escapeHtml(r.question_pattern)}</div>
+            <div style="font-size: 12px; color: #34D399; margin-top: 2px;">Answer: <strong>${escapeHtml(r.user_answer)}</strong> ${r.hit_count ? `<span style="color: var(--text-muted);">(${r.hit_count} reuses)</span>` : ''}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-delete-learned-rule" data-id="${r.id}" style="background: rgba(239,68,68,0.15); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.4); padding: 4px 10px; font-size: 11px;">Delete</button>
+        </div>
+      `).join("");
+      container.querySelectorAll(".btn-delete-learned-rule").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const rid = btn.getAttribute("data-id");
+          const delRes = await authedFetch(`/api/learned-qa/${encodeURIComponent(rid)}`, { method: "DELETE" });
+          if (delRes.ok) {
+            showToast("Rule deleted from memory", "info");
+            loadLearnedQaMemory();
+          }
+        });
+      });
+    } catch (err) {
+      container.innerHTML = `<div style="font-size: 12px; color: #FCA5A5;">Error loading learned rules: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function loadPendingQuestionsForProofModal(jobKey) {
+    const teachSection = document.getElementById("proof-teach-section");
+    const listEl = document.getElementById("proof-pending-questions-list");
+    const reapplyBtn = document.getElementById("btn-proof-reapply");
+    if (!teachSection || !listEl) return;
+
+    const isBlocked = (document.getElementById("proof-modal-img")?.src || "").includes("blocked");
+    teachSection.style.display = isBlocked ? "block" : "none";
+    if (reapplyBtn) reapplyBtn.style.display = (isBlocked && (activeProofContext.jobId || activeProofContext.stableId)) ? "inline-flex" : "none";
+
+    if (!jobKey) {
+      listEl.innerHTML = "";
+      return;
+    }
+
+    try {
+      const res = await authedFetch(`/api/portals/${encodeURIComponent(jobKey)}/pending-questions`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const qs = data.questions || [];
+      if (qs.length > 0) {
+        teachSection.style.display = "block";
+        if (reapplyBtn) reapplyBtn.style.display = "inline-flex";
+        listEl.innerHTML = qs.map((pq, i) => {
+          const opts = Array.isArray(pq.options) ? pq.options : [];
+          const inputHtml = opts.length > 0
+            ? `<select class="form-input proof-q-answer" data-q="${escapeHtml(pq.question_text)}" data-ftype="${escapeHtml(pq.field_type || 'select')}" data-opts='${escapeHtml(JSON.stringify(opts))}' style="font-size: 12px; padding: 6px 10px;">
+                 <option value="">-- Select what AutoBot should always pick --</option>
+                 ${opts.map((o) => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join("")}
+               </select>`
+            : `<input type="text" class="form-input proof-q-answer" data-q="${escapeHtml(pq.question_text)}" data-ftype="${escapeHtml(pq.field_type || 'text')}" data-opts="[]" style="font-size: 12px; padding: 6px 10px;" placeholder="Enter exact answer AutoBot should remember &amp; use...">`;
+          return `
+            <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 10px 12px;">
+              <div style="font-size: 12px; font-weight: 700; color: #FCD34D; margin-bottom: 4px;">Q${i + 1}: ${escapeHtml(pq.question_text)}</div>
+              ${pq.reason ? `<div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">${escapeHtml(pq.reason)}</div>` : ''}
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="flex: 1;">${inputHtml}</div>
+                <button type="button" class="btn btn-primary btn-sm btn-save-pending-q" style="white-space: nowrap; font-weight: 700;">💾 Teach &amp; Save</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+        listEl.querySelectorAll(".btn-save-pending-q").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const box = btn.closest("div");
+            const inputEl = box.querySelector(".proof-q-answer");
+            const q = inputEl.getAttribute("data-q");
+            const ftype = inputEl.getAttribute("data-ftype") || "text";
+            let opts = [];
+            try { opts = JSON.parse(inputEl.getAttribute("data-opts") || "[]"); } catch (_) {}
+            const ans = (inputEl.value || "").trim();
+            if (!ans) { showToast("Please provide an answer first", "warning"); return; }
+            await saveLearnedQaRuleFromUi(q, ans, opts, ftype);
+            btn.textContent = "✓ Learned!";
+            btn.disabled = true;
+            loadLearnedQaMemory();
+          });
+        });
+      } else {
+        listEl.innerHTML = "";
+      }
+    } catch (err) {
+      console.debug("Could not fetch pending questions:", err);
+    }
+  }
+
+  function openProofModal(screenshotPath, title, company, reason, jobId = "", stableId = "") {
     const modal = document.getElementById("proof-modal-overlay");
     if (!modal) return;
     const img = document.getElementById("proof-modal-img");
     const titleEl = document.getElementById("proof-modal-title");
     const subEl = document.getElementById("proof-modal-subtitle");
+
+    activeProofContext = {
+      jobId: String(jobId || ""),
+      stableId: String(stableId || jobId || ""),
+      title: String(title || ""),
+      company: String(company || ""),
+    };
 
     const filename = String(screenshotPath).replace(/^.*[\\/]/, "");
     const imgUrl = `/api/proofs/${encodeURIComponent(filename)}?t=${Date.now()}`;
@@ -3382,11 +3518,13 @@
     }
 
     modal.style.display = "flex";
+    loadPendingQuestionsForProofModal(activeProofContext.stableId || activeProofContext.jobId);
   }
 
   function closeProofModal() {
     const modal = document.getElementById("proof-modal-overlay");
     if (modal) modal.style.display = "none";
+    activeProofContext = { jobId: "", stableId: "", title: "", company: "" };
   }
 
   // Delegated click for any .btn-view-proof
@@ -3398,11 +3536,66 @@
       const title = btn.getAttribute("data-title") || "";
       const company = btn.getAttribute("data-company") || "";
       const reason = btn.getAttribute("data-reason") || "";
+      const jid = btn.getAttribute("data-id") || "";
+      const sid = btn.getAttribute("data-stable-id") || jid;
       if (shot) {
-        openProofModal(shot, title, company, reason);
+        openProofModal(shot, title, company, reason, jid, sid);
       }
     }
   });
+
+  const btnProofTeachCustom = document.getElementById("btn-proof-teach-custom");
+  if (btnProofTeachCustom) {
+    btnProofTeachCustom.addEventListener("click", async () => {
+      const qEl = document.getElementById("proof-custom-q");
+      const aEl = document.getElementById("proof-custom-a");
+      const q = (qEl?.value || "").trim();
+      const a = (aEl?.value || "").trim();
+      if (!q || !a) {
+        showToast("Enter both the question and what AutoBot should answer.", "warning");
+        return;
+      }
+      await saveLearnedQaRuleFromUi(q, a);
+      qEl.value = "";
+      aEl.value = "";
+      loadLearnedQaMemory();
+    });
+  }
+
+  const btnProofReapply = document.getElementById("btn-proof-reapply");
+  if (btnProofReapply) {
+    btnProofReapply.addEventListener("click", async () => {
+      const targetId = activeProofContext.jobId || activeProofContext.stableId;
+      if (!targetId) return;
+      closeProofModal();
+      const dryRunCb = document.getElementById("portals-dryrun-checkbox");
+      const isDryRun = dryRunCb ? dryRunCb.checked : false;
+      await applyToPortalsBot([targetId], isDryRun);
+    });
+  }
+
+  const btnAddLearnedQa = document.getElementById("btn-add-learned-qa");
+  if (btnAddLearnedQa) {
+    btnAddLearnedQa.addEventListener("click", async () => {
+      const qEl = document.getElementById("learned-qa-new-q");
+      const aEl = document.getElementById("learned-qa-new-a");
+      const q = (qEl?.value || "").trim();
+      const a = (aEl?.value || "").trim();
+      if (!q || !a) {
+        showToast("Enter both a question pattern and an answer.", "warning");
+        return;
+      }
+      await saveLearnedQaRuleFromUi(q, a);
+      qEl.value = "";
+      aEl.value = "";
+      loadLearnedQaMemory();
+    });
+  }
+
+  const btnRefreshLearnedQa = document.getElementById("btn-refresh-learned-qa");
+  if (btnRefreshLearnedQa) {
+    btnRefreshLearnedQa.addEventListener("click", () => loadLearnedQaMemory());
+  }
 
   const proofCloseBtn = document.getElementById("proof-modal-close-btn");
   if (proofCloseBtn) proofCloseBtn.addEventListener("click", closeProofModal);

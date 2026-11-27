@@ -274,7 +274,73 @@ class ExternalApplyActuator:
             self.resume_path = Path(p)
 
         self.candidate_info = candidate_info or load_candidate_profile_info(self.cfg)
+        self.user_id = int(self.candidate_info.get("user_id") or 1)
         self.last_outcome: Dict[str, Any] = {}
+        self.unknown_questions: List[Dict[str, Any]] = []
+        self._unknown_q_keys: set[str] = set()
+
+    def _record_unknown_question(
+        self,
+        question: str,
+        field_type: str = "text",
+        options: Optional[List[str]] = None,
+        reason: str = "",
+    ) -> None:
+        """Record an unanswered required/decision question without duplicating."""
+        clean_q = re.sub(r"\s+", " ", str(question or "")).strip()
+        if not clean_q:
+            return
+        key = re.sub(r"[*✱?!.:,;\"'()\[\]{}]+", " ", clean_q.lower()).strip()
+        if key in self._unknown_q_keys:
+            return
+        self._unknown_q_keys.add(key)
+        self.unknown_questions.append({
+            "question": clean_q,
+            "field_type": field_type or "text",
+            "options": list(options or []),
+            "reason": reason or "New question needs your instruction",
+        })
+
+    def _resolve_question(
+        self,
+        question: str,
+        options: Optional[List[str]] = None,
+        field_type: str = "text",
+        required: bool = True,
+    ) -> str:
+        """
+        Resolve a form question using learned Q&A memory, profile/config, FormRAG, and Groq AI.
+        If uncertain and required, records the question for user instruction and returns ''.
+        """
+        candidate = getattr(self, "candidate_info", {}) or {}
+        from src.browser.groq_form_assistant import resolve_form_question_with_confidence
+        res = resolve_form_question_with_confidence(
+            question=question,
+            options=options,
+            field_type=field_type,
+            candidate_info=candidate,
+            user_id=getattr(self, "user_id", 1),
+        )
+        if res.get("confident") and res.get("answer"):
+            return str(res["answer"])
+
+        if self.form_rag is not None:
+            try:
+                f_enum = FieldType.SELECT if field_type == "select" else (FieldType.RADIO if field_type == "radio" else FieldType.TEXT)
+                rag_ans = self.form_rag.answer_question(question=question, field_type=f_enum, options=options, required=required)
+                if rag_ans and rag_ans.answer and float(rag_ans.confidence or 0.0) >= 0.75:
+                    return str(rag_ans.answer)
+            except Exception:
+                pass
+
+        if required:
+            self._record_unknown_question(
+                question=question,
+                field_type=field_type,
+                options=options,
+                reason=str(res.get("reason") or "New question needs user instruction"),
+            )
+        return ""
 
     def validate_target_domain(self, url: str) -> str:
         """
@@ -445,6 +511,10 @@ class ExternalApplyActuator:
         Returns:
             True if submitted successfully (or simulated successfully in dry_run), False otherwise.
         """
+        self.unknown_questions = []
+        self._unknown_q_keys = set()
+        self.last_outcome = {}
+
         target_url = apply_url or job.external_apply_url or job.url
         if not target_url:
             logger.warning("[browser]No external apply URL available.[/browser]")
@@ -621,6 +691,48 @@ class ExternalApplyActuator:
                     "proof_screenshot": blocker_path or "",
                 }
                 await human_delay(2000, 3500)
+                return False
+
+            # Check Human-in-the-Loop Self-Learning Gate:
+            # If any required/decision question was NEW/unknown and AutoBot refused to guess,
+            # pause BEFORE submitting, stamp a clear proof screenshot, and ask the user in dashboard!
+            if self.unknown_questions and not dry_run:
+                q_list_txt = "; ".join(q["question"] for q in self.unknown_questions[:3])
+                pause_reason = f"Paused on new question(s) requiring your answer: {q_list_txt}"
+                logger.info(f"[browser]🧠 {pause_reason}[/browser]")
+                blocker_path = await capture_proof_screenshot(
+                    tab, job.job_id, job.company, job.title,
+                    is_success=False,
+                    reason=pause_reason,
+                    status="requires_manual",
+                    pending_questions=self.unknown_questions,
+                )
+                try:
+                    from src.storage.db import save_pending_form_question
+                    for pq in self.unknown_questions:
+                        save_pending_form_question(
+                            user_id=getattr(self, "user_id", 1),
+                            job_id=str(job.job_id),
+                            question_text=pq["question"],
+                            field_type=pq.get("field_type", "text"),
+                            options=pq.get("options") or [],
+                            reason=pq.get("reason", ""),
+                            proof_screenshot=blocker_path or "",
+                            job_title=job.title,
+                            company=job.company,
+                        )
+                except Exception as pq_err:
+                    logger.debug(f"Failed saving pending form questions: {pq_err}")
+
+                self.last_outcome = {
+                    "success": False,
+                    "status": "requires_manual",
+                    "reason_code": "NEEDS_USER_INPUT",
+                    "description": pause_reason,
+                    "proof_screenshot": blocker_path or "",
+                    "pending_questions": list(self.unknown_questions),
+                }
+                await human_delay(1500, 2500)
                 return False
 
             # 5. Attempt Submit or Dry-Run Simulation
@@ -1370,7 +1482,8 @@ class ExternalApplyActuator:
                                 value: o.value || ''
                             })).filter(o => o.text && !o.text.toLowerCase().startsWith('select') && !o.text.toLowerCase().startsWith('choose') && !o.text.toLowerCase().startsWith('--'));
                             
-                            return { label: label.trim(), options: options, currentValue: el.value || '' };
+                            const isReq = Boolean(el.required || el.getAttribute('aria-required') === 'true' || label.includes('*') || label.includes('✱'));
+                            return { label: label.trim(), options: options, currentValue: el.value || '', isReq: isReq };
                         }""", sel) if hasattr(ctx, "evaluate") else None
                         if inspect.isawaitable(label_data):
                             label_data = await label_data
@@ -1391,13 +1504,13 @@ class ExternalApplyActuator:
 
                         question_text = label_data.get("label") or "Dropdown Option"
                         option_texts = [o["text"] for o in opts]
+                        is_req = bool(label_data.get("isReq", True))
 
-                        from src.browser.groq_form_assistant import answer_question_with_groq
-                        best_answer = answer_question_with_groq(
+                        best_answer = self._resolve_question(
                             question=question_text,
                             options=option_texts,
                             field_type="select",
-                            candidate_info=candidate,
+                            required=is_req,
                         )
 
                         if best_answer:
@@ -1409,7 +1522,12 @@ class ExternalApplyActuator:
                             if not matched and any(y in best_answer.lower() for y in ("yes", "agree", "authorized")):
                                 matched = next((o for o in opts if any(w in o["text"].lower().split() for w in ("yes", "agree", "authorized"))), None)
 
-                            target_val = matched["value"] if matched else opts[0]["value"]
+                            if not matched:
+                                if is_req:
+                                    self._record_unknown_question(question_text, "select", option_texts, f"Answer '{best_answer}' did not match available options")
+                                continue
+
+                            target_val = matched["value"]
                             res = sel.select_option(value=target_val) if hasattr(sel, "select_option") else None
                             if inspect.isawaitable(res):
                                 await res
@@ -1565,12 +1683,12 @@ class ExternalApplyActuator:
                             continue
 
                         option_texts = [t for t, _ in option_items]
-                        from src.browser.groq_form_assistant import answer_question_with_groq
-                        best_answer = answer_question_with_groq(
+                        is_req = bool(meta.get("isReq", False))
+                        best_answer = self._resolve_question(
                             question=q_text or combo_id or "Dropdown Option",
                             options=option_texts,
                             field_type="select",
-                            candidate_info=candidate,
+                            required=is_req,
                         )
 
                         target_handle = None
@@ -1584,7 +1702,11 @@ class ExternalApplyActuator:
                             if not target_handle and any(y in b_low for y in ("yes", "agree", "authorized")):
                                 target_handle = next((h for t, h in option_items if any(w in t.lower().split() for w in ("yes", "agree", "authorized"))), None)
                         if not target_handle:
-                            target_handle = option_items[0][1]
+                            if best_answer and is_req:
+                                self._record_unknown_question(q_text or combo_id, "select", option_texts, f"Answer '{best_answer}' did not match dropdown options")
+                            if hasattr(page, "keyboard"):
+                                await _eval_maybe_async(page.keyboard.press("Escape"))
+                            continue
 
                         if target_handle and hasattr(target_handle, "click"):
                             await _eval_maybe_async(target_handle.click())
@@ -1656,12 +1778,12 @@ class ExternalApplyActuator:
                         idx = grp["entryIdx"]
                         if not isinstance(entries, list) or idx >= len(entries):
                             continue
-                        from src.browser.groq_form_assistant import answer_question_with_groq
-                        ans = answer_question_with_groq(
+                        is_req = "*" in grp["label"] or "✱" in grp["label"]
+                        ans = self._resolve_question(
                             question=grp["label"],
                             options=grp["options"],
                             field_type="radio",
-                            candidate_info=candidate,
+                            required=is_req,
                         )
                         if not ans:
                             continue
@@ -1672,8 +1794,10 @@ class ExternalApplyActuator:
                             if b_txt == ans.strip().lower():
                                 target_btn = b
                                 break
-                        if not target_btn and btns:
-                            target_btn = btns[0]
+                        if not target_btn:
+                            if is_req:
+                                self._record_unknown_question(grp["label"], "radio", grp["options"], f"Answer '{ans}' did not match toggle buttons")
+                            continue
                         if target_btn:
                             await _eval_maybe_async(target_btn.click())
                             filled += 1
@@ -1744,18 +1868,23 @@ class ExternalApplyActuator:
                         if not any(options):
                             continue
 
-                        from src.browser.groq_form_assistant import answer_question_with_groq
-                        best_pick = answer_question_with_groq(
+                        is_req = "*" in str(question) or "✱" in str(question) or True
+                        best_pick = self._resolve_question(
                             question=question,
                             options=options,
                             field_type="radio",
-                            candidate_info=candidate,
+                            required=is_req,
                         )
+                        if not best_pick:
+                            continue
 
                         matched_item = next(
                             (it for it in items if (it.get("label") or "").lower() == best_pick.lower() or best_pick.lower() in (it.get("label") or "").lower()),
-                            items[0]
+                            None,
                         )
+                        if not matched_item:
+                            self._record_unknown_question(question, "radio", options, f"Answer '{best_pick}' did not match radio choices")
+                            continue
                         target_id = matched_item.get("id")
                         target_val = matched_item.get("value")
 
@@ -1962,11 +2091,10 @@ class ExternalApplyActuator:
                         ):
                             continue
 
-                        from src.browser.groq_form_assistant import answer_question_with_groq
-                        ans = answer_question_with_groq(
+                        ans = self._resolve_question(
                             question=q_text,
                             field_type=field.get("type", "text"),
-                            candidate_info=candidate,
+                            required=is_req,
                         )
 
                         if ans:

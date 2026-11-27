@@ -556,16 +556,29 @@ class LinkedInNavigator:
                 pass
 
         if panel:
-            for _ in range(3):
+            prev_count = 0
+            stagnant_scrolls = 0
+            for _ in range(10):
                 await visual_scroll(
                     self.page,
-                    distance=450,
+                    distance=500,
                     direction="down",
                     target_element_or_selector=panel,
-                    action_text="Scanning job listings...",
+                    action_text="Scanning all job listings...",
                 )
                 await dismiss_sign_in_popup(self.page)
-                await human_delay(200, 400)
+                await human_delay(250, 450)
+                try:
+                    curr_count = await self.page.locator("li.jobs-search-results__list-item, .job-card-container, .base-card").count()
+                    if curr_count <= prev_count:
+                        stagnant_scrolls += 1
+                        if stagnant_scrolls >= 2:
+                            break
+                    else:
+                        prev_count = curr_count
+                        stagnant_scrolls = 0
+                except Exception:
+                    break
         else:
             await visual_scroll(
                 self.page,

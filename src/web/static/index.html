@@ -829,6 +829,36 @@
             </div>
           </div>
         </div>
+
+        <!-- ── Self-Learning Q&A Memory & Custom User Instructions ──────── -->
+        <div id="learned-qa-panel" class="panel" style="margin-top: 24px; border-color: rgba(245, 158, 11, 0.35);">
+          <div class="panel-header">
+            <div class="panel-title" style="color: #FBBF24;">
+              🧠 Self-Learning Q&amp;A Memory &amp; User Instructions
+            </div>
+            <button type="button" id="btn-refresh-learned-qa" class="btn btn-secondary btn-sm">Refresh Rules</button>
+          </div>
+          <div style="padding: 16px;">
+            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+              Whenever AutoBot encounters a new or ambiguous form question, it pauses safely, captures a proof screenshot, and asks you.
+              Every answer you teach here is remembered permanently and applied automatically on future applications.
+            </p>
+            <div style="display: grid; grid-template-columns: 1.4fr 1.2fr auto; gap: 10px; align-items: end; margin-bottom: 16px; background: rgba(0,0,0,0.22); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+              <div>
+                <label class="form-label" for="learned-qa-new-q" style="font-size: 11.5px;">Question / Field Label</label>
+                <input type="text" id="learned-qa-new-q" class="form-input" placeholder="e.g. Expected hourly rate or Security clearance status">
+              </div>
+              <div>
+                <label class="form-label" for="learned-qa-new-a" style="font-size: 11.5px;">Your Answer / Instruction</label>
+                <input type="text" id="learned-qa-new-a" class="form-input" placeholder="e.g. $40/hr or No active clearance">
+              </div>
+              <button type="button" id="btn-add-learned-qa" class="btn btn-primary" style="height: 38px; padding: 0 16px; font-size: 12.5px; font-weight: 700;">+ Teach Rule</button>
+            </div>
+            <div id="learned-qa-list-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto;">
+              <div style="font-size: 12.5px; color: var(--text-muted);">Loading learned rules...</div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ── View: Job Discovery & Multi-Source Import ────────────── -->
@@ -1393,8 +1423,24 @@
       <div style="padding: 16px; overflow: auto; text-align: center; background: #020617; flex: 1;">
         <img id="proof-modal-img" src="" alt="Proof Screenshot" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
       </div>
-      <div style="padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; background: rgba(15, 23, 42, 0.95);">
-        <button id="proof-modal-dismiss-btn" class="btn btn-secondary btn-sm">Close</button>
+      <!-- Interactive Self-Learning Question & Instruction Section -->
+      <div id="proof-teach-section" style="display: none; padding: 14px 20px; border-top: 1px solid var(--border); background: rgba(15, 23, 42, 0.98); max-height: 280px; overflow-y: auto;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+          <div style="font-size: 13px; font-weight: 700; color: #FBBF24; display: flex; align-items: center; gap: 6px;">
+            🧠 Teach AutoBot What To Do On This Form (Saved Permanently)
+          </div>
+          <span id="proof-teach-badge" style="font-size: 11px; color: var(--text-muted);">Self-Learning Q&amp;A Memory</span>
+        </div>
+        <div id="proof-pending-questions-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        <div id="proof-custom-teach-box" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.12); display: grid; grid-template-columns: 1.2fr 1.2fr auto; gap: 8px; align-items: center;">
+          <input type="text" id="proof-custom-q" class="form-input" style="font-size: 12px; padding: 6px 10px;" placeholder="Or type any blocked question seen in screenshot...">
+          <input type="text" id="proof-custom-a" class="form-input" style="font-size: 12px; padding: 6px 10px;" placeholder="Answer / instruction to remember...">
+          <button type="button" id="btn-proof-teach-custom" class="btn btn-primary btn-sm" style="white-space: nowrap; font-weight: 700;">💾 Save Rule</button>
+        </div>
+      </div>
+      <div style="padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.95);">
+        <button type="button" id="btn-proof-reapply" class="btn btn-primary btn-sm" style="display: none; font-weight: 700;">🔄 Re-Apply This Job Now ⚡</button>
+        <button id="proof-modal-dismiss-btn" class="btn btn-secondary btn-sm" style="margin-left: auto;">Close</button>
       </div>
     </div>
   </div>
@@ -1402,6 +1448,6 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="toast-container"></div>
 
-  <script src="/static/app.js?v=7.0.0&t=1795153000"></script>
+  <script src="/static/app.js?v=7.1.0&t=1795690000"></script>
 </body>
 </html>

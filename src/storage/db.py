@@ -674,6 +674,7 @@ def get_apply_portals(
                         profile=cached_profile,
                         preferences=cached_preferences,
                         evidence=cached_evidence,
+                        skip_alignment_check=not is_direct,
                     )
                     computed_score = eval_res["match_score"]
                 except Exception:
@@ -799,8 +800,26 @@ def get_apply_portals(
             "created_at": row_dict.get("created_at") or "",
         })
 
+    # Attach pending question counts for stopped/needs-input jobs
+    pending_counts: Dict[str, int] = {}
+    try:
+        with get_db_connection(db_path) as pconn:
+            prows = pconn.execute(
+                "SELECT job_id, COUNT(*) as cnt FROM pending_form_questions WHERE user_id = ? AND status = 'pending' GROUP BY job_id",
+                (user_id,),
+            ).fetchall()
+            for pr in prows:
+                pending_counts[str(pr["job_id"])] = int(pr["cnt"])
+    except Exception:
+        pending_counts = {}
+
+    for it in items:
+        sid_key = str(it.get("stable_id") or "")
+        jid_key = str(it.get("id") or "")
+        it["pending_questions_count"] = pending_counts.get(sid_key, 0) or pending_counts.get(jid_key, 0)
+
     grand_total = direct_ats_count + linkedin_easy_count + linkedin_ext_count
-    paginated_items = items[offset : offset + limit]
+    paginated_items = items[offset:] if (limit is None or limit <= 0) else items[offset : offset + limit]
 
     return {
         "grand_total": grand_total,
@@ -1660,6 +1679,362 @@ def validate_lease_fencing(
     except Exception:
         return False
     return True
+
+
+# ── Self-Learning Q&A Memory & Pending Form Questions ──────────────
+
+_STOP_WORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "do", "does", "did", "have",
+    "has", "you", "your", "please", "provide", "enter", "select", "specify",
+    "what", "which", "in", "on", "at", "for", "of", "to", "with", "this", "that",
+    "now", "or", "and", "be", "will", "would", "can", "could", "if",
+}
+
+
+def normalize_question_text(question: str) -> str:
+    """Normalize form question text for reliable deduplication and lookup."""
+    text = (question or "").lower().strip()
+    text = re.sub(r"[*✱?!.:,;\"'()\[\]{}/\\]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _question_tokens(question: str) -> set[str]:
+    norm = normalize_question_text(question)
+    return {t for t in norm.split() if len(t) > 1 and t not in _STOP_WORDS}
+
+
+def _match_answer_to_options(user_answer: str, options: Optional[List[str]]) -> str:
+    """Match a learned user answer against a dropdown/radio's allowed options list."""
+    if not options:
+        return user_answer
+    ans_clean = user_answer.strip()
+    ans_low = ans_clean.lower()
+
+    for opt in options:
+        if opt.strip().lower() == ans_low:
+            return opt
+    for opt in options:
+        opt_low = opt.strip().lower()
+        if ans_low in opt_low or opt_low in ans_low:
+            return opt
+    if ans_low in ("yes", "true", "y", "agree", "confirm"):
+        for opt in options:
+            if opt.strip().lower().startswith("yes"):
+                return opt
+    if ans_low in ("no", "false", "n", "decline"):
+        for opt in options:
+            if opt.strip().lower().startswith("no"):
+                return opt
+    return ans_clean
+
+
+def save_learned_qa_rule(
+    user_id: int,
+    question_pattern: str,
+    user_answer: str,
+    field_type: str = "text",
+    options: Optional[List[str]] = None,
+    instruction_note: str = "",
+    source_job_id: str = "",
+    source_company: str = "",
+    db_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Persist a user-taught Q&A rule into SQLite self-learning memory."""
+    init_db(db_path)
+    norm_q = normalize_question_text(question_pattern)
+    if not norm_q:
+        raise ValueError("Question pattern cannot be empty.")
+    ans = str(user_answer or "").strip()
+    if not ans:
+        raise ValueError("User answer cannot be empty.")
+
+    now = datetime.now().isoformat()
+    opts_json = json.dumps(options or [])
+
+    with get_db_connection(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO learned_qa_rules (
+                user_id, question_pattern, normalized_question, field_type, options_json,
+                user_answer, instruction_note, source_job_id, source_company,
+                hit_count, is_active, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)
+            ON CONFLICT(user_id, normalized_question) DO UPDATE SET
+                question_pattern = excluded.question_pattern,
+                field_type = CASE WHEN excluded.field_type != '' THEN excluded.field_type ELSE learned_qa_rules.field_type END,
+                options_json = CASE WHEN excluded.options_json != '[]' THEN excluded.options_json ELSE learned_qa_rules.options_json END,
+                user_answer = excluded.user_answer,
+                instruction_note = excluded.instruction_note,
+                source_job_id = CASE WHEN excluded.source_job_id != '' THEN excluded.source_job_id ELSE learned_qa_rules.source_job_id END,
+                source_company = CASE WHEN excluded.source_company != '' THEN excluded.source_company ELSE learned_qa_rules.source_company END,
+                is_active = 1,
+                updated_at = excluded.updated_at
+            """,
+            (
+                user_id,
+                question_pattern.strip(),
+                norm_q,
+                field_type or "text",
+                opts_json,
+                ans,
+                instruction_note.strip(),
+                str(source_job_id or ""),
+                str(source_company or ""),
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM learned_qa_rules WHERE user_id = ? AND normalized_question = ?",
+            (user_id, norm_q),
+        ).fetchone()
+        res = dict(row) if row else {}
+        try:
+            res["options"] = json.loads(res.get("options_json") or "[]")
+        except Exception:
+            res["options"] = []
+        return res
+
+
+def get_learned_qa_rules(
+    user_id: int = 1,
+    active_only: bool = True,
+    db_path: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Return all learned Q&A rules for a user ordered by most recently updated."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        sql = "SELECT * FROM learned_qa_rules WHERE user_id = ?"
+        if active_only:
+            sql += " AND is_active = 1"
+        sql += " ORDER BY updated_at DESC, id DESC"
+        rows = conn.execute(sql, (user_id,)).fetchall()
+        results: List[Dict[str, Any]] = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["options"] = json.loads(d.get("options_json") or "[]")
+            except Exception:
+                d["options"] = []
+            results.append(d)
+        return results
+
+
+def delete_learned_qa_rule(
+    rule_id: int,
+    user_id: int = 1,
+    db_path: Optional[str] = None,
+) -> bool:
+    """Delete a user-taught Q&A rule by ID."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cur = conn.execute(
+            "DELETE FROM learned_qa_rules WHERE id = ? AND user_id = ?",
+            (int(rule_id), user_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def find_learned_qa_answer(
+    user_id: int,
+    question: str,
+    options: Optional[List[str]] = None,
+    field_type: str = "text",
+    db_path: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Search self-learned Q&A rules for an exact, substring, or high-similarity token match.
+    Returns {rule_id, answer, question_pattern, instruction_note, match_type} or None.
+    """
+    norm_q = normalize_question_text(question)
+    if not norm_q:
+        return None
+
+    rules = get_learned_qa_rules(user_id=user_id, active_only=True, db_path=db_path)
+    if not rules:
+        return None
+
+    matched_rule: Optional[Dict[str, Any]] = None
+    match_type = ""
+
+    # 1. Exact normalized match
+    for r in rules:
+        if r.get("normalized_question") == norm_q:
+            matched_rule = r
+            match_type = "exact"
+            break
+
+    # 2. Substring / pattern containment match (only for meaningful patterns >= 8 chars)
+    if not matched_rule:
+        for r in rules:
+            r_norm = r.get("normalized_question") or ""
+            if len(r_norm) >= 8 and (r_norm in norm_q or norm_q in r_norm):
+                matched_rule = r
+                match_type = "substring"
+                break
+
+    # 3. Token Jaccard / containment match (>= 0.72 similarity on non-stop tokens)
+    if not matched_rule:
+        q_toks = _question_tokens(norm_q)
+        best_score = 0.0
+        if q_toks:
+            for r in rules:
+                r_toks = _question_tokens(r.get("normalized_question") or "")
+                if not r_toks:
+                    continue
+                inter = len(q_toks & r_toks)
+                union = len(q_toks | r_toks)
+                jaccard = inter / union if union else 0.0
+                cover = inter / min(len(q_toks), len(r_toks))
+                score = max(jaccard, cover * 0.9 if len(r_toks) >= 2 and inter >= 2 else 0.0)
+                if score >= 0.72 and score > best_score:
+                    best_score = score
+                    matched_rule = r
+                    match_type = f"semantic:{round(score, 2)}"
+
+    if not matched_rule:
+        return None
+
+    raw_ans = str(matched_rule.get("user_answer") or "").strip()
+    resolved_ans = _match_answer_to_options(raw_ans, options)
+    if options and resolved_ans not in options:
+        # User rule answer didn't match any valid option on this portal; avoid forcing wrong option
+        if not any(o.lower() == resolved_ans.lower() for o in options):
+            return None
+
+    try:
+        with get_db_connection(db_path) as conn:
+            conn.execute(
+                "UPDATE learned_qa_rules SET hit_count = COALESCE(hit_count, 0) + 1 WHERE id = ?",
+                (matched_rule["id"],),
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+    return {
+        "rule_id": matched_rule["id"],
+        "answer": resolved_ans,
+        "question_pattern": matched_rule.get("question_pattern", ""),
+        "instruction_note": matched_rule.get("instruction_note", ""),
+        "match_type": match_type,
+    }
+
+
+def save_pending_form_question(
+    user_id: int,
+    job_id: str,
+    question_text: str,
+    field_type: str = "text",
+    options: Optional[List[str]] = None,
+    reason: str = "",
+    proof_screenshot: str = "",
+    job_title: str = "",
+    company: str = "",
+    db_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Record an unanswered form question that paused AutoBot so the user can teach it."""
+    init_db(db_path)
+    norm_q = normalize_question_text(question_text)
+    if not norm_q:
+        norm_q = "unknown_question"
+    now = datetime.now().isoformat()
+    with get_db_connection(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO pending_form_questions (
+                user_id, job_id, job_title, company, question_text, normalized_question,
+                field_type, options_json, reason, proof_screenshot, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+            ON CONFLICT(user_id, job_id, normalized_question) DO UPDATE SET
+                question_text = excluded.question_text,
+                field_type = excluded.field_type,
+                options_json = excluded.options_json,
+                reason = excluded.reason,
+                proof_screenshot = CASE WHEN excluded.proof_screenshot != '' THEN excluded.proof_screenshot ELSE pending_form_questions.proof_screenshot END,
+                status = 'pending',
+                created_at = excluded.created_at
+            """,
+            (
+                user_id,
+                str(job_id),
+                job_title or "",
+                company or "",
+                question_text.strip(),
+                norm_q,
+                field_type or "text",
+                json.dumps(options or []),
+                reason or "",
+                proof_screenshot or "",
+                now,
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM pending_form_questions WHERE user_id = ? AND job_id = ? AND normalized_question = ?",
+            (user_id, str(job_id), norm_q),
+        ).fetchone()
+        d = dict(row) if row else {}
+        try:
+            d["options"] = json.loads(d.get("options_json") or "[]")
+        except Exception:
+            d["options"] = []
+        return d
+
+
+def get_pending_form_questions(
+    user_id: int = 1,
+    job_id: Optional[str] = None,
+    status: Optional[str] = "pending",
+    db_path: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Fetch pending/all unanswered form questions for a user (optionally filtered by job_id)."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        sql = "SELECT * FROM pending_form_questions WHERE user_id = ?"
+        params: List[Any] = [user_id]
+        if job_id is not None and str(job_id).strip():
+            sql += " AND job_id = ?"
+            params.append(str(job_id).strip())
+        if status and status != "all":
+            sql += " AND status = ?"
+            params.append(status)
+        sql += " ORDER BY id DESC"
+        rows = conn.execute(sql, params).fetchall()
+        results: List[Dict[str, Any]] = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["options"] = json.loads(d.get("options_json") or "[]")
+            except Exception:
+                d["options"] = []
+            results.append(d)
+        return results
+
+
+def resolve_pending_form_question(
+    user_id: int,
+    question_text: str,
+    resolved_answer: str,
+    job_id: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> int:
+    """Mark matching pending question(s) resolved once the user teaches AutoBot."""
+    init_db(db_path)
+    norm_q = normalize_question_text(question_text)
+    now = datetime.now().isoformat()
+    with get_db_connection(db_path) as conn:
+        sql = "UPDATE pending_form_questions SET status = 'resolved', resolved_answer = ?, resolved_at = ? WHERE user_id = ? AND normalized_question = ?"
+        params: List[Any] = [resolved_answer.strip(), now, user_id, norm_q]
+        if job_id:
+            sql += " AND job_id = ?"
+            params.append(str(job_id))
+        cur = conn.execute(sql, params)
+        conn.commit()
+        return cur.rowcount
 
 
 # Backward-compatible alias

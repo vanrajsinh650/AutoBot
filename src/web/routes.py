@@ -353,7 +353,7 @@ async def get_apply_portals_handler(request: web.Request) -> web.Response:
     category_param = request.query.get("category", "").strip().lower()
     platform_param = request.query.get("platform", "").strip()
     search_query = request.query.get("q", "").strip()
-    limit = int(request.query.get("limit", "100"))
+    limit = int(request.query.get("limit", "5000"))
     offset = int(request.query.get("offset", "0"))
 
     cat_filter = None
@@ -508,18 +508,14 @@ async def apply_portals_bot_handler(request: web.Request) -> web.Response:
             })
         except Exception as e:
             logger.error(f"Error in portal apply execution: {e}", exc_info=True)
-            # Safe fallback: Ensure cards are always updated and never stuck in 'applying'
-            sim_status = "dry_run" if dry_run else "applied"
-            execution_manager.broadcast("log", {"level": "info", "message": f"⚡ Running simulated portal fill for {len(job_ids)} job(s)... ({e})", "user_id": user_id})
-            for i, jid in enumerate(job_ids, 1):
-                await asyncio.sleep(0.4)
+            execution_manager.broadcast("log", {"level": "error", "message": f"❌ Portal apply run failed: {e}", "user_id": user_id})
+            for jid in job_ids:
                 execution_manager.broadcast("portal_update", {
                     "job_id": jid,
-                    "status": sim_status,
+                    "status": "requires_manual",
+                    "reason": str(e),
                     "user_id": user_id,
                 })
-                execution_manager.broadcast("log", {"level": "success", "message": f"✓ [{i}/{len(job_ids)}] Form processed for job #{jid} ({sim_status})", "user_id": user_id})
-            execution_manager.broadcast("log", {"level": "success", "message": f"🎉 Portal application finished ({len(job_ids)} jobs processed).", "user_id": user_id})
         finally:
             execution_manager.is_running = False
             execution_manager.current_node = "idle"
@@ -1028,14 +1024,11 @@ async def start_run(request: web.Request) -> web.Response:
             logger.debug(f"Could not persist config.yaml: {ex}")
 
         try:
-            from src.storage.db import save_job_preferences
-            save_job_preferences(
-                user_id=user_id,
-                preferences={
-                    "employment_types": job_types,
-                    "min_fit_score": int(min_score * 100),
-                }
-            )
+            from src.storage.db import save_job_preferences, get_job_preferences
+            existing_prefs = get_job_preferences(user_id=user_id) or {}
+            existing_prefs["employment_types"] = job_types
+            existing_prefs["min_fit_threshold"] = int(min_score * 100)
+            save_job_preferences(user_id=user_id, prefs=existing_prefs)
         except Exception as ex:
             logger.debug(f"Could not persist preferences: {ex}")
 
@@ -1185,14 +1178,11 @@ async def search_live_handler(request: web.Request) -> web.Response:
             logger.debug(f"Could not persist config.yaml: {ex}")
 
         try:
-            from src.storage.db import save_job_preferences
-            save_job_preferences(
-                user_id=user_id,
-                preferences={
-                    "employment_types": job_types,
-                    "min_fit_score": int(min_score * 100),
-                }
-            )
+            from src.storage.db import save_job_preferences, get_job_preferences
+            existing_prefs = get_job_preferences(user_id=user_id) or {}
+            existing_prefs["employment_types"] = job_types
+            existing_prefs["min_fit_threshold"] = int(min_score * 100)
+            save_job_preferences(user_id=user_id, prefs=existing_prefs)
         except Exception as ex:
             logger.debug(f"Could not persist preferences: {ex}")
 
@@ -1259,12 +1249,14 @@ async def search_live_handler(request: web.Request) -> web.Response:
                 )
             else:
                 # Direct Multi-Browser LinkedIn Search with strict 'Python Developer' priority
+                max_pages_cfg = int(body.get("max_pages") or getattr(getattr(get_config(), "agent", None), "max_pages", 3) or 3)
                 await run_direct_chrome_search(
                     keywords=keywords,
                     location=location,
                     job_types=job_types,
                     num_browsers=num_browsers,
                     min_score=min_score,
+                    max_pages=max_pages_cfg,
                     headless=headless,
                     progress_callback=cb,
                     user_id=user_id,
@@ -2551,4 +2543,88 @@ async def resolve_apply_url_handler(request: web.Request) -> web.Response:
 
     # Fallback to authentic target_url (never generate synthetic Google search links)
     return web.json_response({"success": True, "apply_url": target_url or "", "is_external": True, "resolved": False})
+
+
+# ── Self-Learning Q&A Memory & Pending Question Endpoints ─────────
+
+async def get_learned_qa_handler(request: web.Request) -> web.Response:
+    """Return all user-taught Q&A rules and open pending form questions."""
+    user_id = get_current_user_id(request) or 1
+    from src.storage.db import get_learned_qa_rules, get_pending_form_questions
+    rules = get_learned_qa_rules(user_id=user_id, active_only=True)
+    pending = get_pending_form_questions(user_id=user_id, status="pending")
+    return web.json_response({
+        "rules": rules,
+        "pending_questions": pending,
+    })
+
+
+async def save_learned_qa_handler(request: web.Request) -> web.Response:
+    """
+    Teach AutoBot an explicit answer/instruction for a form question.
+    Stores the rule in persistent Q&A memory so AutoBot applies it on every future job,
+    and resolves matching pending questions.
+    """
+    user_id = get_current_user_id(request) or 1
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON body"}, status=400)
+
+    question = str(data.get("question") or data.get("question_pattern") or "").strip()
+    answer = str(data.get("answer") or data.get("user_answer") or "").strip()
+    if not question or not answer:
+        return web.json_response({"error": "Both 'question' and 'answer' are required."}, status=400)
+
+    field_type = str(data.get("field_type") or "text").strip()
+    options = data.get("options") if isinstance(data.get("options"), list) else []
+    instruction_note = str(data.get("instruction_note") or "").strip()
+    job_id = str(data.get("job_id") or "").strip()
+    company = str(data.get("company") or "").strip()
+
+    from src.storage.db import save_learned_qa_rule, resolve_pending_form_question
+    rule = save_learned_qa_rule(
+        user_id=user_id,
+        question_pattern=question,
+        user_answer=answer,
+        field_type=field_type,
+        options=options,
+        instruction_note=instruction_note,
+        source_job_id=job_id,
+        source_company=company,
+    )
+    resolved_count = resolve_pending_form_question(
+        user_id=user_id,
+        question_text=question,
+        resolved_answer=answer,
+        job_id=job_id if job_id else None,
+    )
+    logger.info(f"[self-learn]🧠 Learned Q&A rule for user {user_id}: '{question[:50]}' -> '{answer}'")
+    return web.json_response({
+        "success": True,
+        "rule": rule,
+        "resolved_count": resolved_count,
+    })
+
+
+async def delete_learned_qa_handler(request: web.Request) -> web.Response:
+    """Delete a user-taught Q&A rule by ID."""
+    user_id = get_current_user_id(request) or 1
+    rule_id_raw = request.match_info.get("id") or ""
+    if not rule_id_raw.isdigit():
+        return web.json_response({"error": "Invalid rule ID"}, status=400)
+    from src.storage.db import delete_learned_qa_rule
+    deleted = delete_learned_qa_rule(rule_id=int(rule_id_raw), user_id=user_id)
+    if not deleted:
+        return web.json_response({"error": "Rule not found"}, status=404)
+    return web.json_response({"success": True})
+
+
+async def get_portal_pending_questions_handler(request: web.Request) -> web.Response:
+    """Return pending unanswered questions for a stopped/blocked portal application."""
+    user_id = get_current_user_id(request) or 1
+    job_id = request.match_info.get("id") or ""
+    from src.storage.db import get_pending_form_questions
+    questions = get_pending_form_questions(user_id=user_id, job_id=job_id, status="pending")
+    return web.json_response({"job_id": job_id, "questions": questions})
 

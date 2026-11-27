@@ -18,6 +18,7 @@ from src.web.routes import (
     configure_browser_handler,
     confirm_linkedin_submission_handler,
     delete_account_handler,
+    delete_learned_qa_handler,
     delete_portals_handler,
     discover_jobs_handler,
     download_application_pack_handler,
@@ -31,9 +32,12 @@ from src.web.routes import (
     get_config_handler,
     get_discovered_jobs_handler,
     get_jobs,
+    get_learned_qa_handler,
+    get_portal_pending_questions_handler,
     get_preferences_handler,
     get_profile_handler,
     get_proof_handler,
+    save_learned_qa_handler,
     get_resume_versions_handler,
     get_sources_handler,
     get_sources_health_handler,
@@ -196,6 +200,10 @@ def create_app() -> web.Application:
     app.router.add_post("/api/portals/apply-direct", apply_direct_link_handler)
     app.router.add_post("/api/application/direct-apply", apply_direct_link_handler)
     app.router.add_get("/api/proofs/{filename}", get_proof_handler)
+    app.router.add_get("/api/learned-qa", get_learned_qa_handler)
+    app.router.add_post("/api/learned-qa", save_learned_qa_handler)
+    app.router.add_delete("/api/learned-qa/{id}", delete_learned_qa_handler)
+    app.router.add_get("/api/portals/{id}/pending-questions", get_portal_pending_questions_handler)
     app.router.add_get("/api/config", get_config_handler)
     app.router.add_post("/api/config", save_config_handler)
     app.router.add_get("/api/profile", get_profile_handler)

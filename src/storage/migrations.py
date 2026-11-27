@@ -457,6 +457,51 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_scheduler_leases_expires ON scheduler_leases(expires_at)")
 
+    # 17. learned_qa_rules (Self-learning persistent user instructions & Q&A answers)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS learned_qa_rules (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id              INTEGER NOT NULL DEFAULT 1,
+            question_pattern     TEXT NOT NULL,
+            normalized_question  TEXT NOT NULL,
+            field_type           TEXT DEFAULT 'text',
+            options_json         TEXT DEFAULT '[]',
+            user_answer          TEXT NOT NULL,
+            instruction_note     TEXT DEFAULT '',
+            source_job_id        TEXT DEFAULT '',
+            source_company       TEXT DEFAULT '',
+            hit_count            INTEGER DEFAULT 0,
+            is_active            INTEGER DEFAULT 1,
+            created_at           TEXT NOT NULL,
+            updated_at           TEXT NOT NULL,
+            UNIQUE(user_id, normalized_question)
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_learned_qa_user ON learned_qa_rules(user_id, is_active)")
+
+    # 18. pending_form_questions (Unknown questions where AutoBot paused with proof image for user input)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pending_form_questions (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id              INTEGER NOT NULL DEFAULT 1,
+            job_id               TEXT NOT NULL,
+            job_title            TEXT DEFAULT '',
+            company              TEXT DEFAULT '',
+            question_text        TEXT NOT NULL,
+            normalized_question  TEXT NOT NULL,
+            field_type           TEXT DEFAULT 'text',
+            options_json         TEXT DEFAULT '[]',
+            reason               TEXT DEFAULT '',
+            proof_screenshot     TEXT DEFAULT '',
+            status               TEXT DEFAULT 'pending',
+            resolved_answer      TEXT DEFAULT '',
+            created_at           TEXT NOT NULL,
+            resolved_at          TEXT DEFAULT '',
+            UNIQUE(user_id, job_id, normalized_question)
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pending_q_user_job ON pending_form_questions(user_id, job_id, status)")
+
     # Legacy indexes
     conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_job_id ON applications(job_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status)")

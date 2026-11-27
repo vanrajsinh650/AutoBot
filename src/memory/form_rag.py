@@ -119,6 +119,28 @@ class FormRAG:
                 source="fallback",
             )
 
+        # ── Tier 0: Self-Learning User-Taught Q&A Rules ───────────────
+        try:
+            from src.storage.db import find_learned_qa_answer
+            learned = find_learned_qa_answer(
+                user_id=getattr(self, "user_id", 1),
+                question=q_clean,
+                options=opts,
+                field_type=f_type.value if hasattr(f_type, "value") else str(f_type),
+            )
+            if learned and learned.get("answer"):
+                logger.info(
+                    f"[form]🧠 Learned Q&A rule applied for '{q_clean[:40]}...': {learned['answer']}[/form]"
+                )
+                return FormAnswer(
+                    question=q_clean,
+                    answer=str(learned["answer"]),
+                    confidence=1.0,
+                    source="learned_qa",
+                )
+        except Exception:
+            pass
+
         # ── Tier 1: Config overrides ──────────────────────────────────
         config_override = self._check_config_overrides(q_clean, f_type, opts)
         if config_override is not None:

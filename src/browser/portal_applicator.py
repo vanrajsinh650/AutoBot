@@ -165,8 +165,20 @@ async def apply_to_portals(
             raise RuntimeError("Browser context could not be created.")
 
         candidate_info = load_candidate_profile_info(cfg)
+        candidate_info["user_id"] = user_id
+        form_rag_instance = None
+        try:
+            from src.memory.form_rag import FormRAG
+            from src.memory.retriever import ProfileRetriever
+            from src.utils.llm_factory import get_llm
+            retriever = ProfileRetriever(env=env)
+            form_rag_instance = FormRAG(retriever=retriever, llm=get_llm(temperature=0.0))
+            form_rag_instance.user_id = user_id
+        except Exception:
+            form_rag_instance = None
         actuator = ExternalApplyActuator(
             context=context,
+            form_rag=form_rag_instance,
             cfg=cfg,
             candidate_info=candidate_info,
         )

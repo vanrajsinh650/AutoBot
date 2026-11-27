@@ -34,12 +34,14 @@ async def capture_proof_screenshot(
     is_success: bool = True,
     reason: Optional[str] = None,
     status: str = "applied",
+    pending_questions: Optional[list] = None,
 ) -> Optional[str]:
     """
     Capture a verified screenshot with an embedded audit banner and return relative file path.
     Truthfully stamps:
     - '✅ AutoBot Application Submitted & Verified' for real submissions verified on confirmation pages.
     - '🔍 AutoBot Simulation (Dry Run)' for simulation runs (form filled with candidate info).
+    - '🧠 AutoBot Paused — New Question Needs Your Instruction' when stopped on unknown questions.
     - '⚠️ AutoBot Blocker Audit' for gated/blocked/failed submissions.
     """
     try:
@@ -47,6 +49,7 @@ async def capture_proof_screenshot(
         clean_id = re.sub(r"[^\w\-]", "_", str(job_id))
         
         is_dry_run = (status == "dry_run")
+        has_pending_q = bool(pending_questions)
         if is_dry_run:
             suffix = "dry_run"
             banner_title = "🔍 AutoBot Simulation (Dry Run) — Form Filled"
@@ -57,6 +60,11 @@ async def capture_proof_screenshot(
             banner_title = "✅ AutoBot Application Submitted & Verified"
             banner_bg = "#064E3B"
             banner_border = "#10B981"
+        elif has_pending_q:
+            suffix = "blocked"
+            banner_title = "🧠 AutoBot Paused — New Question Needs Your Instruction"
+            banner_bg = "#78350F"
+            banner_border = "#F59E0B"
         else:
             suffix = "blocked"
             banner_title = "⚠️ AutoBot Blocker Audit"
@@ -224,6 +232,16 @@ async def capture_proof_screenshot(
         elif not is_success:
             if reason:
                 subtext += f"<br>Blocker: {html.escape(str(reason), quote=True)}"
+            if pending_questions:
+                q_summaries = []
+                for pq in pending_questions[:3]:
+                    qt = str(pq.get("question") or "").strip()
+                    opts = pq.get("options") or []
+                    opt_txt = f" [Options: {', '.join(str(o) for o in opts[:4])}]" if opts else ""
+                    if qt:
+                        q_summaries.append(f"{qt}{opt_txt}")
+                if q_summaries:
+                    subtext += f"<br>Teach AutoBot in Dashboard &rarr; {html.escape(' | '.join(q_summaries), quote=True)}"
             if detected_issue:
                 subtext += f"<br>Unfilled / Error Fields: {html.escape(str(detected_issue), quote=True)}"
 

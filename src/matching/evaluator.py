@@ -40,25 +40,32 @@ COMMON_TECH_KEYWORDS = [
     "REST", "GraphQL", "gRPC", "Kafka", "RabbitMQ", "Linux", "Microservices"
 ]
 
+_COMPILED_TECH_PATTERNS = [
+    (
+        skill,
+        re.compile(r"\b" + re.escape(skill.lower()) + r"\b"),
+        re.compile(
+            rf"\b(?:no|not|without|never|avoid|strictly no)\b[^.\n]{{0,35}}\b{re.escape(skill.lower())}\b|"
+            rf"\b{re.escape(skill.lower())}\b[^.\n]{{0,35}}\b(?:not required|not needed|not used|never used|strictly not used|not accepted|prohibited)\b"
+        ),
+    )
+    for skill in COMMON_TECH_KEYWORDS
+]
+_EXP_YEARS_RE = re.compile(r"(\d+)\+?\s*years?(?:\s+of)?\s+experience")
+
 
 def extract_requirements_heuristic(description: str) -> JobRequirementsExtracted:
     """Extract job requirements using deterministic text heuristics."""
     desc_lower = f" {description.lower()} "
     found_skills = []
-    for skill in COMMON_TECH_KEYWORDS:
-        pattern = r"\b" + re.escape(skill.lower()) + r"\b"
-        if re.search(pattern, desc_lower):
-            # Negation guard: Check for phrases like "no python", "without java", "not required", "strictly not used"
-            neg_pattern = (
-                rf"\b(?:no|not|without|never|avoid|strictly no)\b[^.\n]{{0,35}}\b{re.escape(skill.lower())}\b|"
-                rf"\b{re.escape(skill.lower())}\b[^.\n]{{0,35}}\b(?:not required|not needed|not used|never used|strictly not used|not accepted|prohibited)\b"
-            )
-            if re.search(neg_pattern, desc_lower):
+    for skill, pat, neg_pat in _COMPILED_TECH_PATTERNS:
+        if pat.search(desc_lower):
+            if neg_pat.search(desc_lower):
                 continue
             found_skills.append(skill)
 
     # Years of experience heuristic (e.g. '3+ years', '5 years of experience')
-    exp_matches = re.findall(r"(\d+)\+?\s*years?(?:\s+of)?\s+experience", desc_lower)
+    exp_matches = _EXP_YEARS_RE.findall(desc_lower)
     min_years = float(exp_matches[0]) if exp_matches else 0.0
 
     # Extract lines looking like responsibilities
@@ -360,7 +367,7 @@ def is_senior_or_blacklisted_title(
         if not clean_kw:
             continue
         if clean_kw.isalnum():
-            if re.search(rf"\b{re.escape(clean_kw)}\b", title_lower):
+            if re.search(rf"(?<![a-z0-9]){re.escape(clean_kw)}(?![a-z0-9])", title_lower):
                 return True, kw
         else:
             if clean_kw in title_lower:
@@ -383,6 +390,20 @@ MAJOR_FOREIGN_TECH_STACKS = {
     "SAP": [r"\bsap\b", r"\babap\b"],
     "Mainframe / COBOL": [r"\bcobol\b", r"\bmainframe\b"],
 }
+
+_COMPILED_FOREIGN_STACKS = {
+    stack_name: [re.compile(pat) for pat in pats]
+    for stack_name, pats in MAJOR_FOREIGN_TECH_STACKS.items()
+}
+_WORD_PAT_CACHE: Dict[str, re.Pattern] = {}
+
+
+def _word_pat(token: str) -> re.Pattern:
+    p = _WORD_PAT_CACHE.get(token)
+    if p is None:
+        p = re.compile(r"\b" + re.escape(token) + r"\b")
+        _WORD_PAT_CACHE[token] = p
+    return p
 
 
 def check_resume_technology_alignment(
@@ -423,19 +444,20 @@ def check_resume_technology_alignment(
     candidate_skills_lower = [s.lower().strip() for s in candidate_skills]
     t_low = (title or "").lower()
     d_low = (description or "").lower()
+    candidate_primary = [s for s in candidate_skills_lower if s in {"python", "fastapi", "django", "playwright", "ai", "react", "typescript", "javascript", "golang", "rust", "node", "redis", "sql", "postgres", "docker", "selenium"}]
+    primary_pats = [_word_pat(p) for p in candidate_primary]
 
     # 1. Foreign Tech Stack Rejection
-    for stack_name, patterns in MAJOR_FOREIGN_TECH_STACKS.items():
+    for stack_name, patterns in _COMPILED_FOREIGN_STACKS.items():
         has_skill_in_resume = any(
-            any(re.search(pat, s) for pat in patterns)
+            any(pat.search(s) for pat in patterns)
             for s in candidate_skills_lower
         )
         if not has_skill_in_resume:
-            if any(re.search(pat, t_low) for pat in patterns):
+            if any(pat.search(t_low) for pat in patterns):
                 return False, f"Incompatible tech stack: Job requires {stack_name}, which is not in candidate resume"
-            candidate_primary = [s for s in candidate_skills_lower if s in {"python", "fastapi", "django", "playwright", "ai", "react", "typescript", "javascript", "golang", "rust"}]
-            if any(re.search(pat, d_low) for pat in patterns):
-                has_any_primary = any(re.search(r"\b" + re.escape(p) + r"\b", d_low) for p in candidate_primary)
+            if any(pat.search(d_low) for pat in patterns):
+                has_any_primary = any(pp.search(d_low) for pp in primary_pats)
                 if not has_any_primary:
                     return False, f"Incompatible tech stack: Job description requires {stack_name}, not in candidate resume"
 
@@ -443,10 +465,9 @@ def check_resume_technology_alignment(
     generic_titles = {"software engineer", "backend developer", "full stack developer", "software developer", "developer", "engineer", "systems engineer", "cloud developer"}
     clean_title = re.sub(r"[^a-z\s]", "", t_low).strip()
     if clean_title in generic_titles:
-        candidate_primary = [s for s in candidate_skills_lower if s in {"python", "fastapi", "django", "playwright", "ai", "react", "typescript", "javascript", "node", "redis", "sql", "postgres", "docker", "selenium"}]
         has_primary = any(
-            re.search(r"\b" + re.escape(p) + r"\b", d_low) or re.search(r"\b" + re.escape(p) + r"\b", t_low)
-            for p in candidate_primary
+            pp.search(d_low) or pp.search(t_low)
+            for pp in primary_pats
         )
         if not has_primary:
             return False, "Generic role without any candidate resume skills (Python, FastAPI, AI, etc.) in job details"
@@ -486,41 +507,43 @@ def evaluate_scraped_job_fit(
     profile: Optional[Dict[str, Any]] = None,
     preferences: Optional[Dict[str, Any]] = None,
     evidence: Optional[List[Dict[str, Any]]] = None,
+    skip_alignment_check: bool = False,
 ) -> Dict[str, Any]:
     """
     Lightweight, fast, deterministic evaluation of any scraped job against the
     candidate's parsed resume and preferences.
     """
-    # 1. Seniority / Blacklist check
-    is_senior, kw = is_senior_or_blacklisted_title(title)
-    if is_senior:
-        return {
-            "match_score": 0.0,
-            "match_percentage": 0,
-            "is_senior": True,
-            "eligibility_status": "ineligible_seniority",
-            "matched_requirements": [],
-            "missing_requirements": [f"Seniority conflict: Title contains '{kw}'"],
-            "explanation": f"Rejected by blacklist / seniority filter: '{title}' contains '{kw}'",
-        }
+    if not skip_alignment_check:
+        # 1. Seniority / Blacklist check
+        is_senior, kw = is_senior_or_blacklisted_title(title)
+        if is_senior:
+            return {
+                "match_score": 0.0,
+                "match_percentage": 0,
+                "is_senior": True,
+                "eligibility_status": "ineligible_seniority",
+                "matched_requirements": [],
+                "missing_requirements": [f"Seniority conflict: Title contains '{kw}'"],
+                "explanation": f"Rejected by blacklist / seniority filter: '{title}' contains '{kw}'",
+            }
 
-    # 1.5 Technology Alignment Check
-    is_aligned, align_reason = check_resume_technology_alignment(
-        title=title,
-        description=description,
-        user_id=user_id,
-        db_path=db_path,
-    )
-    if not is_aligned:
-        return {
-            "match_score": 0.0,
-            "match_percentage": 0,
-            "is_senior": False,
-            "eligibility_status": "ineligible_tech_mismatch",
-            "matched_requirements": [],
-            "missing_requirements": [align_reason],
-            "explanation": f"Rejected: {align_reason}",
-        }
+        # 1.5 Technology Alignment Check
+        is_aligned, align_reason = check_resume_technology_alignment(
+            title=title,
+            description=description,
+            user_id=user_id,
+            db_path=db_path,
+        )
+        if not is_aligned:
+            return {
+                "match_score": 0.0,
+                "match_percentage": 0,
+                "is_senior": False,
+                "eligibility_status": "ineligible_tech_mismatch",
+                "matched_requirements": [],
+                "missing_requirements": [align_reason],
+                "explanation": f"Rejected: {align_reason}",
+            }
 
     # 2. Candidate profile & preferences (use preloaded if provided)
     if profile is None:
