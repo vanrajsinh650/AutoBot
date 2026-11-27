@@ -186,6 +186,7 @@ def parse_resume(file_path: str | Path) -> List[DocumentChunk]:
 
     pages_text: List[Tuple[int, str]] = []
     total_text = ""
+    pdf_hyperlinks: List[str] = []
 
     try:
         with pdfplumber.open(str(path)) as pdf:
@@ -193,6 +194,10 @@ def parse_resume(file_path: str | Path) -> List[DocumentChunk]:
                 page_text = page.extract_text() or ""
                 pages_text.append((idx + 1, page_text))
                 total_text += page_text + "\n"
+                for hl in (getattr(page, "hyperlinks", None) or []):
+                    uri = str(hl.get("uri") or "").strip()
+                    if uri and uri not in pdf_hyperlinks:
+                        pdf_hyperlinks.append(uri)
     except Exception as pdf_err:
         try:
             raw_content = Path(path).read_text(encoding="utf-8", errors="ignore")
@@ -327,4 +332,8 @@ def parse_resume(file_path: str | Path) -> List[DocumentChunk]:
                 )
 
     logger.info(f"Parsed {len(chunks)} semantic chunks from resume PDF: {path.name}")
+    if pdf_hyperlinks:
+        joined_links = "||".join(pdf_hyperlinks)
+        for ch in chunks:
+            ch.metadata["hyperlinks"] = joined_links
     return chunks

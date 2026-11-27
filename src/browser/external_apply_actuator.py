@@ -59,50 +59,124 @@ async def _eval_maybe_async(val_or_callable: Any) -> Any:
     return val
 
 
-def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, str]:
-    """Extract candidate contact details from database, config.yaml, and resume PDF."""
+def _parse_location_parts(loc_str: str) -> Dict[str, str]:
+    """Extract city, state, country strictly from a location string without guessing missing parts."""
+    clean = str(loc_str or "").strip()
+    if not clean:
+        return {"location": "", "city": "", "state": "", "country": ""}
+    parts = [p.strip() for p in clean.split(",") if p.strip()]
+    known_countries = {"india", "united states", "usa", "us", "united kingdom", "uk", "canada", "australia", "germany", "singapore", "uae"}
+    city = ""
+    state = ""
+    country = ""
+    if len(parts) >= 3:
+        city, state, country = parts[0], parts[1], parts[-1]
+    elif len(parts) == 2:
+        if parts[1].lower() in known_countries:
+            state, country = parts[0], parts[1]
+        else:
+            city, state = parts[0], parts[1]
+    elif len(parts) == 1:
+        if parts[0].lower() in known_countries:
+            country = parts[0]
+        else:
+            city = parts[0]
+    return {"location": clean, "city": city, "state": state, "country": country}
+
+
+def load_candidate_profile_info(
+    cfg: Optional[AppConfig] = None,
+    user_id: int = 1,
+    resume_path: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """
+    Extract candidate contact details strictly from the candidate's actual resume PDF,
+    database profile, and explicit config.yaml preferences. Never invents personal data.
+    """
     config = cfg or get_config()
     answers_cfg = getattr(getattr(config, "apply", None), "answers", None)
-    info = {
-        "full_name": "Vanraj Solanki",
-        "first_name": "Vanraj",
-        "last_name": "Solanki",
-        "email": "vanrajsolanki2875@gmail.com",
-        "phone": "+91-8320452875",
-        "phone_clean": "8320452875",
-        "country_code": "+91",
-        "linkedin": getattr(getattr(config, "profile", None), "linkedin_url", "") or "https://linkedin.com/in/vanrajsinh",
-        "github": "https://github.com/vanrajsinh650",
-        "portfolio": getattr(getattr(config, "profile", None), "portfolio_url", "") or "https://github.com/vanrajsinh650",
-        "location": "Ahmedabad, Gujarat, India",
-        "city": "Ahmedabad",
-        "state": "Gujarat",
-        "country": "India",
-        "postal_code": "380015",
-        "street_address": "132 Feet Ring Road",
-        "current_company": "DivineHindu",
-        "current_title": "Software & AI Automation Engineer",
-        "years_of_experience": str(getattr(answers_cfg, "years_of_experience", "1") or "1"),
-        "notice_period": str(getattr(answers_cfg, "notice_period", "Immediate") or "Immediate"),
-        "notice_period_days": "0" if "0" in str(getattr(answers_cfg, "notice_period", "")) else "15",
-        "education_level": "Bachelor's Degree",
-        "degree": "Bachelor of Computer Applications (BCA)",
-        "university": "Gokul Global University",
-        "major": "Computer Applications",
-        "graduation_year": "2025",
-        "skills": [
-            "Python", "FastAPI", "Django", "Playwright", "REST APIs",
-            "PostgreSQL", "SQL", "Redis", "Docker", "Git", "JavaScript", "AI",
-        ],
-        "gender": "Male",
-        "veteran": "No",
-        "disability": "No",
-        "work_authorization": str(getattr(answers_cfg, "work_authorization", "Yes") or "Yes"),
-        "sponsorship_required": str(getattr(answers_cfg, "sponsorship_required", "No") or "No"),
-        "willing_to_relocate": str(getattr(answers_cfg, "willing_to_relocate", "Yes") or "Yes"),
-        "expected_salary": str(getattr(answers_cfg, "expected_salary", "") or "100000"),
+    profile_cfg = getattr(config, "profile", None)
+
+    def _cfg_str(attr: str) -> str:
+        val = getattr(answers_cfg, attr, "") if answers_cfg else ""
+        return str(val).strip() if val is not None else ""
+
+    notice_raw = _cfg_str("notice_period")
+    info: Dict[str, Any] = {
+        "user_id": user_id,
+        "full_name": "",
+        "first_name": "",
+        "last_name": "",
+        "email": "",
+        "phone": "",
+        "phone_clean": "",
+        "country_code": "",
+        "linkedin": str(getattr(profile_cfg, "linkedin_url", "") or "").strip(),
+        "github": "",
+        "portfolio": str(getattr(profile_cfg, "portfolio_url", "") or "").strip(),
+        "location": "",
+        "city": "",
+        "state": "",
+        "country": "",
+        "postal_code": "",
+        "street_address": "",
+        "current_company": "",
+        "current_title": "",
+        "years_of_experience": _cfg_str("years_of_experience"),
+        "notice_period": notice_raw,
+        "notice_period_days": "0" if "0" in notice_raw else ("15" if notice_raw else ""),
+        "education_level": "",
+        "degree": "",
+        "university": "",
+        "major": "",
+        "graduation_year": "",
+        "skills": [],
+        "gender": _cfg_str("gender") if hasattr(answers_cfg, "gender") else "",
+        "veteran": _cfg_str("veteran") if hasattr(answers_cfg, "veteran") else "",
+        "disability": _cfg_str("disability") if hasattr(answers_cfg, "disability") else "",
+        "race": _cfg_str("race") if hasattr(answers_cfg, "race") else "",
+        "pronouns": _cfg_str("pronouns") if hasattr(answers_cfg, "pronouns") else "",
+        "work_authorization": _cfg_str("work_authorization"),
+        "sponsorship_required": _cfg_str("sponsorship_required"),
+        "willing_to_relocate": _cfg_str("willing_to_relocate"),
+        "expected_salary": _cfg_str("expected_salary"),
+        "resume_text": "",
     }
     placeholder_names = {"candidate", "untitled", "unknown", "user a", "user b"}
+
+    def _apply_name(raw_name: str) -> None:
+        fn = str(raw_name or "").strip()
+        if not fn or fn.lower() in placeholder_names:
+            return
+        normalized = fn.title() if fn.isupper() else fn
+        info["full_name"] = normalized
+        parts = normalized.split(maxsplit=1)
+        info["first_name"] = parts[0]
+        info["last_name"] = parts[1] if len(parts) > 1 else ""
+
+    def _apply_phone(raw_phone: str) -> None:
+        ph = str(raw_phone or "").strip()
+        if not ph:
+            return
+        info["phone"] = ph
+        digits = re.sub(r"[^\d]", "", ph)
+        if len(digits) >= 10:
+            info["phone_clean"] = digits[-10:]
+            if len(digits) > 10:
+                info["country_code"] = f"+{digits[:-10]}"
+
+    def _apply_location(raw_loc: str, raw_country: str = "") -> None:
+        parsed_loc = _parse_location_parts(raw_loc)
+        if parsed_loc["location"]:
+            info["location"] = parsed_loc["location"]
+        if parsed_loc["city"]:
+            info["city"] = parsed_loc["city"]
+        if parsed_loc["state"]:
+            info["state"] = parsed_loc["state"]
+        if parsed_loc["country"]:
+            info["country"] = parsed_loc["country"]
+        elif raw_country and not info["country"]:
+            info["country"] = str(raw_country).strip()
 
     def _apply_education_list(edu_list: Any) -> None:
         if not isinstance(edu_list, list) or not edu_list:
@@ -110,17 +184,38 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
         first_edu = edu_list[0] if isinstance(edu_list[0], dict) else {}
         inst = str(first_edu.get("institution") or "").strip()
         raw_edu = str(first_edu.get("raw_text") or "").strip()
-        details_text = " ".join(str(d) for d in (first_edu.get("details") or []))
-        combined_edu = f"{inst} {details_text} {raw_edu}"
-        if "gokul" in combined_edu.lower():
-            info["university"] = "Gokul Global University"
-        elif details_text and "university" in details_text.lower():
-            info["university"] = details_text.split(",")[0].strip()
-        if "bca" in combined_edu.lower() or "computer applications" in combined_edu.lower():
-            info["degree"] = "Bachelor of Computer Applications (BCA)"
-            info["major"] = "Computer Applications"
-        elif "bachelor" in combined_edu.lower() or "bs " in combined_edu.lower():
-            info["degree"] = inst or info["degree"]
+        details_list = [str(d).strip() for d in (first_edu.get("details") or []) if str(d).strip()]
+        details_text = " ".join(details_list)
+        combined_edu = f"{inst} {details_text} {raw_edu}".strip()
+
+        # Degree / Major extraction
+        deg_line = inst if any(k in inst.lower() for k in ("bachelor", "master", "phd", "b.tech", "bca", "b.sc", "m.tech", "mca", "diploma", "degree")) else ""
+        if deg_line:
+            clean_deg = re.split(r"\b(?:19|20)\d{2}\b", deg_line)[0].strip(" -–|,")
+            if clean_deg:
+                info["degree"] = clean_deg
+                if "bachelor" in clean_deg.lower() or "bca" in clean_deg.lower() or "b." in clean_deg.lower():
+                    info["education_level"] = "Bachelor's Degree"
+                elif "master" in clean_deg.lower() or "mca" in clean_deg.lower() or "m." in clean_deg.lower():
+                    info["education_level"] = "Master's Degree"
+                m_maj = re.search(r"\bof\s+([A-Za-z &]+?)(?:\s*\(|$)", clean_deg, re.IGNORECASE)
+                if m_maj:
+                    info["major"] = m_maj.group(1).strip()
+
+        # University extraction
+        for line in [details_list[0] if details_list else "", inst, raw_edu]:
+            if any(u in line.lower() for u in ("university", "institute", "college", "school", "academy")):
+                uni_part = line.split("|")[0].split(",")[0].strip()
+                # Strip trailing location tokens if e.g. "Gokul Global University Gujarat"
+                if info.get("state") and uni_part.lower().endswith(info["state"].lower()):
+                    uni_part = uni_part[: -len(info["state"])].strip()
+                info["university"] = uni_part
+                break
+
+        # Graduation year ONLY if an explicit end year exists (NOT "to Present")
+        m_yr = re.search(r"(?:19|20)\d{2}\s*[-–—to]+\s*((?:19|20)\d{2})", combined_edu, re.IGNORECASE)
+        if m_yr:
+            info["graduation_year"] = m_yr.group(1)
 
     def _apply_experience_list(exp_list: Any) -> None:
         if not isinstance(exp_list, list) or not exp_list:
@@ -135,31 +230,57 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
             comp_part = re.split(r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b|\d{4}", parts[1], flags=re.IGNORECASE)[0].strip(" -–|,")
             if comp_part:
                 info["current_company"] = comp_part
-        elif company_val:
-            info["current_company"] = company_val
+        else:
+            if company_val:
+                info["current_company"] = company_val
             if role_line:
                 info["current_title"] = role_line
 
-    # 1. Populate from persistent candidate profile in SQLite database
+    # 1. Populate baseline strictly from actual resume PDF (text + hyperlinks + skills + education + experience)
+    effective_resume = Path(resume_path) if resume_path is not None else Path(getattr(profile_cfg, "resume_path", "data/resume/resume.pdf") or "data/resume/resume.pdf")
+    if effective_resume.exists():
+        try:
+            from src.ingestion.resume_parser import parse_resume
+            from src.ingestion.structured_resume import parse_structured_profile
+            chunks = parse_resume(effective_resume)
+            profile_dict = parse_structured_profile(chunks)
+            fn = (profile_dict.get("full_name") or "").strip()
+            if fn and fn.lower() not in placeholder_names:
+                _apply_name(fn)
+                if profile_dict.get("email"):
+                    info["email"] = profile_dict["email"].strip()
+                if profile_dict.get("phone"):
+                    _apply_phone(profile_dict["phone"])
+                if profile_dict.get("linkedin_url") and not info["linkedin"]:
+                    info["linkedin"] = profile_dict["linkedin_url"].strip()
+                if profile_dict.get("github_url"):
+                    info["github"] = profile_dict["github_url"].strip()
+                if profile_dict.get("portfolio_url") and not info["portfolio"]:
+                    info["portfolio"] = profile_dict["portfolio_url"].strip()
+                if profile_dict.get("location"):
+                    _apply_location(profile_dict["location"], profile_dict.get("country", ""))
+                _apply_education_list(profile_dict.get("education"))
+                _apply_experience_list(profile_dict.get("experience"))
+                if profile_dict.get("technical_skills"):
+                    info["skills"] = list(dict.fromkeys(str(s).strip() for s in profile_dict["technical_skills"] if str(s).strip()))
+                if profile_dict.get("resume_text"):
+                    info["resume_text"] = str(profile_dict["resume_text"]).strip()
+        except Exception as e:
+            logger.debug(f"Could not parse candidate info from resume: {e}")
+
+    # 2. Merge explicit user profile fields stored in SQLite database (non-empty values take precedence)
     try:
         from src.storage.db import get_candidate_profile
-        db_prof = get_candidate_profile(user_id=1)
+        db_prof = get_candidate_profile(user_id=user_id)
         if db_prof:
-            fn = (db_prof.get("full_name") or "").strip()
-            if fn and fn.lower() not in placeholder_names:
-                info["full_name"] = fn.title() if fn.isupper() else fn
-                parts = info["full_name"].split(maxsplit=1)
-                info["first_name"] = parts[0]
-                info["last_name"] = parts[1] if len(parts) > 1 else "Solanki"
+            if db_prof.get("full_name"):
+                _apply_name(db_prof["full_name"])
             if db_prof.get("email"):
                 info["email"] = db_prof["email"].strip()
             if db_prof.get("phone"):
-                info["phone"] = db_prof["phone"].strip()
-                info["phone_clean"] = re.sub(r"[^\d]", "", db_prof["phone"])[-10:]
-            if db_prof.get("location"):
-                loc = db_prof["location"].strip()
-                if len(loc) > 5 and "," in loc:
-                    info["location"] = loc
+                _apply_phone(db_prof["phone"])
+            if db_prof.get("location") or db_prof.get("country"):
+                _apply_location(db_prof.get("location") or info["location"], db_prof.get("country") or "")
             if db_prof.get("linkedin_url"):
                 info["linkedin"] = db_prof["linkedin_url"].strip()
             if db_prof.get("github_url"):
@@ -168,7 +289,7 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
                 info["portfolio"] = db_prof["portfolio_url"].strip()
             _apply_education_list(db_prof.get("education"))
             _apply_experience_list(db_prof.get("experience"))
-            skills_acc = []
+            skills_acc = list(info.get("skills") or [])
             for sk_key in ("technical_skills", "primary_skills", "secondary_skills"):
                 vals = db_prof.get(sk_key)
                 if isinstance(vals, list):
@@ -176,40 +297,11 @@ def load_candidate_profile_info(cfg: Optional[AppConfig] = None) -> Dict[str, st
             if skills_acc:
                 info["skills"] = list(dict.fromkeys(skills_acc))
             headline = str(db_prof.get("headline") or "").strip()
-            if headline and " - " in headline:
+            if headline and " - " in headline and not info["current_company"]:
                 _apply_experience_list([{"role": headline}])
     except Exception as e:
         logger.debug(f"Could not load candidate profile from db: {e}")
 
-    # 2. Augment from resume PDF if available (strictly rejecting placeholder resumes)
-    resume_path = Path(getattr(config.profile, "resume_path", "data/resume/resume.pdf"))
-    if resume_path.exists():
-        try:
-            from src.ingestion.resume_parser import parse_resume
-            from src.ingestion.structured_resume import parse_structured_profile
-            chunks = parse_resume(resume_path)
-            profile_dict = parse_structured_profile(chunks)
-            fn = (profile_dict.get("full_name") or "").strip()
-            if fn and fn.lower() not in placeholder_names:
-                info["full_name"] = fn.title() if fn.isupper() else fn
-                parts = info["full_name"].split(maxsplit=1)
-                info["first_name"] = parts[0]
-                info["last_name"] = parts[1] if len(parts) > 1 else info["last_name"]
-                if profile_dict.get("email"):
-                    info["email"] = profile_dict["email"]
-                if profile_dict.get("phone"):
-                    info["phone"] = profile_dict["phone"]
-                    info["phone_clean"] = re.sub(r"[^\d]", "", profile_dict["phone"])[-10:]
-                if profile_dict.get("linkedin_url"):
-                    info["linkedin"] = profile_dict["linkedin_url"]
-                if profile_dict.get("github_url"):
-                    info["github"] = profile_dict["github_url"]
-                if profile_dict.get("portfolio_url"):
-                    info["portfolio"] = profile_dict["portfolio_url"]
-                _apply_education_list(profile_dict.get("education"))
-                _apply_experience_list(profile_dict.get("experience"))
-        except Exception as e:
-            logger.debug(f"Could not parse candidate info from resume: {e}")
     return info
 
 
@@ -285,7 +377,7 @@ class ExternalApplyActuator:
             p = getattr(self.cfg.profile, "resume_path", "data/resume/resume.pdf")
             self.resume_path = Path(p)
 
-        self.candidate_info = candidate_info or load_candidate_profile_info(self.cfg)
+        self.candidate_info = candidate_info or load_candidate_profile_info(self.cfg, resume_path=self.resume_path)
         self.user_id = int(self.candidate_info.get("user_id") or 1)
         self.last_outcome: Dict[str, Any] = {}
         self.unknown_questions: List[Dict[str, Any]] = []
@@ -1397,8 +1489,8 @@ class ExternalApplyActuator:
         candidate = getattr(self, "candidate_info", {}) or {}
         filled_count = 0
         contexts = self._get_interactive_contexts(page)
-        city_val = candidate.get("city", "Ahmedabad") or "Ahmedabad"
-        full_loc = candidate.get("location", "Ahmedabad, Gujarat, India") or "Ahmedabad, Gujarat, India"
+        city_val = str(candidate.get("city") or candidate.get("state") or candidate.get("location") or "").strip()
+        full_loc = str(candidate.get("location") or "").strip()
 
         # 1. Full name input
         full_name_selectors = [
@@ -1426,7 +1518,7 @@ class ExternalApplyActuator:
                         if is_vis:
                             val = await _eval_maybe_async(getattr(el, "input_value", None))
                             if not str(val or "").strip():
-                                val_to_fill = candidate.get("full_name", "Vanraj Solanki")
+                                val_to_fill = str(candidate.get("full_name") or "").strip()
                                 if val_to_fill:
                                     await self._human_fill_input(page, ctx, el, val_to_fill)
                                     await human_delay(150, 300)
@@ -1446,79 +1538,81 @@ class ExternalApplyActuator:
             "input[role='combobox'][id*='location' i]",
             "input[role='combobox'][aria-label*='location' i]",
         ]
-        for ctx in contexts:
-            for l_sel in location_combo_selectors:
-                try:
-                    loc_el = ctx.query_selector(l_sel) if hasattr(ctx, "query_selector") else None
-                    if inspect.isawaitable(loc_el):
-                        loc_el = await loc_el
-                    if loc_el:
-                        if await self._fill_location_combobox(ctx, loc_el, city_query=city_val, full_loc=full_loc):
-                            filled_count += 1
-                except Exception:
-                    continue
-
-            # Also check Ashby/custom Location field wrapper where input has no id/name/placeholder hint except parent label == 'Location'
-            try:
-                if hasattr(ctx, "evaluate"):
-                    extra_loc_idx = await _eval_maybe_async(
-                        ctx.evaluate("""() => {
-                            const combos = Array.from(document.querySelectorAll('input[role="combobox"]'));
-                            for (let i = 0; i < combos.length; i++) {
-                                const el = combos[i];
-                                if (el.offsetWidth === 0 && el.offsetHeight === 0) continue;
-                                if (el.id === 'candidate-location') continue;
-                                const parent = el.closest('.ashby-application-form-field-entry, [class*="field" i], [class*="question" i]');
-                                const lbl = parent ? (parent.querySelector('label, span')?.innerText || '').trim().toLowerCase() : '';
-                                if (lbl === 'location' || lbl.startsWith('location')) return i;
-                            }
-                            return -1;
-                        }""")
-                    )
-                    if isinstance(extra_loc_idx, int) and extra_loc_idx >= 0:
-                        combos = await ctx.query_selector_all('input[role="combobox"]') if hasattr(ctx, "query_selector_all") else []
-                        if extra_loc_idx < len(combos):
-                            if await self._fill_location_combobox(ctx, combos[extra_loc_idx], city_query=city_val, full_loc=full_loc):
+        if city_val or full_loc:
+            for ctx in contexts:
+                for l_sel in location_combo_selectors:
+                    try:
+                        loc_el = ctx.query_selector(l_sel) if hasattr(ctx, "query_selector") else None
+                        if inspect.isawaitable(loc_el):
+                            loc_el = await loc_el
+                        if loc_el:
+                            if await self._fill_location_combobox(ctx, loc_el, city_query=city_val or full_loc, full_loc=full_loc):
                                 filled_count += 1
-            except Exception:
-                pass
+                    except Exception:
+                        continue
 
-        # 3. Authoritative Contact & Social URL fields (supporting aria-label as well as name/placeholder/id)
-        # Tuple: (selectors, candidate_key, default_val, allow_multiple)
+                # Also check Ashby/custom Location field wrapper where input has no id/name/placeholder hint except parent label == 'Location'
+                try:
+                    if hasattr(ctx, "evaluate"):
+                        extra_loc_idx = await _eval_maybe_async(
+                            ctx.evaluate("""() => {
+                                const combos = Array.from(document.querySelectorAll('input[role="combobox"]'));
+                                for (let i = 0; i < combos.length; i++) {
+                                    const el = combos[i];
+                                    if (el.offsetWidth === 0 && el.offsetHeight === 0) continue;
+                                    if (el.id === 'candidate-location') continue;
+                                    const parent = el.closest('.ashby-application-form-field-entry, [class*="field" i], [class*="question" i]');
+                                    const lbl = parent ? (parent.querySelector('label, span')?.innerText || '').trim().toLowerCase() : '';
+                                    if (lbl === 'location' || lbl.startsWith('location')) return i;
+                                }
+                                return -1;
+                            }""")
+                        )
+                        if isinstance(extra_loc_idx, int) and extra_loc_idx >= 0:
+                            combos = await ctx.query_selector_all('input[role="combobox"]') if hasattr(ctx, "query_selector_all") else []
+                            if extra_loc_idx < len(combos):
+                                if await self._fill_location_combobox(ctx, combos[extra_loc_idx], city_query=city_val or full_loc, full_loc=full_loc):
+                                    filled_count += 1
+                except Exception:
+                    pass
+
+        # 3. Authoritative Contact & Social URL fields (strictly from resume / DB profile / user-learned Q&A)
+        # Tuple: (selectors, candidate_key, question_hint, allow_multiple)
         fields_map = [
-            ("#first_name, #firstname, input[name='first_name'], input[name='firstName'], input[data-automation-id*='firstName'], input[data-ph-id*='firstName'], input[aria-label='First Name'], input[aria-label*='Preferred First Name' i], input[name*='first' i], input[placeholder*='First' i]", "first_name", "Vanraj", True),
-            ("#last_name, #lastname, input[name='last_name'], input[name='lastName'], input[data-automation-id*='lastName'], input[data-ph-id*='lastName'], input[aria-label='Last Name'], input[aria-label*='Preferred Last Name' i], input[name*='last' i], input[placeholder*='Last' i]", "last_name", "Solanki", True),
-            ("input[type='email'], #email, #_systemfield_email, input[name='email'], input[name*='email' i], input[aria-label*='email' i], input[placeholder*='email' i], input[data-automation-id*='email'], input[data-ph-id*='email']", "email", "vanrajsolanki2875@gmail.com", False),
-            ("input[type='tel'], #phone, input[name='phone'], input[name*='phone' i], input[aria-label*='phone' i], input[placeholder*='phone' i], input[data-automation-id*='phone'], input[data-ph-id*='phone']", "phone", "+91-8320452875", False),
-            ("input[name*='linkedin' i], input[placeholder*='LinkedIn' i], input[aria-label*='LinkedIn' i], input[id*='linkedin' i], input[data-automation-id*='linkedin']", "linkedin", "https://linkedin.com/in/vanrajsinh", False),
-            ("input[name*='github' i], input[placeholder*='GitHub' i], input[aria-label*='GitHub' i], input[id*='github' i], input[data-automation-id*='github']", "github", "https://github.com/vanrajsinh650", False),
-            ("input[name*='website' i], input[name*='portfolio' i], input[placeholder*='portfolio' i], input[placeholder*='website' i], input[aria-label='Website'], input[aria-label*='Portfolio' i]", "portfolio", "https://github.com/vanrajsinh650", False),
-            ("input[name*='city' i], input[placeholder*='city' i], input[aria-label='City'], input[aria-label='City*'], input[data-automation-id*='addressSection_city'], input[data-ph-id*='city']", "city", "Ahmedabad", False),
-            ("input[name*='state' i], input[name*='province' i], input[placeholder*='state' i], input[aria-label='State'], input[data-automation-id*='addressSection_region']", "state", "Gujarat", False),
-            ("input[name*='country' i]:not([name*='code' i]):not([role='combobox']), input[placeholder*='country' i]:not([placeholder*='code' i]):not([role='combobox']), input[aria-label='Country']:not([role='combobox']), input[data-automation-id*='addressSection_country']", "country", "India", False),
-            ("input[name*='countryCode' i], input[name*='phoneCountry' i], input[placeholder*='dialing' i]", "country_code", "+91", False),
-            ("input[name*='location' i]:not([role='combobox']), input[placeholder*='location' i]:not([role='combobox'])", "location", "Ahmedabad, Gujarat, India", False),
-            ("input[name*='postal' i], input[name*='zip' i], input[placeholder*='postal' i], input[placeholder*='zip' i], input[data-automation-id*='postalCode']", "postal_code", "380015", False),
-            ("input[name*='address' i], input[placeholder*='address' i], input[data-automation-id*='addressSection_addressLine1']", "street_address", "132 Feet Ring Road", False),
-            ("input[name='company'], input[name='currentCompany'], input[name='employer'], input[name='org'], input[placeholder*='current company' i], input[aria-label*='Current Company' i]", "current_company", "DivineHindu", False),
-            ("input[name='jobTitle'], input[name='currentJobTitle'], input[name='current_title'], input[name='job_title'], input[name='title'], input[placeholder*='current title' i], input[placeholder*='job title' i]", "current_title", "Software & AI Automation Engineer", False),
-            ("input[name*='notice' i], input[placeholder*='notice period' i]", "notice_period", "Immediate", False),
-            ("input[name*='salary' i], input[placeholder*='salary' i], input[name*='ctc' i], input[placeholder*='ctc' i], input[data-automation-id*='salary']", "expected_salary", "100000", False),
-            ("input[name*='experience' i][type='number'], input[placeholder*='years of experience' i], input[name='years_of_experience']", "years_of_experience", "1", False),
-            ("input[name*='school' i]:not([role='combobox']), input[name*='university' i]:not([role='combobox']), input[placeholder*='university' i]:not([role='combobox'])", "university", "Gokul Global University", False),
-            ("input[name*='degree' i]:not([role='combobox']), input[placeholder*='degree' i]:not([role='combobox'])", "degree", "Bachelor of Computer Applications (BCA)", False),
-            ("input[name*='major' i]:not([role='combobox']), input[name*='discipline' i]:not([role='combobox']), input[placeholder*='field of study' i]:not([role='combobox'])", "major", "Computer Applications", False),
+            ("#first_name, #firstname, input[name='first_name'], input[name='firstName'], input[data-automation-id*='firstName'], input[data-ph-id*='firstName'], input[aria-label='First Name'], input[aria-label*='Preferred First Name' i], input[name*='first' i], input[placeholder*='First' i]", "first_name", "First Name", True),
+            ("#last_name, #lastname, input[name='last_name'], input[name='lastName'], input[data-automation-id*='lastName'], input[data-ph-id*='lastName'], input[aria-label='Last Name'], input[aria-label*='Preferred Last Name' i], input[name*='last' i], input[placeholder*='Last' i]", "last_name", "Last Name", True),
+            ("input[type='email'], #email, #_systemfield_email, input[name='email'], input[name*='email' i], input[aria-label*='email' i], input[placeholder*='email' i], input[data-automation-id*='email'], input[data-ph-id*='email']", "email", "Email", False),
+            ("input[type='tel'], #phone, input[name='phone'], input[name*='phone' i], input[aria-label*='phone' i], input[placeholder*='phone' i], input[data-automation-id*='phone'], input[data-ph-id*='phone']", "phone", "Phone", False),
+            ("input[name*='linkedin' i], input[placeholder*='LinkedIn' i], input[aria-label*='LinkedIn' i], input[id*='linkedin' i], input[data-automation-id*='linkedin']", "linkedin", "LinkedIn", False),
+            ("input[name*='github' i], input[placeholder*='GitHub' i], input[aria-label*='GitHub' i], input[id*='github' i], input[data-automation-id*='github']", "github", "GitHub", False),
+            ("input[name*='website' i], input[name*='portfolio' i], input[placeholder*='portfolio' i], input[placeholder*='website' i], input[aria-label='Website'], input[aria-label*='Portfolio' i]", "portfolio", "Website / Portfolio", False),
+            ("input[name*='city' i], input[placeholder*='city' i], input[aria-label='City'], input[aria-label='City*'], input[data-automation-id*='addressSection_city'], input[data-ph-id*='city']", "city", "City", False),
+            ("input[name*='state' i], input[name*='province' i], input[placeholder*='state' i], input[aria-label='State'], input[data-automation-id*='addressSection_region']", "state", "State", False),
+            ("input[name*='country' i]:not([name*='code' i]):not([role='combobox']), input[placeholder*='country' i]:not([placeholder*='code' i]):not([role='combobox']), input[aria-label='Country']:not([role='combobox']), input[data-automation-id*='addressSection_country']", "country", "Country", False),
+            ("input[name*='countryCode' i], input[name*='phoneCountry' i], input[placeholder*='dialing' i]", "country_code", "Country Dialing Code", False),
+            ("input[name*='location' i]:not([role='combobox']), input[placeholder*='location' i]:not([role='combobox'])", "location", "Location", False),
+            ("input[name*='postal' i], input[name*='zip' i], input[placeholder*='postal' i], input[placeholder*='zip' i], input[data-automation-id*='postalCode']", "postal_code", "Postal / Zip Code", False),
+            ("input[name*='address' i], input[placeholder*='address' i], input[data-automation-id*='addressSection_addressLine1']", "street_address", "Street Address", False),
+            ("input[name='company'], input[name='currentCompany'], input[name='employer'], input[name='org'], input[placeholder*='current company' i], input[aria-label*='Current Company' i]", "current_company", "Current Company", False),
+            ("input[name='jobTitle'], input[name='currentJobTitle'], input[name='current_title'], input[name='job_title'], input[name='title'], input[placeholder*='current title' i], input[placeholder*='job title' i]", "current_title", "Current Job Title", False),
+            ("input[name*='notice' i], input[placeholder*='notice period' i]", "notice_period", "Notice Period", False),
+            ("input[name*='salary' i], input[placeholder*='salary' i], input[name*='ctc' i], input[placeholder*='ctc' i], input[data-automation-id*='salary']", "expected_salary", "Expected Salary", False),
+            ("input[name*='experience' i][type='number'], input[placeholder*='years of experience' i], input[name='years_of_experience']", "years_of_experience", "Years of Experience", False),
+            ("input[name*='school' i]:not([role='combobox']), input[name*='university' i]:not([role='combobox']), input[placeholder*='university' i]:not([role='combobox'])", "university", "University / School", False),
+            ("input[name*='degree' i]:not([role='combobox']), input[placeholder*='degree' i]:not([role='combobox'])", "degree", "Degree", False),
+            ("input[name*='major' i]:not([role='combobox']), input[name*='discipline' i]:not([role='combobox']), input[placeholder*='field of study' i]:not([role='combobox'])", "major", "Major / Field of Study", False),
         ]
 
         for ctx in contexts:
-            for selector_group, cand_key, default_val, allow_multi in fields_map:
-                if full_name_filled and cand_key in ("first_name", "last_name"):
-                    # Still fill explicit Preferred First / Last Name inputs if visible, skipping primary first_name/last_name only if already filled
-                    pass
-
-                val_to_fill = str(candidate.get(cand_key) or default_val or "").strip()
-                if not val_to_fill or val_to_fill.lower() in ("candidate", "user a", "user b", "unknown"):
-                    val_to_fill = default_val
+            for selector_group, cand_key, q_hint, allow_multi in fields_map:
+                val_to_fill = str(candidate.get(cand_key) or "").strip()
+                if val_to_fill.lower() in ("candidate", "user a", "user b", "unknown"):
+                    val_to_fill = ""
+                if not val_to_fill:
+                    # Consult user-taught learned Q&A rules before skipping (never fabricate missing PII!)
+                    val_to_fill = self._resolve_question(q_hint, field_type="text", required=False) or ""
+                if not val_to_fill:
+                    continue
 
                 filled_this_key = False
                 for sel in selector_group.split(", "):
@@ -1550,14 +1644,22 @@ class ExternalApplyActuator:
                             if not str(curr_v or "").strip() and val_to_fill:
                                 target_fill = val_to_fill
                                 if cand_key == "phone":
-                                    dial_digits = re.sub(r"[^\d]", "", str(candidate.get("country_code") or "91")) or "91"
-                                    iti_set = await self._configure_phone_country_code(
-                                        page, ctx,
-                                        country_name=str(candidate.get("country") or "India"),
-                                        dial_code=dial_digits,
-                                    )
-                                    if iti_set and candidate.get("phone_clean"):
-                                        target_fill = str(candidate["phone_clean"])
+                                    dial_digits = re.sub(r"[^\d]", "", str(candidate.get("country_code") or ""))
+                                    if not dial_digits:
+                                        m_cc = re.match(r"^\+(\d{1,3})\D", target_fill)
+                                        if m_cc:
+                                            dial_digits = m_cc.group(1)
+                                    cand_country = str(candidate.get("country") or "").strip()
+                                    if dial_digits and cand_country:
+                                        iti_set = await self._configure_phone_country_code(
+                                            page, ctx,
+                                            country_name=cand_country,
+                                            dial_code=dial_digits,
+                                        )
+                                        if iti_set:
+                                            clean_ph = str(candidate.get("phone_clean") or re.sub(r"[^\d]", "", target_fill)[-10:])
+                                            if clean_ph:
+                                                target_fill = clean_ph
                                 await self._human_fill_input(page, ctx, el, target_fill)
                                 await human_delay(120, 220)
                                 filled_count += 1
@@ -1769,13 +1871,14 @@ class ExternalApplyActuator:
 
                         # Education typeahead comboboxes (Greenhouse school--0 / degree--0 / discipline--0)
                         if any(ek in combo_id.lower() or ek in q_low for ek in ("school", "university", "degree", "discipline", "major")):
+                            edu_query = str(
+                                candidate.get("university") or "" if any(k in q_low or k in combo_id.lower() for k in ("school", "university"))
+                                else candidate.get("degree") or "" if "degree" in q_low or "degree" in combo_id.lower()
+                                else candidate.get("major") or ""
+                            ).strip()
                             if not meta.get("isReq"):
-                                # Typeahead only cleanly fills if options exist; skip broken free-text leftovers when optional unless matched
-                                edu_query = (
-                                    candidate.get("university", "Gokul Global University") if any(k in q_low or k in combo_id.lower() for k in ("school", "university"))
-                                    else candidate.get("degree", "Bachelor of Computer Applications") if "degree" in q_low or "degree" in combo_id.lower()
-                                    else candidate.get("major", "Computer Applications")
-                                )
+                                if not edu_query:
+                                    continue
                                 await _eval_maybe_async(combo.click())
                                 await human_delay(120, 200)
                                 if hasattr(combo, "fill"):

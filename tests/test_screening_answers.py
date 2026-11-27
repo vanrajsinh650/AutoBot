@@ -59,9 +59,22 @@ def test_micron_screening_questions_deterministic_answers():
 
 
 def test_eeoc_and_dropdown_options():
+    # Without user-supplied/learned demographic answers, AutoBot MUST NOT fabricate gender/race/veteran/disability
+    blank_candidate = {
+        "full_name": "Vanraj Solanki",
+        "expected_salary": "100000",
+    }
+    assert answer_question_with_groq("Gender", options=["Female", "Male", "Decline"], candidate_info=blank_candidate) == ""
+    assert answer_question_with_groq("Race / Ethnicity", options=["Hispanic/Latino", "Asian (Not Hispanic or Latino)", "White", "Decline"], candidate_info=blank_candidate) == ""
+
+    # With explicit user profile/taught values, exact matching applies cleanly
     candidate = {
         "full_name": "Vanraj Solanki",
         "expected_salary": "100000",
+        "gender": "Male",
+        "disability": "No",
+        "veteran": "No",
+        "race": "Asian",
     }
     # Gender
     assert answer_question_with_groq("Gender", options=["Female", "Male", "Decline"], candidate_info=candidate) == "Male"

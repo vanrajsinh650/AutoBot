@@ -25,34 +25,67 @@ URL_REGEX = re.compile(r"https?://[^\s]+|(?:linkedin\.com/in/|github\.com/)[^\s]
 COMMON_TECH_SKILLS = [
     "Python", "JavaScript", "TypeScript", "Go", "Golang", "Rust", "Java", "C++", "C#",
     "SQL", "PostgreSQL", "MySQL", "SQLite", "MongoDB", "Redis", "Elasticsearch", "Qdrant",
-    "FastAPI", "Flask", "Django", "React", "Next.js", "Vue", "Node.js", "Express",
-    "Docker", "Kubernetes", "AWS", "GCP", "Azure", "Terraform", "CI/CD", "Git", "GitHub Actions",
+    "FastAPI", "Flask", "Django", "Django REST Framework", "REST APIs", "React", "Next.js", "Vue", "Node.js", "Express",
+    "Docker", "Kubernetes", "AWS", "GCP", "Azure", "Terraform", "CI/CD", "Git", "GitHub", "GitHub Actions",
     "REST", "GraphQL", "gRPC", "Kafka", "RabbitMQ", "Celery", "Pandas", "NumPy", "PyTorch",
-    "TensorFlow", "LangChain", "LangGraph", "LlamaIndex", "OpenAI", "Playwright", "Selenium",
-    "HTML", "CSS", "TailwindCSS", "Linux", "Bash", "Shell", "Microservices", "TDD"
+    "TensorFlow", "LangChain", "LangGraph", "LlamaIndex", "OpenAI", "LLMs", "AI Agents", "MCP", "RAG", "OCR",
+    "Playwright", "Selenium", "BeautifulSoup", "Firebase", "n8n", "Streamlit", "OpenPyXL", "WeasyPrint", "Tesseract",
+    "Shopify API", "KwikShip API", "HTML", "CSS", "TailwindCSS", "Linux", "Bash", "Shell", "Microservices", "TDD"
 ]
 
 
-def extract_contact_info(text: str) -> Dict[str, str]:
-    """Extract candidate email, phone, location, and profiles using deterministic regex."""
-    emails = EMAIL_REGEX.findall(text)
+def extract_contact_info(text: str, extra_links: Optional[List[str]] = None) -> Dict[str, str]:
+    """Extract candidate name, email, phone, location, and profile URLs strictly from resume text & links."""
+    combined_sources = [text] + list(extra_links or [])
+    combined_blob = "\n".join(s for s in combined_sources if s)
+
+    emails = EMAIL_REGEX.findall(combined_blob)
+    if not emails and extra_links:
+        for lnk in extra_links:
+            if lnk.lower().startswith("mailto:"):
+                addr = lnk[7:].strip()
+                if "@" in addr:
+                    emails.append(addr)
+                    break
     phones = PHONE_REGEX.findall(text)
 
     linkedin = ""
     github = ""
     portfolio = ""
 
-    for line in text.splitlines():
-        if "linkedin.com/in/" in line:
-            m = re.search(r"https?://(?:www\.)?linkedin\.com/in/[a-zA-Z0-9_-]+", line)
-            if m:
-                linkedin = m.group(0)
-        if "github.com/" in line:
-            m = re.search(r"https?://(?:www\.)?github\.com/[a-zA-Z0-9_-]+", line)
-            if m:
-                github = m.group(0)
+    for src in combined_sources:
+        for line in src.splitlines():
+            if not linkedin and "linkedin.com/in/" in line.lower():
+                m = re.search(r"(?:https?://)?(?:www\.)?linkedin\.com/in/[a-zA-Z0-9_-]+/?", line, re.IGNORECASE)
+                if m:
+                    url = m.group(0)
+                    linkedin = url if url.startswith("http") else f"https://{url}"
+            if not github and "github.com/" in line.lower():
+                m = re.search(r"(?:https?://)?(?:www\.)?github\.com/([a-zA-Z0-9_-]+)/?(?:\s|$)", line, re.IGNORECASE)
+                if m:
+                    url = m.group(0).strip()
+                    github = url if url.startswith("http") else f"https://{url}"
 
-    # Guess candidate name: first non-empty line of contact text that isn't email/phone/url
+    # Extract location from contact header segments without hardcoding
+    extracted_location = ""
+    for line in text.splitlines():
+        loc_m = re.search(r"(?:location|address|city)\s*:\s*([^|\n⋄•·]+)", line, re.IGNORECASE)
+        if loc_m:
+            extracted_location = loc_m.group(1).strip()
+            break
+    if not extracted_location:
+        for line in text.splitlines():
+            for seg in re.split(r"[|⋄•·]", line):
+                s = seg.strip()
+                if not s or "@" in s or "http" in s.lower() or any(ch.isdigit() for ch in s):
+                    continue
+                if "," in s and len(s) <= 50 and "linkedin" not in s.lower() and "github" not in s.lower():
+                    extracted_location = s
+                    break
+            if extracted_location:
+                break
+
+    # Extract candidate name: first clean non-contact-detail line before sections
     candidate_name = ""
     for line in text.splitlines():
         clean = line.strip()
@@ -61,17 +94,17 @@ def extract_contact_info(text: str) -> Dict[str, str]:
         if "@" in clean or "http" in clean or any(char.isdigit() for char in clean if char not in " -+()"):
             continue
         if len(clean.split()) in (2, 3, 4) and len(clean) < 40:
-            candidate_name = clean
+            candidate_name = clean.title() if clean.isupper() else clean
             break
 
     return {
-        "full_name": candidate_name or "Vanraj Solanki",
-        "email": emails[0] if emails else "vanrajsolanki2875@gmail.com",
-        "phone": phones[0] if phones else "+91-8320452875",
-        "linkedin_url": linkedin or "https://linkedin.com/in/vanrajsinh",
-        "github_url": github or "https://github.com/vanrajsinh650",
-        "portfolio_url": portfolio or "https://github.com/vanrajsinh650",
-        "location": "Ahmedabad, India",
+        "full_name": candidate_name,
+        "email": emails[0] if emails else "",
+        "phone": phones[0] if phones else "",
+        "linkedin_url": linkedin,
+        "github_url": github,
+        "portfolio_url": portfolio,
+        "location": extracted_location,
     }
 
 
@@ -95,12 +128,19 @@ def parse_structured_profile(
     Combines rule-based extraction with optional LLM normalization.
     """
     sections: Dict[str, List[str]] = {}
+    extra_links: List[str] = []
     for c in chunks:
         sec = c.section.value
         sections.setdefault(sec, []).append(c.content)
+        raw_hl = (c.metadata or {}).get("hyperlinks", "")
+        if isinstance(raw_hl, str) and raw_hl:
+            for u in raw_hl.split("||"):
+                u = u.strip()
+                if u and u not in extra_links:
+                    extra_links.append(u)
 
     contact_text = "\n".join(sections.get("contact", []) + sections.get("summary", []))
-    contact = extract_contact_info(contact_text)
+    contact = extract_contact_info(contact_text, extra_links=extra_links)
 
     skills_text = "\n".join(sections.get("skills", []) + sections.get("summary", []))
     tech_skills = extract_skills_heuristic(skills_text)
@@ -243,12 +283,12 @@ def parse_structured_profile(
     candidate_country = resolve_job_country(contact.get("location", "")) or ""
 
     return {
-        "full_name": contact.get("full_name") or "Vanraj Solanki",
-        "email": contact.get("email") or "vanrajsolanki2875@gmail.com",
-        "phone": contact.get("phone") or "+91-8320452875",
-        "location": contact.get("location") or "Ahmedabad, India",
+        "full_name": contact.get("full_name") or "",
+        "email": contact.get("email") or "",
+        "phone": contact.get("phone") or "",
+        "location": contact.get("location") or "",
         "country": candidate_country,
-        "headline": contact.get("headline") or (f"{experiences[0]['role']}" if experiences else "Software Professional"),
+        "headline": contact.get("headline") or (f"{experiences[0]['role']}" if experiences else ""),
         "summary": summary,
         "technical_skills": tech_skills,
         "primary_skills": primary_skills,
@@ -262,4 +302,5 @@ def parse_structured_profile(
         "linkedin_url": contact.get("linkedin_url") or "",
         "portfolio_url": contact.get("portfolio_url") or "",
         "github_url": contact.get("github_url") or "",
+        "resume_text": "\n\n".join(c.content for c in chunks),
     }

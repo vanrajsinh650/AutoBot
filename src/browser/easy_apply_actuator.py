@@ -84,25 +84,25 @@ class EasyApplyActuator:
         q = (question or "").lower()
         info = self.candidate_info or {}
 
-        # 1. Contact details
+        # 1. Contact details (strictly from candidate profile/resume; never hardcoded)
         if any(w in q for w in ("phone", "mobile", "cell", "contact number")):
-            return info.get("phone", "+91-8320452875")
+            return str(info.get("phone") or "")
         if "email" in q:
-            return info.get("email", "vanrajsolanki2875@gmail.com")
+            return str(info.get("email") or "")
         if "first name" in q:
-            return info.get("first_name", "Vanraj")
+            return str(info.get("first_name") or "")
         if "last name" in q:
-            return info.get("last_name", "Solanki")
+            return str(info.get("last_name") or "")
         if "full name" in q:
-            return info.get("full_name", "Vanraj Solanki")
+            return str(info.get("full_name") or "")
         if any(w in q for w in ("linkedin", "profile link", "profile url")):
-            return info.get("linkedin", "https://linkedin.com/in/vanrajsinh")
+            return str(info.get("linkedin") or "")
         if any(w in q for w in ("github", "repo", "git")):
-            return info.get("github", "https://github.com/vanrajsinh650")
+            return str(info.get("github") or "")
         if any(w in q for w in ("portfolio", "website", "personal site", "url")):
-            return info.get("portfolio", "https://github.com/vanrajsinh650")
+            return str(info.get("portfolio") or info.get("github") or "")
         if any(w in q for w in ("city", "location", "address", "residence", "where are you located", "postal", "country")):
-            return info.get("location", "India")
+            return str(info.get("location") or info.get("country") or "")
 
         # 2. Legal authorization & background check
         if any(w in q for w in ("authorized to work", "legally authorized", "eligible to work", "right to work")):

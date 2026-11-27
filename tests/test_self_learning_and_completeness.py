@@ -367,3 +367,44 @@ async def test_soft_challenge_terms_in_job_description_do_not_false_trigger():
     with pytest.raises(AntiBotChallengeDetected):
         await actuator.check_security_challenges(page_blocked)
 
+
+def test_strict_resume_only_provenance_no_hardcoded_personal_defaults(tmp_path):
+    """Profile extraction must strictly read the user's resume + DB without hardcoding another person's details."""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    from src.browser.external_apply_actuator import load_candidate_profile_info
+    from src.utils.config import AppConfig
+
+    other_pdf = tmp_path / "alice_resume.pdf"
+    c = canvas.Canvas(str(other_pdf), pagesize=letter)
+    c.drawString(80, 750, "Alice Vance")
+    c.drawString(80, 730, "Email: alice.vance@example.org | Phone: +1-415-555-0192 | Location: Seattle, WA, USA")
+    c.drawString(80, 700, "SKILLS")
+    c.drawString(80, 680, "Languages: Python, Go, SQL")
+    c.save()
+
+    cfg = AppConfig()
+    cfg.profile.resume_path = str(other_pdf)
+    alice_info = load_candidate_profile_info(cfg=cfg, user_id=999, resume_path=other_pdf)
+    assert alice_info["full_name"] == "Alice Vance"
+    assert alice_info["first_name"] == "Alice"
+    assert alice_info["last_name"] == "Vance"
+    assert alice_info["email"] == "alice.vance@example.org"
+    assert alice_info["linkedin"] == ""
+    assert alice_info["github"] == ""
+    assert alice_info["street_address"] == ""
+    assert alice_info["postal_code"] == ""
+    assert alice_info["gender"] == ""
+    assert alice_info["graduation_year"] == ""
+
+    real_info = load_candidate_profile_info(user_id=1)
+    assert real_info["first_name"] == "Vanraj"
+    assert real_info["last_name"] == "Solanki"
+    assert real_info["linkedin"] == "https://www.linkedin.com/in/vanraj-s-5b5010336/"
+    assert real_info["github"] == "https://github.com/vanrajsinh650"
+    assert real_info["location"] == "Gujarat, India"
+    assert real_info["street_address"] == ""
+    assert real_info["postal_code"] == ""
+    assert real_info["graduation_year"] == ""
+
+

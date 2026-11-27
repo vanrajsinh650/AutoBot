@@ -164,8 +164,7 @@ async def apply_to_portals(
         if not context:
             raise RuntimeError("Browser context could not be created.")
 
-        candidate_info = load_candidate_profile_info(cfg)
-        candidate_info["user_id"] = user_id
+        candidate_info = load_candidate_profile_info(cfg, user_id=user_id)
         form_rag_instance = None
         try:
             from src.memory.form_rag import FormRAG

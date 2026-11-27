@@ -135,6 +135,21 @@ def _resolve_deterministic_or_learned(
     def _need_user(reason: str) -> Dict[str, Any]:
         return {"answer": "", "confident": False, "source": "unknown", "reason": reason}
 
+    def _cfg_ans(key: str) -> str:
+        val = candidate.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+        try:
+            from src.utils.config import get_config
+            answers_cfg = getattr(getattr(get_config(), "apply", None), "answers", None)
+            if answers_cfg and hasattr(answers_cfg, key):
+                cv = getattr(answers_cfg, key)
+                if cv is not None and str(cv).strip():
+                    return str(cv).strip()
+        except Exception:
+            pass
+        return ""
+
     # 0a. Conditional follow-up text fields ("If you answered Yes...", "If yes, please...")
     if not options and any(
         p in q_lower for p in (
@@ -158,69 +173,88 @@ def _resolve_deterministic_or_learned(
             return _ok(options[0], reason="Referral source")
         return _ok("LinkedIn", reason="Referral source")
 
-    # 0c. Candidate Social / Portfolio / Name / Education / Employer fields (BEFORE Yes/No patterns!)
+    # 0c. Candidate Social / Portfolio / Name / Education / Employer fields (strictly from resume/profile — never hardcoded)
     if "linkedin" in q_lower:
         if options:
             for o in options:
                 if o.strip().lower().startswith("yes"):
                     return _ok(o, reason="LinkedIn profile confirmation")
             return _need_user("Unclear LinkedIn dropdown options")
-        return _ok(candidate.get("linkedin", "https://linkedin.com/in/vanrajsinh"), reason="Profile LinkedIn URL")
+        li_val = str(candidate.get("linkedin") or "").strip()
+        return _ok(li_val, reason="Profile LinkedIn URL") if li_val else _need_user("LinkedIn URL not found in resume or profile")
 
     if "github" in q_lower:
         if not options:
-            return _ok(candidate.get("github", "https://github.com/vanrajsinh650"), reason="Profile GitHub URL")
+            gh_val = str(candidate.get("github") or "").strip()
+            return _ok(gh_val, reason="Profile GitHub URL") if gh_val else _need_user("GitHub URL not found in resume or profile")
 
     if any(k in q_lower for k in ("personal website", "portfolio", "website or blog", "blog", "website")):
         if not options:
-            return _ok(candidate.get("portfolio", "https://github.com/vanrajsinh650"), reason="Profile portfolio URL")
+            port_val = str(candidate.get("portfolio") or candidate.get("github") or "").strip()
+            return _ok(port_val, reason="Profile portfolio/GitHub URL") if port_val else _need_user("Portfolio or website URL not found in resume or profile")
 
-    if "preferred first" in q_lower:
-        return _ok(candidate.get("first_name", "Vanraj"), reason="Profile first name")
-    if "preferred last" in q_lower:
-        return _ok(candidate.get("last_name", "Solanki"), reason="Profile last name")
-    if any(k in q_lower for k in ("preferred name", "legal name")):
-        return _ok(candidate.get("full_name", "Vanraj Solanki"), reason="Profile full name")
+    if "preferred first" in q_lower or q_lower.strip().rstrip("* :") in ("first name", "given name"):
+        fn_val = str(candidate.get("first_name") or "").strip()
+        return _ok(fn_val, reason="Profile first name") if fn_val else _need_user("First name not found in resume or profile")
+    if "preferred last" in q_lower or q_lower.strip().rstrip("* :") in ("last name", "surname", "family name"):
+        ln_val = str(candidate.get("last_name") or "").strip()
+        return _ok(ln_val, reason="Profile last name") if ln_val else _need_user("Last name not found in resume or profile")
+    if any(k in q_lower for k in ("preferred name", "legal name", "full name")):
+        full_val = str(candidate.get("full_name") or "").strip()
+        return _ok(full_val, reason="Profile full name") if full_val else _need_user("Full name not found in resume or profile")
 
     if any(k in q_lower for k in ("school", "university", "college", "institution")):
         if not options:
-            return _ok(candidate.get("university", "Gokul Global University"), reason="Profile university")
+            uni_val = str(candidate.get("university") or "").strip()
+            return _ok(uni_val, reason="Profile university") if uni_val else _need_user("University name not found in resume or profile")
 
     if any(k in q_lower for k in ("degree", "qualification")) and "years" not in q_lower:
+        deg_val = str(candidate.get("degree") or "").strip()
+        if not deg_val:
+            return _need_user("Degree not found in resume or profile")
         if options:
+            deg_tokens = [t for t in re.findall(r"[a-z]{3,}", deg_val.lower()) if t not in ("and", "the", "for")]
             for o in options:
-                if any(d in o.lower() for d in ("bachelor", "bca", "b.sc", "undergraduate")):
+                o_low = o.lower()
+                if any(tok in o_low for tok in deg_tokens) or ("bachelor" in deg_val.lower() and "undergraduate" in o_low):
                     return _ok(o, reason="Profile degree")
         else:
-            return _ok(candidate.get("degree", "Bachelor of Computer Applications (BCA)"), reason="Profile degree")
+            return _ok(deg_val, reason="Profile degree")
 
     if any(k in q_lower for k in ("discipline", "major", "field of study")):
+        maj_val = str(candidate.get("major") or "").strip()
+        if not maj_val:
+            return _need_user("Major / field of study not found in resume or profile")
         if options:
+            maj_tokens = [t for t in re.findall(r"[a-z]{3,}", maj_val.lower()) if t not in ("and", "the", "for")]
             for o in options:
-                if any(m in o.lower() for m in ("computer", "software", "information technology")):
+                if any(tok in o.lower() for tok in maj_tokens):
                     return _ok(o, reason="Profile major")
         else:
-            return _ok(candidate.get("major", "Computer Applications"), reason="Profile major")
+            return _ok(maj_val, reason="Profile major")
 
     if any(k in q_lower for k in ("current company", "current employer", "present employer")):
         if not options:
-            return _ok(candidate.get("current_company", "DivineHindu"), reason="Profile current company")
+            comp_val = str(candidate.get("current_company") or "").strip()
+            return _ok(comp_val, reason="Profile current company") if comp_val else _need_user("Current company not found in resume or profile")
 
-    # 0d. Geographic Location & Relocation checks ("Are you currently based in ...?", "willing to relocate")
-    candidate_city = (candidate.get("city") or "Ahmedabad").lower()
-    candidate_state = (candidate.get("state") or "Gujarat").lower()
-    candidate_country = (candidate.get("country") or "India").lower()
+    # 0d. Geographic Location & Relocation checks (strictly from candidate location)
+    candidate_city = str(candidate.get("city") or "").strip().lower()
+    candidate_state = str(candidate.get("state") or "").strip().lower()
+    candidate_country = str(candidate.get("country") or "").strip().lower()
 
     if any(k in q_lower for k in ("currently based in", "based in", "currently reside", "currently live", "live in")):
-        if options:
+        if options and (candidate_city or candidate_state or candidate_country):
             for o in options:
                 o_low = o.lower()
                 if any(loc in o_low for loc in (candidate_city, candidate_state, candidate_country) if loc):
                     return _ok(o, reason="Location matches candidate residence")
-            for o in options:
-                o_low = o.lower()
-                if ("relocat" in o_low or "support" in o_low) and ("willing" in o_low or "outside" in o_low or "require" in o_low) and "not willing" not in o_low and "do not live" not in o_low:
-                    return _ok(o, reason="Relocation preference")
+            willing = _cfg_ans("willing_to_relocate").lower()
+            if not willing or willing.startswith("y"):
+                for o in options:
+                    o_low = o.lower()
+                    if ("relocat" in o_low or "support" in o_low) and ("willing" in o_low or "outside" in o_low or "require" in o_low) and "not willing" not in o_low and "do not live" not in o_low:
+                        return _ok(o, reason="Relocation preference")
             for o in options:
                 o_low = o.lower()
                 if any(out in o_low for out in ("outside", "not based", "neither", "other")) and "not willing" not in o_low:
@@ -288,17 +322,20 @@ def _resolve_deterministic_or_learned(
         if field_type == "date":
             from datetime import datetime, timedelta
             return _ok((datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d"), src="config", reason="Available start date")
+        notice_val = _cfg_ans("notice_period")
         if options:
             for o in options:
                 o_low = o.lower()
+                if notice_val and notice_val.lower() in o_low:
+                    return _ok(o, src="config", reason="Configured notice period")
                 if any(imm in o_low for imm in ("immediate", "immediately", "15", "1-2 weeks", "2 weeks", "less than 1 month")):
                     return _ok(o, src="config", reason="Configured notice period")
             return _need_user(f"No matching availability option for notice period in: {options}")
-        return _ok(str(candidate.get("notice_period") or "Immediate"), src="config", reason="Configured notice period")
+        return _ok(notice_val or "Immediate", src="config", reason="Configured notice period")
 
     # 4. Salary / CTC / Compensation
     if any(k in q_lower for k in ("salary", "compensation", "ctc", "expected monthly", "expected annual", "expected pay", "basic salary")):
-        expected_val = str(candidate.get("expected_salary") or "").strip()
+        expected_val = _cfg_ans("expected_salary")
         if not expected_val:
             return _need_user("Expected compensation question has no configured salary preference")
         if options:
@@ -308,49 +345,66 @@ def _resolve_deterministic_or_learned(
             return _need_user(f"Salary dropdown options {options} did not match configured '{expected_val}'")
         return _ok(expected_val, src="config", reason="Configured salary expectation")
 
-    # 5. EEOC / Diversity & Inclusion
+    # 5. EEOC / Diversity & Inclusion (ONLY answer when explicitly provided in profile/config/learned rules)
     if any(k in q_lower for k in ("gender", "sex")) and "sexual orientation" not in q_lower:
+        g_val = str(candidate.get("gender") or "").strip()
+        if not g_val:
+            return _need_user("Gender not specified in profile or learned rules")
         if options:
             for o in options:
                 o_low = o.lower().strip()
-                if "female" not in o_low and ("male" in o_low or "man" in o_low or any(g in o_low for g in ("decline", "prefer not"))):
-                    return _ok(o, reason="EEOC gender")
-            return _need_user("Unrecognized gender dropdown options")
-        return _ok("Male", reason="Profile gender")
+                if g_val.lower() in o_low and not ("male" in g_val.lower() and "female" in o_low and "male" == g_val.lower()):
+                    return _ok(o, reason="Profile gender")
+            return _need_user("Gender option did not match configured value")
+        return _ok(g_val, reason="Profile gender")
 
     if any(k in q_lower for k in ("disability", "disabled", "handicap")):
-        if options:
-            for o in options:
-                if any(d in o.lower() for d in ("no, i don't have", "no disability", "do not have a disability", "no", "decline", "prefer not")):
-                    return _ok(o, reason="EEOC disability")
-            return _need_user("Unrecognized disability dropdown options")
-        return _ok("No", reason="EEOC disability")
-
-    if any(k in q_lower for k in ("veteran", "military")):
-        if options:
-            for o in options:
-                if any(v in o.lower() for v in ("not a protected veteran", "i am not a protected", "not a veteran", "no", "decline", "prefer not")):
-                    return _ok(o, reason="EEOC veteran")
-            return _need_user("Unrecognized veteran dropdown options")
-        return _ok("No", reason="EEOC veteran")
-
-    if any(k in q_lower for k in ("race", "ethnicity", "ethnic origin")):
+        d_val = str(candidate.get("disability") or "").strip()
+        if not d_val:
+            return _need_user("Disability status not specified in profile or learned rules")
         if options:
             for o in options:
                 o_low = o.lower()
-                if "american indian" in o_low:
-                    continue
-                if any(r in o_low for r in ("asian", "south asian")):
-                    return _ok(o, reason="EEOC race")
+                if d_val.lower() == "no" and any(d in o_low for d in ("no, i don't have", "no disability", "do not have a disability", "no")):
+                    return _ok(o, reason="Profile disability status")
+                if d_val.lower() in o_low:
+                    return _ok(o, reason="Profile disability status")
+            return _need_user("Disability dropdown option did not match configured value")
+        return _ok(d_val, reason="Profile disability status")
+
+    if any(k in q_lower for k in ("veteran", "military")):
+        v_val = str(candidate.get("veteran") or "").strip()
+        if not v_val:
+            return _need_user("Veteran status not specified in profile or learned rules")
+        if options:
             for o in options:
-                if any(d in o.lower() for d in ("decline", "prefer not to say", "do not wish")):
-                    return _ok(o, reason="EEOC decline")
-            return _need_user("Unrecognized race/ethnicity dropdown options")
-        return _ok("Asian", reason="EEOC race")
+                o_low = o.lower()
+                if v_val.lower() == "no" and any(v in o_low for v in ("not a protected veteran", "i am not a protected", "not a veteran", "no")):
+                    return _ok(o, reason="Profile veteran status")
+                if v_val.lower() in o_low:
+                    return _ok(o, reason="Profile veteran status")
+            return _need_user("Veteran dropdown option did not match configured value")
+        return _ok(v_val, reason="Profile veteran status")
+
+    if any(k in q_lower for k in ("race", "ethnicity", "ethnic origin")):
+        r_val = str(candidate.get("race") or "").strip()
+        if not r_val:
+            return _need_user("Race/ethnicity not specified in profile or learned rules")
+        if options:
+            for o in options:
+                o_low = o.lower()
+                if "american indian" in o_low and "american indian" not in r_val.lower():
+                    continue
+                if r_val.lower() in o_low:
+                    return _ok(o, reason="Profile race/ethnicity")
+            return _need_user("Race/ethnicity option did not match configured value")
+        return _ok(r_val, reason="Profile race/ethnicity")
 
     # 5b. Country dropdowns / inputs ("Country", "Country of residence")
     if any(k in q_lower for k in ("country", "country of residence", "location (country)")) and "dial" not in q_lower and "code" not in q_lower:
-        cand_country = str(candidate.get("country") or "India").strip()
+        cand_country = str(candidate.get("country") or "").strip()
+        if not cand_country:
+            return _need_user("Country not found in resume or profile")
         if options:
             for o in options:
                 o_low = o.lower().strip()
@@ -364,8 +418,11 @@ def _resolve_deterministic_or_learned(
 
     # 5c. Graduation Year / Start Date fields
     if any(k in q_lower for k in ("graduation year", "year of graduation", "expected graduation")):
+        grad_yr = str(candidate.get("graduation_year") or "").strip()
+        if not grad_yr:
+            return _need_user("Graduation year not found in resume or learned rules")
         if not options:
-            return _ok(str(candidate.get("graduation_year") or "2025"), reason="Profile graduation year")
+            return _ok(grad_yr, reason="Profile graduation year")
 
     if field_type == "date" and any(k in q_lower for k in ("start date", "available from", "earliest start", "availability date")):
         from datetime import datetime, timedelta
@@ -383,22 +440,24 @@ def _resolve_deterministic_or_learned(
     skill_tokens = [str(s).strip().lower() for s in skill_list if len(str(s).strip()) >= 2]
     matched_skill = next((sk for sk in skill_tokens if re.search(rf"(?<![a-z0-9]){re.escape(sk)}(?![a-z0-9])", q_lower)), None)
     if matched_skill and any(k in q_lower for k in ("experience", "proficien", "familiar", "worked with", "knowledge of", "years")):
-        yoe = str(candidate.get("years_of_experience") or "1")
+        yoe = _cfg_ans("years_of_experience")
         if options:
             if any(o.strip().lower().startswith("yes") for o in options):
                 return _ok(next(o for o in options if o.strip().lower().startswith("yes")), src="profile", reason=f"Verified skill '{matched_skill}' in profile")
-            for o in options:
-                if yoe in o or "1-2" in o.lower() or "1+" in o.lower() or "less than 2" in o.lower():
-                    return _ok(o, src="profile", reason=f"Verified years with '{matched_skill}'")
+            if yoe:
+                for o in options:
+                    if yoe in o or "1-2" in o.lower() or "1+" in o.lower() or "less than 2" in o.lower():
+                        return _ok(o, src="profile", reason=f"Verified years with '{matched_skill}'")
         else:
             if "years" in q_lower or "how many" in q_lower or field_type == "number":
-                return _ok(yoe, src="profile", reason=f"Verified years with '{matched_skill}'")
+                return _ok(yoe, src="config", reason=f"Verified years with '{matched_skill}'") if yoe else _need_user(f"Years of experience with '{matched_skill}' not specified")
             return _ok("Yes", src="profile", reason=f"Verified skill '{matched_skill}' in profile")
 
     # 5e. Total years of work experience (non-skill-specific)
     if any(k in q_lower for k in ("years of experience", "years of relevant", "total years", "work experience")) and "with " not in q_lower:
         if not options:
-            return _ok(str(candidate.get("years_of_experience") or "1"), src="config", reason="Configured years of experience")
+            yoe_tot = _cfg_ans("years_of_experience")
+            return _ok(yoe_tot, src="config", reason="Configured years of experience") if yoe_tot else _need_user("Years of experience not configured or stated")
 
     # 5f. Government ID / sensitive PII (PAN, SSN, Aadhaar, Passport) - NEVER hallucinate; pause for user
     if any(k in q_lower for k in ("pan number", "pan card", "aadhaar", "ssn", "social security", "passport number", "driver's license", "drivers license")):
@@ -408,23 +467,25 @@ def _resolve_deterministic_or_learned(
     if field_type == "url":
         if any(k in q_lower for k in ("video", "loom", "youtube", "recording")):
             return _need_user("Custom video/recording URL must be provided by candidate")
-        return _ok(candidate.get("portfolio", "https://github.com/vanrajsinh650"), reason="Profile portfolio URL")
+        url_val = str(candidate.get("portfolio") or candidate.get("github") or candidate.get("linkedin") or "").strip()
+        return _ok(url_val, reason="Profile URL") if url_val else _need_user("Profile URL not found in resume or profile")
 
-    # 5h. Pronouns
+    # 5h. Pronouns (ONLY answer if specified by candidate or learned rules)
     if "pronoun" in q_lower:
+        p_val = str(candidate.get("pronouns") or "").strip()
+        if not p_val:
+            return _need_user("Pronouns not specified in profile or learned rules")
         if options:
             for o in options:
-                if "he/him" in o.lower():
+                if p_val.lower() in o.lower():
                     return _ok(o, reason="Profile pronouns")
-            for o in options:
-                if any(d in o.lower() for d in ("decline", "prefer not")):
-                    return _ok(o, reason="Decline pronouns")
             return _need_user("Unrecognized pronoun options")
-        return _ok("He/Him", reason="Profile pronouns")
+        return _ok(p_val, reason="Profile pronouns")
 
     # 6. Job Title / Current Role (ONLY when explicitly requested!)
     if any(k in q_lower for k in ("current title", "job title", "current role", "designation", "position title", "current position")):
-        return _ok(candidate.get("current_title", "Software & AI Automation Engineer"), reason="Profile current job title")
+        title_val = str(candidate.get("current_title") or "").strip()
+        return _ok(title_val, reason="Profile current job title") if title_val else _need_user("Current job title not found in resume or profile")
 
     return None
 
@@ -459,30 +520,39 @@ def resolve_form_question_with_confidence(
     uid = int(candidate.get("user_id") or user_id or 1)
     learned_ctx = _build_learned_rules_context(user_id=uid, db_path=db_path)
 
-    candidate_summary = (
-        f"Candidate Full Name: {candidate.get('full_name', 'Vanraj Solanki')}\n"
-        f"Candidate Email: {candidate.get('email', 'vanrajsolanki2875@gmail.com')}\n"
-        f"Candidate Phone: {candidate.get('phone', '+91-8320452875')}\n"
-        f"Candidate Location: {candidate.get('location', 'Ahmedabad, Gujarat, India')}\n"
-        f"LinkedIn: {candidate.get('linkedin', 'https://linkedin.com/in/vanrajsinh')}\n"
-        f"GitHub: {candidate.get('github', 'https://github.com/vanrajsinh650')}\n"
-        f"Current Company: {candidate.get('current_company', 'DivineHindu')}\n"
-        f"Current Job Title: {candidate.get('current_title', 'AI Executive Intern / Software & Automation Engineer')}\n"
-        f"Years of Experience: {candidate.get('years_of_experience', '1+')} years in Python backend systems, AI agents, and automation\n"
-        f"Education: {candidate.get('degree', 'Bachelor of Computer Applications (BCA)')} at {candidate.get('university', 'Gokul Global University')}\n"
-        f"Notice Period: {candidate.get('notice_period', 'Immediate')}\n"
-        f"Work Authorization: Authorized in India; willing to relocate internationally if supported\n"
-        f"Screening Defaults:\n"
-        f"- Friends or relatives employed at company: No\n"
-        f"- Previously applied or former employee: No\n"
-        f"- Referred by employee: No\n"
-        f"- Terminated or asked to resign: No\n"
-        f"- Criminal convictions / record: No\n"
-        f"- Conflict of interest / non-compete: No\n"
-        f"- Veteran: Not a protected veteran\n"
-        f"- Disability: No disability / Decline to state\n"
-        f"{learned_ctx}"
-    )
+    summary_lines: List[str] = []
+    field_labels = [
+        ("full_name", "Candidate Full Name"),
+        ("email", "Candidate Email"),
+        ("phone", "Candidate Phone"),
+        ("location", "Candidate Location"),
+        ("country", "Candidate Country"),
+        ("linkedin", "LinkedIn"),
+        ("github", "GitHub"),
+        ("portfolio", "Portfolio / Website"),
+        ("current_company", "Current Company"),
+        ("current_title", "Current Job Title"),
+        ("years_of_experience", "Years of Experience"),
+        ("degree", "Degree"),
+        ("university", "University / Institution"),
+        ("graduation_year", "Graduation Year"),
+        ("notice_period", "Notice Period"),
+        ("work_authorization", "Work Authorization"),
+        ("sponsorship_required", "Sponsorship Required"),
+        ("willing_to_relocate", "Willing to Relocate"),
+        ("expected_salary", "Expected Salary"),
+    ]
+    for key, lbl in field_labels:
+        v = str(candidate.get(key) or "").strip()
+        if v:
+            summary_lines.append(f"{lbl}: {v}")
+    if isinstance(candidate.get("skills"), list) and candidate["skills"]:
+        summary_lines.append("Verified Skills: " + ", ".join(str(s) for s in candidate["skills"]))
+    if candidate.get("resume_text"):
+        summary_lines.append("Candidate Resume Content (Exact Extracted Text):\n" + str(candidate["resume_text"])[:2500])
+    if learned_ctx:
+        summary_lines.append(learned_ctx.strip())
+    candidate_summary = "\n".join(summary_lines)
 
     if options:
         prompt = (
@@ -490,9 +560,9 @@ def resolve_form_question_with_confidence(
             f"Candidate Profile & Verified Answers:\n{candidate_summary}\n\n"
             f"Question: \"{question}\"\n"
             f"Options: {json.dumps(options)}\n\n"
-            f"RULES:\n"
-            f"1. Pick the SINGLE BEST matching option string from the options list ONLY if it is clearly supported by Candidate Profile or User-Taught Rules.\n"
-            f"2. If this is a NEW / ambiguous / legal / compensation / clearance / certification / personal question where the candidate's true answer is unknown or confidence < 0.75, set \"needs_user_input\": true and DO NOT GUESS.\n"
+            f"STRICT GROUNDING RULES:\n"
+            f"1. Pick the SINGLE BEST matching option string from Options ONLY if it is factually stated in Candidate Profile, Candidate Resume Content, or User-Taught Rules above.\n"
+            f"2. NEVER invent, guess, or assume any name, address, graduation year, demographic, experience, compensation, or skill not explicitly stated above. If unknown or confidence < 0.75, set \"needs_user_input\": true and DO NOT GUESS.\n"
             f"Output strictly a JSON object: "
             f"{{\"best_option\": \"<exact string from options or empty>\", \"confidence\": 0.0, \"needs_user_input\": false, \"reason\": \"<short reason>\"}}"
         )
@@ -701,21 +771,26 @@ async def map_unrecognized_form_fields_with_groq(
         if not unfilled_inputs:
             return []
 
+        known_profile = {
+            k: str(candidate_info.get(k) or "").strip()
+            for k in (
+                "full_name", "first_name", "last_name", "email", "phone",
+                "location", "city", "state", "country",
+                "linkedin", "github", "portfolio",
+                "current_company", "current_title", "university", "degree",
+                "work_authorization", "sponsorship_required", "notice_period", "expected_salary",
+            )
+            if str(candidate_info.get(k) or "").strip()
+        }
         prompt = (
             f"You are AutoBot Form Field Mapper.\n"
-            f"Candidate profile to fill into the job application:\n"
-            f"- first_name: {candidate_info.get('first_name', 'Vanraj')}\n"
-            f"- last_name: {candidate_info.get('last_name', 'Solanki')}\n"
-            f"- email: {candidate_info.get('email', 'vanrajsolanki2875@gmail.com')}\n"
-            f"- phone: {candidate_info.get('phone', '+91-8320452875')}\n"
-            f"- location: {candidate_info.get('location', 'India')}\n"
-            f"- work_authorization: 'Yes'\n"
-            f"- sponsorship_required: 'No'\n\n"
+            f"Known Candidate Profile (STRICTLY use ONLY these facts; never invent missing values):\n"
+            f"{json.dumps(known_profile, indent=2)}\n\n"
             f"Here are the unfilled form inputs found on the webpage:\n"
             f"{json.dumps(unfilled_inputs, indent=2)}\n\n"
-            f"Map each input to the exact value to fill.\n"
+            f"Map each input to an explicit known value above, or omit/set field_type='unknown' with empty fill_value if not present.\n"
             f"Output ONLY a JSON object:\n"
-            f'{{"mappings": [{{"id": "<id or name>", "field_type": "<firstName|lastName|fullName|email|phone|location|workAuth|sponsorship|unknown>", "fill_value": "<value>"}}]}}'
+            f'{{"mappings": [{{"id": "<id or name>", "field_type": "<firstName|lastName|fullName|email|phone|location|workAuth|sponsorship|unknown>", "fill_value": "<value or empty>"}}]}}'
         )
 
         res = call_groq_json(prompt, timeout=5.0)
