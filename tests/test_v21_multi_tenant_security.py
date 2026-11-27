@@ -6,6 +6,7 @@ path traversal prevention on resume uploads, and brute-force rate-limiting.
 
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 import uuid
 import pytest
@@ -270,7 +271,8 @@ async def test_resume_upload_path_traversal_protection(client: TestClient, two_u
 
     # Destination path must strictly reside in user_a's directory
     saved_path = Path(result["path"]).resolve()
-    expected_dir = (Path("data/users") / str(user_a) / "resumes").resolve()
+    data_dir = Path(os.getenv("AUTOBOT_DATA_DIR", "data"))
+    expected_dir = (data_dir / "users" / str(user_a) / "resumes").resolve()
     assert str(saved_path).startswith(str(expected_dir))
 
 
